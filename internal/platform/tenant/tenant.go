@@ -13,7 +13,6 @@ import (
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
-	Code      string        `bson:"code"`
 	Status    string        `bson:"status"` // active / suspended
 	CreatedAt time.Time     `bson:"created_at"`
 }
@@ -45,8 +44,8 @@ func (s *Service) List(ctx context.Context) ([]Tenant, error) {
 	return out, cur.All(ctx, &out)
 }
 
-func (s *Service) Create(ctx context.Context, name, code string) (*Tenant, error) {
-	t := &Tenant{Name: name, Code: code, Status: "active", CreatedAt: time.Now()}
+func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {
+	t := &Tenant{Name: name, Status: "active", CreatedAt: time.Now()}
 	res, err := s.col.InsertOne(ctx, t)
 	if err != nil {
 		return nil, err

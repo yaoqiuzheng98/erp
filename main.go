@@ -132,14 +132,14 @@ func seed(ctx context.Context, e *env.Env, cfg *config.Config) error {
 		return nil
 	}
 	var existing bson.M
-	err := e.DB.C("tenants").FindOne(ctx, bson.M{"code": "demo"}).Decode(&existing)
+	err := e.DB.C("tenants").FindOne(ctx, bson.M{"name": "演示企业"}).Decode(&existing)
 	if err == nil {
 		return nil // 演示租户已存在
 	}
 	if err != mongo.ErrNoDocuments {
 		return err
 	}
-	t, err := e.Tenants.Create(ctx, "演示企业", "demo")
+	t, err := e.Tenants.Create(ctx, "演示企业")
 	if err != nil {
 		return err
 	}

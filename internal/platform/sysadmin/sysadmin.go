@@ -47,7 +47,7 @@ func (h *Handler) tenants(c *gin.Context) {
 // createTenant 创建租户并初始化其管理员账号。
 func (h *Handler) createTenant(c *gin.Context) {
 	ctx := c.Request.Context()
-	t, err := h.e.Tenants.Create(ctx, c.PostForm("name"), c.PostForm("code"))
+	t, err := h.e.Tenants.Create(ctx, c.PostForm("name"))
 	if err != nil {
 		web.SetFlash(c, "创建租户失败: "+err.Error())
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
@@ -62,7 +62,7 @@ func (h *Handler) createTenant(c *gin.Context) {
 		})
 	}
 	h.e.Audit.Log(ctx, audit.Entry{
-		Username: "sysadmin", Action: "tenant.create", Target: t.Code, Detail: t.Name,
+		Username: "sysadmin", Action: "tenant.create", Target: t.Name,
 		IP: c.ClientIP(),
 	})
 	web.SetFlash(c, "租户已创建")
@@ -83,7 +83,7 @@ func (h *Handler) toggleTenant(c *gin.Context) {
 	}
 	_ = h.e.Tenants.SetStatus(ctx, id, status)
 	h.e.Audit.Log(ctx, audit.Entry{
-		Username: "sysadmin", Action: "tenant.toggle", Target: t.Code, Detail: status,
+		Username: "sysadmin", Action: "tenant.toggle", Target: t.Name, Detail: status,
 		IP: c.ClientIP(),
 	})
 	c.Redirect(http.StatusFound, "/sysadmin/tenants")

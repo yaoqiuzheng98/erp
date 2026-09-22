@@ -15,8 +15,6 @@
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="col-auto"><label class="form-label">企业名称</label>
             <input class="form-control form-control-sm" name="name" required></div>
-          <div class="col-auto"><label class="form-label">编码</label>
-            <input class="form-control form-control-sm" name="code" required></div>
           <div class="col-auto"><label class="form-label">管理员账号</label>
             <input class="form-control form-control-sm" name="admin_user" required></div>
           <div class="col-auto"><label class="form-label">管理员密码</label>
@@ -25,11 +23,11 @@
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>编码</th><th>名称</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
+        <thead><tr><th>名称</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Tenants}}
         <tr>
-          <td>{{.Code}}</td><td>{{.Name}}</td>
+          <td>{{.Name}}</td>
           <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
           <td>{{date .CreatedAt}}</td>
           <td>
