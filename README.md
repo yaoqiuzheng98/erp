@@ -395,8 +395,8 @@ docker compose logs -f erp
 ├── compose.yaml              # 三个服务编排（erp 引用 erp-app:latest，无 build）
 ├── config.prod.toml          # 生产配置（不入库，见 deploy/config.prod.example.toml）
 ├── deploy/Caddyfile          # 域名反代（erp.dokodemo.top → erp:8080）
-├── erp-app.tar.gz            # 本地构建上传的镜像包
 └── backups/                  # mongodump 输出目录（挂载进容器）
+                              # （erp-app.tar.gz 镜像包 docker load 后自动删除）
 ```
 
 Caddy 监听 80/443，`erp.dokodemo.top` 首次访问自动签发证书（域名已解析到服务器即可），转发到 `erp:8080`；应用只监听容器内网。

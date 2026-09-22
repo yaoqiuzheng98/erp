@@ -43,7 +43,7 @@ if [ ! -f config.prod.toml ]; then
   exit 1
 fi
 git pull --ff-only 2>/dev/null || echo "warn: git pull 跳过（非仓库或有本地改动）"
-docker load < "$TAR"
+docker load < "$TAR" && rm -f "$TAR"
 docker compose up -d
 docker compose ps
 REMOTE
