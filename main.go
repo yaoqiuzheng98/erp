@@ -139,7 +139,7 @@ func seed(ctx context.Context, e *env.Env, cfg *config.Config) error {
 	if err != mongo.ErrNoDocuments {
 		return err
 	}
-	t, err := e.Tenants.Create(ctx, "演示企业")
+	t, err := e.Tenants.Create(ctx, "演示企业", "")
 	if err != nil {
 		return err
 	}

@@ -60,6 +60,7 @@ func funcMap() template.FuncMap {
 		"hex": func(id any) string { return fmt.Sprintf("%v", id) },
 		"mul": func(a, b float64) string { return fmt.Sprintf("%.2f", a*b) },
 		"f2":  func(a float64) string { return fmt.Sprintf("%.2f", a) },
+		"industryName": tenant.IndustryName,
 	}
 }
 

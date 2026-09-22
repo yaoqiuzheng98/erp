@@ -28,6 +28,8 @@ type Plugin interface {
 	Name() string
 	Version() string
 	Dependencies() []string
+	// Industries 声明适用租户行业标识；空 = 通用插件，所有行业可见可启用。
+	Industries() []string
 
 	// RegisterRoutes 在 /app/{id} 分组上注册页面路由（已挂守卫中间件）。
 	RegisterRoutes(g *gin.RouterGroup, e *env.Env)
@@ -55,6 +57,7 @@ type Plugin interface {
 type Base struct{}
 
 func (Base) Dependencies() []string                                   { return nil }
+func (Base) Industries() []string                                     { return nil }
 func (Base) RegisterRoutes(g *gin.RouterGroup, e *env.Env)            {}
 func (Base) RegisterAPI(g *gin.RouterGroup, e *env.Env)               {}
 func (Base) Templates() fs.FS                                         { return nil }
@@ -177,15 +180,40 @@ var (
 	ErrNotRegistered = errors.New("插件未注册")
 	ErrDepMissing    = errors.New("依赖插件未启用")
 	ErrDepended      = errors.New("存在依赖本插件的已启用插件")
+	ErrNotApplicable = errors.New("插件不适用于该租户行业")
 )
+
+// AppliesTo 插件是否适用于某行业标识；未声明 Industries 的插件对所有租户适用。
+func AppliesTo(p Plugin, industry string) bool {
+	inds := p.Industries()
+	if len(inds) == 0 {
+		return true
+	}
+	for _, ind := range inds {
+		if ind == industry {
+			return true
+		}
+	}
+	return false
+}
 
 // Manager 按租户管理插件启停，实现 env.PluginGate。
 type Manager struct {
-	col *mongo.Collection
+	col  *mongo.Collection
+	tcol *mongo.Collection
 }
 
 func NewManager(db *mongo.Database) *Manager {
-	return &Manager{col: db.Collection("tenant_plugins")}
+	return &Manager{col: db.Collection("tenant_plugins"), tcol: db.Collection("tenants")}
+}
+
+// industryOf 读取租户行业标识；查不到按通用（空）处理。
+func (m *Manager) industryOf(ctx context.Context, tenantID bson.ObjectID) string {
+	var t struct {
+		Industry string `bson:"industry"`
+	}
+	_ = m.tcol.FindOne(ctx, bson.M{"_id": tenantID}).Decode(&t)
+	return t.Industry
 }
 
 func (m *Manager) IsEnabled(ctx context.Context, tenantID bson.ObjectID, pluginID string) bool {
@@ -211,11 +239,15 @@ func (m *Manager) EnabledSet(ctx context.Context, tenantID bson.ObjectID) map[st
 	return set
 }
 
-// ListWithStatus 返回全部注册插件及该租户启用状态。
+// ListWithStatus 返回该租户适用的注册插件及启用状态（按租户行业过滤）。
 func (m *Manager) ListWithStatus(ctx context.Context, tenantID bson.ObjectID) ([]map[string]any, error) {
 	enabled := m.EnabledSet(ctx, tenantID)
+	industry := m.industryOf(ctx, tenantID)
 	var out []map[string]any
 	for _, p := range All() {
+		if !AppliesTo(p, industry) {
+			continue
+		}
 		out = append(out, map[string]any{
 			"ID": p.ID(), "Name": p.Name(), "Version": p.Version(),
 			"Dependencies": p.Dependencies(), "Enabled": enabled[p.ID()],
@@ -229,6 +261,9 @@ func (m *Manager) Enable(ctx context.Context, e *env.Env, tenantID bson.ObjectID
 	p, ok := Get(pluginID)
 	if !ok {
 		return ErrNotRegistered
+	}
+	if !AppliesTo(p, m.industryOf(ctx, tenantID)) {
+		return fmt.Errorf("%w: %s", ErrNotApplicable, p.ID())
 	}
 	for _, dep := range p.Dependencies() {
 		if !m.IsEnabled(ctx, tenantID, dep) {

@@ -59,10 +59,19 @@ func init() { plugin.Register(&Plugin{}) }
 - `OnEnable`/`OnDisable`：启停钩子；禁用不删数据。
 - 依赖约束：启用前依赖插件须已启用；禁用前无已启用插件依赖它（Manager 强制校验）。
 
+## 8.1 行业适用范围（可选）
+
+- `Industries() []string`：声明插件适用的租户行业标识；**留空 = 通用插件**，所有行业可见可启用。
+- 租户行业标识在系统后台租户管理中设置（内置目录见 `tenant.Industries`，插件声明的新行业码自动并入选项）。
+- 声明了行业的插件只出现在匹配租户的 `/admin/plugins` 列表中；`Enable` 服务端同样校验（`ErrNotApplicable`）。
+- 租户行业修改时若存在"已启用但不适用新行业"的插件，修改会被拒绝，需先禁用。
+- 行业码自定义后建议在 `tenant.Industries` 补一条显示名，否则界面按码原样展示。
+
 ## 9. 检查清单
 
 - [ ] ID 全局唯一；模板/权限/集合/事件 payload 均带 `{id}` 前缀
 - [ ] 所有 Mongo 访问经 TenantRepo
 - [ ] 非 GET 表单带 `_csrf` 隐藏域（layout 表单已示范）
 - [ ] 依赖在 `Dependencies()` 声明，跨插件调用只经 contract
+- [ ] 行业限定插件在 `Industries()` 声明适用行业码（留空 = 通用）
 - [ ] `go build ./... && go vet ./...` 干净，启动无模板解析错误

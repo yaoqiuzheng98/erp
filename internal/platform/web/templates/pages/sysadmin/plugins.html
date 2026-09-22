@@ -10,12 +10,13 @@
     <main class="p-2 p-md-4">
       <h4 class="mb-3">插件目录（全局注册表）</h4>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>ID</th><th>名称</th><th>版本</th><th>依赖</th></tr></thead>
+        <thead><tr><th>ID</th><th>名称</th><th>版本</th><th>依赖</th><th>适用行业</th></tr></thead>
         <tbody>
         {{range .Data.Plugins}}
         <tr>
           <td class="text-muted">{{.ID}}</td><td>{{.Name}}</td><td>{{.Version}}</td>
           <td class="small text-muted">{{range .Deps}}{{.}} {{end}}</td>
+          <td>{{.Industries}}</td>
         </tr>
         {{end}}
         </tbody>

@@ -39,6 +39,9 @@ func (Plugin) Templates() fs.FS { return tplFS }
 // Dependencies 声明硬依赖；未启用依赖时本插件不可启用。
 func (Plugin) Dependencies() []string { return []string{"basedata"} }
 
+// Industries 声明适用租户行业（可选）。留空 = 所有行业可见；示例限定零售租户。
+func (Plugin) Industries() []string { return []string{"retail"} }
+
 // RegisterRoutes 在 /app/example 分组注册页面路由。
 func (Plugin) RegisterRoutes(g *gin.RouterGroup, e *env.Env) {
 	g.GET("", func(c *gin.Context) {
