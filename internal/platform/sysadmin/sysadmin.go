@@ -47,7 +47,14 @@ func (h *Handler) tenants(c *gin.Context) {
 // createTenant 创建租户并初始化其管理员账号。
 func (h *Handler) createTenant(c *gin.Context) {
 	ctx := c.Request.Context()
-	t, err := h.e.Tenants.Create(ctx, c.PostForm("name"))
+	name := c.PostForm("name")
+	var dup bson.M
+	if err := h.e.DB.C("tenants").FindOne(ctx, bson.M{"name": name}).Decode(&dup); err == nil {
+		web.SetFlash(c, "已存在同名租户: "+name)
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	t, err := h.e.Tenants.Create(ctx, name)
 	if err != nil {
 		web.SetFlash(c, "创建租户失败: "+err.Error())
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")

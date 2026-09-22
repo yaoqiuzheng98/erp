@@ -17,5 +17,18 @@
   }
   document.addEventListener('htmx:load', function (e) { autoDismiss(e.detail.elt); });
   autoDismiss(document.body);
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (f.dataset.submitting) { e.preventDefault(); return; }
+    f.dataset.submitting = '1';
+    var b = e.submitter || f.querySelector('button[type="submit"], button:not([type])');
+    if (b) b.disabled = true;
+  });
+  window.addEventListener('pageshow', function () {
+    document.querySelectorAll('form[data-submitting]').forEach(function (f) {
+      delete f.dataset.submitting;
+      f.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+    });
+  });
 </script>
 {{end}}
