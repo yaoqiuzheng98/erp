@@ -1,0 +1,35 @@
+{{define "dental/index"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-2 p-md-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">今日预约</h4>
+      <div class="table-responsive"><table class="table table-sm bg-white">
+        <thead><tr><th>时间</th><th>患者</th><th>椅位</th><th>医生</th><th>项目</th><th>状态</th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr>
+          <td>{{.Slot}}</td>
+          <td><a href="/app/dental/patients/{{hex .PatientID}}">{{.PatientName}}</a></td>
+          <td>{{.Chair}}</td><td>{{.Doctor}}</td><td>{{.Item}}</td>
+          <td><span class="badge {{.Badge}}">{{.StatusName}}</span></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="text-muted">今日暂无预约</td></tr>
+        {{end}}
+        </tbody>
+      </table></div>
+      <a class="btn btn-sm btn-outline-primary" href="/app/dental/appointments">预约管理</a>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

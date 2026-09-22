@@ -84,6 +84,17 @@ func (Plugin) SubscribeEvents(b *event.Bus, e *env.Env) {
 		name := partnerName(ctx, e, ev.TenantID, o.PartnerID, "supplier")
 		return svc.OnOrderApproved(ctx, ev.TenantID, o, model.BillAP, name)
 	})
+	// 门诊/服务类收费（非订单渠道）→ 应收。
+	b.Subscribe(contract.TopicCharge, func(ctx context.Context, ev event.Event) error {
+		if !e.Gate.IsEnabled(ctx, ev.TenantID, "finance") {
+			return nil
+		}
+		ch, ok := ev.Payload.(contract.Charge)
+		if !ok {
+			return nil
+		}
+		return svc.OnCharge(ctx, ev.TenantID, ch)
+	})
 }
 
 // partnerName 经主数据服务查往来单位名称。

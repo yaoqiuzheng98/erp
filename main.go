@@ -28,6 +28,7 @@ import (
 
 	// 插件编译期注册（blank import 触发 init）
 	_ "erp/internal/plugins/basedata"
+	_ "erp/internal/plugins/dental"
 	_ "erp/internal/plugins/finance"
 	_ "erp/internal/plugins/flow"
 	_ "erp/internal/plugins/hr"

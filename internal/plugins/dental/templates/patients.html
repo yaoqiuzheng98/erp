@@ -1,0 +1,59 @@
+{{define "dental/patients"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-2 p-md-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">患者</h4>
+      <div class="card mb-3"><div class="card-body">
+        <form method="post" action="/app/dental/patients" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">姓名</label>
+            <input class="form-control form-control-sm" name="name" required></div>
+          <div class="col-auto"><label class="form-label">性别</label>
+            <select class="form-select form-select-sm" name="gender">
+              <option value="">-</option><option>男</option><option>女</option>
+            </select></div>
+          <div class="col-auto"><label class="form-label">出生日期</label>
+            <input class="form-control form-control-sm" name="birth" type="date"></div>
+          <div class="col-auto"><label class="form-label">电话</label>
+            <input class="form-control form-control-sm" name="phone"></div>
+          <div class="col-auto"><label class="form-label">过敏史</label>
+            <input class="form-control form-control-sm" name="allergy"></div>
+          <div class="col-auto"><label class="form-label">既往史</label>
+            <input class="form-control form-control-sm" name="history"></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">建档</button></div>
+        </form>
+      </div></div>
+      <form method="get" class="row g-2 mb-2">
+        <div class="col-auto"><input class="form-control form-control-sm" name="q" value="{{.Data.Q}}" placeholder="姓名/病历号/电话"></div>
+        <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">搜索</button></div>
+      </form>
+      <div class="table-responsive"><table class="table table-sm bg-white">
+        <thead><tr><th>病历号</th><th>姓名</th><th>性别</th><th>出生</th><th>电话</th><th>过敏史</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr>
+          <td>{{.Code}}</td><td>{{.Name}}</td><td>{{.Gender}}</td>
+          <td>{{.Birth}}</td><td>{{.Phone}}</td>
+          <td>{{if .Allergy}}<span class="text-danger">{{.Allergy}}</span>{{end}}</td>
+          <td><a class="btn btn-sm btn-outline-secondary" href="/app/dental/patients/{{hex .ID}}">详情</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="text-muted">暂无患者</td></tr>
+        {{end}}
+        </tbody>
+      </table></div>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

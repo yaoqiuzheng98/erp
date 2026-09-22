@@ -18,6 +18,8 @@ const (
 	TopicPurchaseApproved = "purchase.order.approved"
 	// TopicStockChanged 库存变动；payload StockChanged。
 	TopicStockChanged = "inventory.stock.changed"
+	// TopicCharge 诊疗/业务收费（非订单渠道）；payload Charge。
+	TopicCharge = "billing.charge"
 )
 
 // DocSubmit 提交审批的单据信息。
@@ -48,12 +50,12 @@ type OrderLine struct {
 
 // OrderApproved 订单审核通过。
 type OrderApproved struct {
-	OrderID    string        `json:"order_id"`
-	DocNo      string        `json:"doc_no"`
-	PartnerID  bson.ObjectID `json:"partner_id"` // customer 或 supplier
-	Total      float64       `json:"total"`
-	Lines      []OrderLine   `json:"lines"`
-	By         string        `json:"by"`
+	OrderID   string        `json:"order_id"`
+	DocNo     string        `json:"doc_no"`
+	PartnerID bson.ObjectID `json:"partner_id"` // customer 或 supplier
+	Total     float64       `json:"total"`
+	Lines     []OrderLine   `json:"lines"`
+	By        string        `json:"by"`
 }
 
 // StockChanged 库存余额变动。
@@ -62,4 +64,14 @@ type StockChanged struct {
 	WarehouseID bson.ObjectID `json:"warehouse_id"`
 	Delta       float64       `json:"delta"`
 	DocNo       string        `json:"doc_no"`
+}
+
+// Charge 业务收费（门诊/服务类，非 partner 订单渠道）：财务生成应收。
+type Charge struct {
+	DocNo     string  `json:"doc_no"`     // 收费流水号
+	PartyName string  `json:"party_name"` // 付款方名称（患者等）
+	Total     float64 `json:"total"`
+	By        string  `json:"by"`
+	RefType   string  `json:"ref_type"` // 来源单据类型，如 dental_appt
+	RefID     string  `json:"ref_id"`   // 来源单据 hex
 }

@@ -1,0 +1,109 @@
+{{define "dental/patient"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-2 p-md-4">
+      {{template "partial/flash" .}}
+      <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <h4 class="mb-0">{{.Data.P.Name}}</h4>
+        <span class="text-muted">{{.Data.P.Code}}</span>
+        <span class="text-muted">{{.Data.P.Gender}} {{.Data.P.Birth}} {{.Data.P.Phone}}</span>
+        <a class="btn btn-sm btn-outline-secondary" href="/app/dental/patients">返回</a>
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-lg-6">
+          <div class="card"><div class="card-body">
+            <h6>病历信息</h6>
+            <table class="table table-sm mb-0">
+              <tr><th class="w-25">过敏史</th><td class="{{if .Data.P.Allergy}}text-danger fw-bold{{end}}">{{.Data.P.Allergy}}</td></tr>
+              <tr><th>既往史</th><td>{{.Data.P.History}}</td></tr>
+              <tr><th>备注</th><td>{{.Data.P.Note}}</td></tr>
+            </table>
+          </div></div>
+          <div class="card mt-3"><div class="card-body">
+            <h6>就诊记录</h6>
+            <div class="table-responsive"><table class="table table-sm mb-0">
+              <thead><tr><th>日期</th><th>项目</th><th>医生</th><th>状态</th><th>收费</th></tr></thead>
+              <tbody>
+              {{range .Data.Appts}}
+              <tr><td>{{.Date}} {{.Slot}}</td><td>{{.Item}}</td><td>{{.Doctor}}</td>
+                <td><span class="badge {{.Badge}}">{{.StatusName}}</span></td>
+                <td>{{if .Charge}}¥{{printf "%.2f" .Charge}}{{end}}</td></tr>
+              {{else}}
+              <tr><td colspan="5" class="text-muted">暂无就诊记录</td></tr>
+              {{end}}
+              </tbody>
+            </table></div>
+          </div></div>
+        </div>
+        <div class="col-12 col-lg-6">
+          <div class="card"><div class="card-body">
+            <h6>牙位图 <span class="text-muted small">点击牙位切换状态</span></h6>
+            <div class="dental-chart">
+            {{range $i, $row := .Data.Quadrants}}
+              <div class="dental-row">
+              {{range $tooth := $row}}
+                {{$st := index $.Data.P.Teeth $tooth}}
+                <button type="button" class="tooth tooth-{{if $st}}{{$st}}{{else}}ok{{end}}"
+                        data-tooth="{{$tooth}}" data-status="{{$st}}" title="{{$tooth}}">{{$tooth}}</button>
+              {{end}}
+              </div>
+              {{if eq $i 1}}<div class="dental-sep"></div>{{end}}
+            {{end}}
+            </div>
+            <div class="mt-2 small d-flex gap-2 flex-wrap">
+              <span><i class="tooth-dot tooth-ok"></i>健康</span>
+              {{range $k, $v := .Data.ToothNames}}
+              <span><i class="tooth-dot tooth-{{$k}}"></i>{{$v}}</span>
+              {{end}}
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<style>
+.dental-chart { display: flex; flex-direction: column; gap: 4px; }
+.dental-row { display: flex; gap: 3px; flex-wrap: wrap; }
+.dental-row:nth-child(odd) { margin-right: 8px; }
+.dental-sep { height: 8px; border-top: 1px dashed #ccc; margin: 4px 0; }
+.tooth {
+  width: 34px; height: 40px; border: 1px solid #ccc; border-radius: 6px;
+  background: #fff; font-size: .7rem; cursor: pointer; padding: 0;
+}
+.tooth-dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; }
+.tooth-ok { background: #fff; border: 1px solid #ccc; }
+.tooth-caries { background: #dc3545; color: #fff; border-color: #dc3545; }
+.tooth-missing { background: #6c757d; color: #fff; border-color: #6c757d; }
+.tooth-treated { background: #198754; color: #fff; border-color: #198754; }
+.tooth-implant { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+.tooth-crown { background: #6f42c1; color: #fff; border-color: #6f42c1; }
+</style>
+{{template "partial/foot" .}}
+<script>
+const TOOTH_ORDER = ['', 'caries', 'missing', 'treated', 'implant', 'crown'];
+document.querySelectorAll('.tooth').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const cur = btn.dataset.status || '';
+    const next = TOOTH_ORDER[(TOOTH_ORDER.indexOf(cur) + 1) % TOOTH_ORDER.length];
+    const res = await fetch('/app/dental/patients/{{hex .Data.P.ID}}/tooth', {
+      method: 'POST',
+      headers: {'X-CSRF-Token': '{{.CSRF}}', 'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'tooth=' + btn.dataset.tooth + '&status=' + next
+    });
+    if (res.ok) {
+      btn.dataset.status = next;
+      btn.className = 'tooth tooth-' + (next || 'ok');
+    }
+  });
+});
+</script>
+</body>
+</html>
+{{end}}

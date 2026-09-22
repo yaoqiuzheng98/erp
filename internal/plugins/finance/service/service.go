@@ -44,6 +44,18 @@ func (s *Service) OnOrderApproved(ctx context.Context, tenantID bson.ObjectID, o
 	return err
 }
 
+// OnCharge 业务收费事件（门诊/服务类，非 partner 渠道）→ 生成应收。
+func (s *Service) OnCharge(ctx context.Context, tenantID bson.ObjectID, ch contract.Charge) error {
+	b := &model.Bill{
+		Type: model.BillAR, PartnerName: ch.PartyName,
+		OrderID: ch.RefID, DocNo: ch.DocNo,
+		Amount: ch.Total, Status: model.BillOpen,
+	}
+	b.TenantID, b.CreatedAt = tenantID, time.Now()
+	_, err := s.bills.Insert(ctx, tenantID, b)
+	return err
+}
+
 func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, typ string, skip, limit int64) ([]model.Bill, int64, error) {
 	total, err := s.bills.Count(ctx, tenantID, bson.M{"type": typ})
 	if err != nil {
