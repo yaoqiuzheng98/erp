@@ -18,6 +18,7 @@ import (
 	"erp/internal/platform/tenant"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 //go:embed templates static
@@ -57,7 +58,12 @@ func funcMap() template.FuncMap {
 			}
 			return t.Format("2006-01-02 15:04")
 		},
-		"hex": func(id any) string { return fmt.Sprintf("%v", id) },
+		"hex": func(id any) string {
+			if oid, ok := id.(bson.ObjectID); ok {
+				return oid.Hex()
+			}
+			return fmt.Sprintf("%v", id)
+		},
 		"mul": func(a, b float64) string { return fmt.Sprintf("%.2f", a*b) },
 		"f2":  func(a float64) string { return fmt.Sprintf("%.2f", a) },
 		"industryName": tenant.IndustryName,
