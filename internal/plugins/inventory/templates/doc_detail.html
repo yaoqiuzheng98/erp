@@ -9,7 +9,7 @@
     {{template "partial/apptop" .}}
     <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
-      <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <h4 class="m-0">单据 {{.Data.Doc.DocNo}}</h4>
         {{if eq .Data.Doc.Status "draft"}}
         <div>

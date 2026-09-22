@@ -22,13 +22,13 @@
 <div class="topbar d-flex justify-content-between align-items-center px-3 px-md-4 py-2">
   <div class="d-flex align-items-center gap-2">
     <button class="btn btn-sm btn-outline-secondary d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#appnav" aria-controls="appnav">☰</button>
-    <span class="text-muted small">{{.Path}}</span>
+    <span class="text-muted small topbar-path">{{.Path}}</span>
   </div>
-  <div class="d-flex align-items-center gap-3">
+  <div class="d-flex align-items-center gap-2 gap-md-3">
     <a href="/app/notifications" class="text-decoration-none">
       通知{{if gt .NotifCount 0}}<span class="badge bg-danger ms-1">{{.NotifCount}}</span>{{end}}
     </a>
-    <span class="text-dark">{{if .User}}{{.User.Name}}（{{.User.Username}}）{{end}}</span>
+    <span class="text-dark topbar-user">{{if .User}}{{.User.Name}}（{{.User.Username}}）{{end}}</span>
     <form method="post" action="/logout" class="m-0">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <button class="btn btn-sm btn-outline-secondary">退出</button>
