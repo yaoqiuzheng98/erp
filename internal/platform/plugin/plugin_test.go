@@ -54,7 +54,7 @@ func TestMenusOfFiltersDisabled(t *testing.T) {
 
 func TestAppliesTo(t *testing.T) {
 	universal := stub{id: "universal"}
-	barber := stub{id: "barber_only", inds: []string{"804"}}  // 理发及美容服务（中类）
+	barber := stub{id: "barber_only", inds: []string{"804"}} // 理发及美容服务（中类）
 	resident := stub{id: "resident", inds: []string{"80"}}   // 居民服务业（大类）
 
 	barberPath := []string{"O", "80", "804", "8040"} // 理发店小类
