@@ -3,6 +3,8 @@ package sysadmin
 
 import (
 	"context"
+	"encoding/json"
+	"html/template"
 	"net/http"
 	"strings"
 
@@ -63,7 +65,18 @@ func (h *Handler) parseIndustry(ctx context.Context, raw string) (string, bool) 
 
 func (h *Handler) tenants(c *gin.Context) {
 	list, _ := h.e.Tenants.List(c.Request.Context())
-	web.Render(c, h.e, "sys/tenants", gin.H{"Tenants": list, "Industries": h.industryOptions(c.Request.Context())})
+	nodes := h.industryOptions(c.Request.Context())
+	type jn struct {
+		Code   string `json:"code"`
+		Name   string `json:"name"`
+		Parent string `json:"parent"`
+	}
+	jns := make([]jn, len(nodes))
+	for i, n := range nodes {
+		jns[i] = jn{n.Code, n.Name, n.Parent}
+	}
+	raw, _ := json.Marshal(jns)
+	web.Render(c, h.e, "sys/tenants", gin.H{"Tenants": list, "IndustriesJSON": template.JS(raw)})
 }
 
 // createTenant 创建租户并初始化其管理员账号。

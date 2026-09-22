@@ -15,17 +15,15 @@
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="col-auto"><label class="form-label">企业名称</label>
             <input class="form-control form-control-sm" name="name" required></div>
-          <div class="col-auto"><label class="form-label">行业（GB/T 4754，可搜索）</label>
-            <input class="form-control form-control-sm" name="industry" list="indList" placeholder="通用" autocomplete="off"></div>
+          <div class="col-12 col-md-auto"><label class="form-label">行业（GB/T 4754，逐级选择）</label>
+            <div id="indCreateBox" class="d-flex gap-1 flex-wrap"></div>
+            <input type="hidden" name="industry" id="indCreate"></div>
           <div class="col-auto"><label class="form-label">管理员账号</label>
             <input class="form-control form-control-sm" name="admin_user" required></div>
           <div class="col-auto"><label class="form-label">管理员密码</label>
             <input class="form-control form-control-sm" name="admin_pass" required></div>
           <div class="col-auto"><button class="btn btn-sm btn-primary">创建租户</button></div>
         </form>
-        <datalist id="indList">
-          {{range .Data.Industries}}<option value="{{.Code}} {{.Name}}">{{industryPath .Code}}</option>{{end}}
-        </datalist>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>名称</th><th>行业</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
@@ -34,12 +32,9 @@
         <tr>
           <td>{{.Name}}</td>
           <td>
-            <form method="post" action="/sysadmin/tenants/{{hex .ID}}/industry" class="d-flex gap-1 m-0 align-items-center">
-              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <input name="industry" list="indList" class="form-control form-control-sm" style="min-width:160px"
-                     value="{{if .Industry}}{{.Industry}} {{industryName .Industry}}{{end}}" placeholder="通用" autocomplete="off">
-              <button class="btn btn-sm btn-outline-secondary">保存</button>
-            </form>
+            <span>{{if .Industry}}{{.Industry}} {{industryName .Industry}}{{else}}通用{{end}}</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    onclick="openInd('{{hex .ID}}','{{.Industry}}','{{.Name}}')">修改</button>
           </td>
           <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
           <td>{{date .CreatedAt}}</td>
@@ -58,7 +53,65 @@
     </main>
   </div>
 </div>
+<div class="modal fade" id="indModal" tabindex="-1"><div class="modal-dialog">
+  <form method="post" class="modal-content" id="indForm">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="industry" id="indModalVal">
+    <div class="modal-header"><h5 class="modal-title">设置行业</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="small text-muted mb-2" id="indModalTenant"></div>
+      <div id="indModalBox" class="d-flex flex-column gap-2"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-sm btn-primary">保存</button></div>
+  </form>
+</div></div>
 {{template "partial/foot" .}}
+<script>
+const IND = {{.Data.IndustriesJSON}};
+const indKids = {}, indByCode = {};
+IND.forEach(n => { indByCode[n.code] = n; (indKids[n.parent] = indKids[n.parent] || []).push(n); });
+const IND_LEVELS = ['门类', '大类', '中类', '小类'];
+function indCascade(box, hidden, initCode) {
+  box.innerHTML = '';
+  const update = () => {
+    hidden.value = '';
+    [...box.children].forEach(s => { if (s.value) hidden.value = s.value; });
+  };
+  const addLevel = (parent, sel) => {
+    const opts = indKids[parent] || [];
+    if (!opts.length) return null;
+    const s = document.createElement('select');
+    s.className = 'form-select form-select-sm';
+    s.style.width = 'auto'; s.style.maxWidth = '14em';
+    s.innerHTML = '<option value="">' + (parent ? '（到此为止）' : '通用（无行业）') + '</option>' +
+      opts.map(n => '<option value="' + n.code + '">' + n.code + ' ' + n.name + '</option>').join('');
+    s.title = IND_LEVELS[Math.min(box.children.length, 3)];
+    s.onchange = () => {
+      while (box.lastChild !== s) box.removeChild(box.lastChild);
+      if (s.value) addLevel(s.value, '');
+      update();
+    };
+    box.appendChild(s);
+    if (sel) { s.value = sel; }
+    return s;
+  };
+  const chain = [];
+  let n = indByCode[initCode];
+  while (n) { chain.unshift(n.code); n = indByCode[n.parent]; }
+  let parent = '';
+  chain.forEach(code => { addLevel(parent, code); parent = code; });
+  if (!chain.length) addLevel('', '');
+  update();
+}
+function openInd(id, code, name) {
+  document.getElementById('indForm').action = '/sysadmin/tenants/' + id + '/industry';
+  document.getElementById('indModalTenant').textContent = '租户：' + name;
+  indCascade(document.getElementById('indModalBox'), document.getElementById('indModalVal'), code);
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('indModal')).show();
+}
+indCascade(document.getElementById('indCreateBox'), document.getElementById('indCreate'), '');
+</script>
 </body>
 </html>
 {{end}}
