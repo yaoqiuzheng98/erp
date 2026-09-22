@@ -5,5 +5,17 @@
   document.body.addEventListener('htmx:configRequest', function (e) {
     e.detail.headers['X-CSRF-Token'] = '{{.CSRF}}';
   });
+  function autoDismiss(root) {
+    (root.querySelectorAll ? root : document).querySelectorAll('.alert-dismissible.fade.show').forEach(function (el) {
+      if (el.dataset.autoDismiss) return;
+      el.dataset.autoDismiss = '1';
+      setTimeout(function () {
+        var inst = bootstrap.Alert.getOrCreateInstance(el);
+        if (inst) inst.close();
+      }, 4000);
+    });
+  }
+  document.addEventListener('htmx:load', function (e) { autoDismiss(e.detail.elt); });
+  autoDismiss(document.body);
 </script>
 {{end}}
