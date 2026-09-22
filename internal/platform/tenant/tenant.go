@@ -13,51 +13,9 @@ import (
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
-	Industry  string        `bson:"industry"` // 行业标识；空 = 通用
+	Industry  string        `bson:"industry"` // GB/T 4754 行业码（任意层级）；空 = 通用
 	Status    string        `bson:"status"`   // active / suspended
 	CreatedAt time.Time     `bson:"created_at"`
-}
-
-// Industry 行业标识选项。插件经 Plugin.Industries() 声明适用行业。
-type Industry struct {
-	Code string
-	Name string
-}
-
-// Industries 内置行业目录；插件声明的新行业码会在系统后台选项中自动并入。
-var Industries = []Industry{
-	{"retail", "零售/便利店"},
-	{"wholesale", "批发/贸易"},
-	{"restaurant", "餐饮"},
-	{"barber", "理发/美容美发"},
-	{"dental", "牙科/医疗门诊"},
-	{"manufacture", "生产制造"},
-}
-
-// IndustryName 返回行业码显示名；空码 = 通用，未知码原样返回。
-func IndustryName(code string) string {
-	if code == "" {
-		return "通用"
-	}
-	for _, i := range Industries {
-		if i.Code == code {
-			return i.Name
-		}
-	}
-	return code
-}
-
-// IndustryKnown 校验行业码是否在内置目录中。
-func IndustryKnown(code string) bool {
-	if code == "" {
-		return true
-	}
-	for _, i := range Industries {
-		if i.Code == code {
-			return true
-		}
-	}
-	return false
 }
 
 var ErrSuspended = errors.New("租户已停用")

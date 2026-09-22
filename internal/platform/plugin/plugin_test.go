@@ -54,18 +54,26 @@ func TestMenusOfFiltersDisabled(t *testing.T) {
 
 func TestAppliesTo(t *testing.T) {
 	universal := stub{id: "universal"}
-	retail := stub{id: "retail_only", inds: []string{"retail"}}
+	barber := stub{id: "barber_only", inds: []string{"804"}}  // 理发及美容服务（中类）
+	resident := stub{id: "resident", inds: []string{"80"}}   // 居民服务业（大类）
 
-	if !AppliesTo(universal, "retail") || !AppliesTo(universal, "") {
+	barberPath := []string{"O", "80", "804", "8040"} // 理发店小类
+	bathPath := []string{"O", "80", "805", "8052"}   // 足浴服务小类
+	retailPath := []string{"F", "52", "521", "5213"} // 便利店零售小类
+
+	if !AppliesTo(universal, barberPath) || !AppliesTo(universal, nil) {
 		t.Fatal("通用插件应对所有行业适用")
 	}
-	if !AppliesTo(retail, "retail") {
-		t.Fatal("行业插件应对匹配行业适用")
+	if !AppliesTo(barber, barberPath) {
+		t.Fatal("行业插件应匹配祖先链中的声明码")
 	}
-	if AppliesTo(retail, "dental") {
-		t.Fatal("理发店插件不应出现在牙科租户")
+	if AppliesTo(barber, bathPath) || AppliesTo(barber, retailPath) {
+		t.Fatal("理发店插件不应出现在足浴/便利店租户")
 	}
-	if AppliesTo(retail, "") {
+	if !AppliesTo(resident, barberPath) || !AppliesTo(resident, bathPath) {
+		t.Fatal("大类声明应覆盖其下全部中类/小类")
+	}
+	if AppliesTo(barber, nil) {
 		t.Fatal("行业插件不应对通用租户适用")
 	}
 }

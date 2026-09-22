@@ -9,7 +9,7 @@
     {{template "partial/apptop" .}}
     <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
-      <h4 class="mb-3">插件管理 <span class="text-muted small">行业：{{industryName .Tenant.Industry}}，仅显示适用插件</span></h4>
+      <h4 class="mb-3">插件管理 <span class="text-muted small">行业：{{industryPath .Tenant.Industry}}，仅显示适用插件</span></h4>
       <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>ID</th><th>名称</th><th>版本</th><th>依赖</th><th>状态</th><th></th></tr></thead>
         <tbody>

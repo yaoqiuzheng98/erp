@@ -2,14 +2,15 @@
 package sysadmin
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
+	"erp/internal/platform/industry"
 	"erp/internal/platform/plugin"
-	"erp/internal/platform/tenant"
 	"erp/internal/platform/web"
 
 	"github.com/gin-gonic/gin"
@@ -42,48 +43,36 @@ func (h *Handler) home(c *gin.Context) {
 	})
 }
 
-// industryOptions 内置行业目录 + 插件声明的新行业码（未知名称按码显示）。
-func industryOptions() []tenant.Industry {
-	opts := append([]tenant.Industry{}, tenant.Industries...)
-	seen := map[string]bool{}
-	for _, i := range opts {
-		seen[i.Code] = true
-	}
-	for _, p := range plugin.All() {
-		for _, ind := range p.Industries() {
-			if !seen[ind] {
-				seen[ind] = true
-				opts = append(opts, tenant.Industry{Code: ind, Name: ind})
-			}
-		}
-	}
-	return opts
+// industryOptions 返回 GB/T 4754 全量行业节点（国标顺序），供租户行业 datalist。
+func (h *Handler) industryOptions(ctx context.Context) []industry.Node {
+	return h.e.Industries.All(ctx)
 }
 
-func industryValid(code string) bool {
-	if code == "" {
-		return true
+// parseIndustry 解析 datalist 提交的 "code 名称" 或纯 code；非法返回 false。
+func (h *Handler) parseIndustry(ctx context.Context, raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", true // 通用
 	}
-	for _, o := range industryOptions() {
-		if o.Code == code {
-			return true
-		}
+	code, _, _ := strings.Cut(raw, " ")
+	if !h.e.Industries.Exists(ctx, code) {
+		return "", false
 	}
-	return false
+	return code, true
 }
 
 func (h *Handler) tenants(c *gin.Context) {
 	list, _ := h.e.Tenants.List(c.Request.Context())
-	web.Render(c, h.e, "sys/tenants", gin.H{"Tenants": list, "Industries": industryOptions()})
+	web.Render(c, h.e, "sys/tenants", gin.H{"Tenants": list, "Industries": h.industryOptions(c.Request.Context())})
 }
 
 // createTenant 创建租户并初始化其管理员账号。
 func (h *Handler) createTenant(c *gin.Context) {
 	ctx := c.Request.Context()
 	name := c.PostForm("name")
-	industry := c.PostForm("industry")
-	if !industryValid(industry) {
-		web.SetFlash(c, "行业标识无效: "+industry)
+	indCode, ok := h.parseIndustry(ctx, c.PostForm("industry"))
+	if !ok {
+		web.SetFlash(c, "行业标识无效: "+c.PostForm("industry"))
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
 		return
 	}
@@ -93,7 +82,7 @@ func (h *Handler) createTenant(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
 		return
 	}
-	t, err := h.e.Tenants.Create(ctx, name, industry)
+	t, err := h.e.Tenants.Create(ctx, name, indCode)
 	if err != nil {
 		web.SetFlash(c, "创建租户失败: "+err.Error())
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
@@ -139,17 +128,24 @@ func (h *Handler) toggleTenant(c *gin.Context) {
 func (h *Handler) setIndustry(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	industry := c.PostForm("industry")
+	indCode, ok := h.parseIndustry(ctx, c.PostForm("industry"))
 	t, err := h.e.Tenants.ByID(ctx, id)
-	if err != nil || !industryValid(industry) {
+	if err != nil || !ok {
 		web.SetFlash(c, "行业标识无效")
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
 		return
 	}
+	// 新行业节点的祖先码链（启用校验同款语义）
+	path := []string{indCode}
+	if indCode == "" {
+		path = nil
+	} else if n, ok := h.e.Industries.Get(ctx, indCode); ok {
+		path = n.Path
+	}
 	enabled := h.e.Gate.EnabledSet(ctx, id)
 	var conflicts []string
 	for _, p := range plugin.All() {
-		if enabled[p.ID()] && !plugin.AppliesTo(p, industry) {
+		if enabled[p.ID()] && !plugin.AppliesTo(p, path) {
 			conflicts = append(conflicts, p.ID())
 		}
 	}
@@ -158,9 +154,9 @@ func (h *Handler) setIndustry(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
 		return
 	}
-	_ = h.e.Tenants.SetIndustry(ctx, id, industry)
+	_ = h.e.Tenants.SetIndustry(ctx, id, indCode)
 	h.e.Audit.Log(ctx, audit.Entry{
-		Username: "sysadmin", Action: "tenant.industry", Target: t.Name, Detail: industry,
+		Username: "sysadmin", Action: "tenant.industry", Target: t.Name, Detail: indCode,
 		IP: c.ClientIP(),
 	})
 	web.SetFlash(c, "行业已更新")
@@ -176,15 +172,15 @@ func (h *Handler) plugins(c *gin.Context) {
 	var list []row
 	for _, p := range plugin.All() {
 		inds := p.Industries()
-		industry := "通用"
+		indNames := "通用"
 		if len(inds) > 0 {
 			names := make([]string, len(inds))
 			for i, code := range inds {
-				names[i] = tenant.IndustryName(code)
+				names[i] = h.e.Industries.Name(c.Request.Context(), code)
 			}
-			industry = strings.Join(names, "、")
+			indNames = strings.Join(names, "、")
 		}
-		list = append(list, row{p.ID(), p.Name(), p.Version(), p.Dependencies(), industry})
+		list = append(list, row{p.ID(), p.Name(), p.Version(), p.Dependencies(), indNames})
 	}
 	web.Render(c, h.e, "sys/plugins", gin.H{"Plugins": list})
 }

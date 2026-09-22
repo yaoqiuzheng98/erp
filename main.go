@@ -15,6 +15,7 @@ import (
 	"erp/internal/platform/env"
 	"erp/internal/platform/event"
 	"erp/internal/platform/httpserver"
+	"erp/internal/platform/industry"
 	"erp/internal/platform/notify"
 	"erp/internal/platform/org"
 	"erp/internal/platform/plugin"
@@ -78,7 +79,12 @@ func main() {
 		Events:   event.NewBus(),
 		Tasks:    scheduler,
 	}
-	e.Gate = plugin.NewManager(d.Database)
+	e.Industries = industry.NewService(d.Database)
+	if err := e.Industries.EnsureSeed(ctx); err != nil {
+		slog.Error("seed industries", "err", err)
+		os.Exit(1)
+	}
+	e.Gate = plugin.NewManager(d.Database, e.Industries)
 
 	// 按依赖拓扑序：先注册服务（Service Locator），再挂任务与事件订阅
 	for _, p := range plugin.TopoSorted() {

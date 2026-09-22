@@ -12,6 +12,7 @@ import (
 	"erp/internal/platform/db"
 	"erp/internal/platform/dict"
 	"erp/internal/platform/event"
+	"erp/internal/platform/industry"
 	"erp/internal/platform/notify"
 	"erp/internal/platform/org"
 	"erp/internal/platform/rbac"
@@ -44,6 +45,7 @@ type Env struct {
 	Seq      *seqno.Generator
 	Audit    *audit.Service
 	Notify   *notify.Service
+	Industries *industry.Service
 	Attach   *attach.Service
 	Events   *event.Bus
 	Tasks    *task.Scheduler

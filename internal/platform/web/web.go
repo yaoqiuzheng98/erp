@@ -2,6 +2,7 @@
 package web
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"html/template"
@@ -50,7 +51,7 @@ var adminMenu = []menu.Item{
 	}},
 }
 
-func funcMap() template.FuncMap {
+func funcMap(e *env.Env) template.FuncMap {
 	return template.FuncMap{
 		"date": func(t time.Time) string {
 			if t.IsZero() {
@@ -66,13 +67,18 @@ func funcMap() template.FuncMap {
 		},
 		"mul": func(a, b float64) string { return fmt.Sprintf("%.2f", a*b) },
 		"f2":  func(a float64) string { return fmt.Sprintf("%.2f", a) },
-		"industryName": tenant.IndustryName,
+		"industryName": func(code string) string {
+			return e.Industries.Name(context.Background(), code)
+		},
+		"industryPath": func(code string) string {
+			return e.Industries.PathName(context.Background(), code)
+		},
 	}
 }
 
 // Build 解析平台模板 + 全部注册插件模板到同一 *template.Template。
 func Build(e *env.Env) (*template.Template, error) {
-	t := template.New("root").Funcs(funcMap())
+	t := template.New("root").Funcs(funcMap(e))
 	var err error
 	t, err = t.ParseFS(FS, "templates/*/*.html", "templates/*/*/*.html")
 	if err != nil {

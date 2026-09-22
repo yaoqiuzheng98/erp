@@ -61,11 +61,11 @@ func init() { plugin.Register(&Plugin{}) }
 
 ## 8.1 行业适用范围（可选）
 
-- `Industries() []string`：声明插件适用的租户行业标识；**留空 = 通用插件**，所有行业可见可启用。
-- 租户行业标识在系统后台租户管理中设置（内置目录见 `tenant.Industries`，插件声明的新行业码自动并入选项）。
-- 声明了行业的插件只出现在匹配租户的 `/admin/plugins` 列表中；`Enable` 服务端同样校验（`ErrNotApplicable`）。
+- `Industries() []string`：声明插件适用的租户行业码；**留空 = 通用插件**，所有行业可见可启用。
+- 行业码采用 **GB/T 4754-2017 国民经济行业分类**（门类字母 / 大类 2 位 / 中类 3 位 / 小类 4 位），全量目录种子在 `industries` 集合，解析自国家统计局官方文档。
+- 可声明任意层级：声明大类 `80`（居民服务业）即覆盖其下 804 理发、805 洗浴保健等全部中类小类；声明小类 `8040` 则只精确匹配理发店。
+- 匹配语义：租户行业码的祖先链（path）包含声明码即适用——`plugin.AppliesTo` 强制校验，行业插件不出现在不匹配租户的 `/admin/plugins` 列表，`Enable` 直接拒绝（`ErrNotApplicable`）。
 - 租户行业修改时若存在"已启用但不适用新行业"的插件，修改会被拒绝，需先禁用。
-- 行业码自定义后建议在 `tenant.Industries` 补一条显示名，否则界面按码原样展示。
 
 ## 9. 检查清单
 
@@ -73,5 +73,5 @@ func init() { plugin.Register(&Plugin{}) }
 - [ ] 所有 Mongo 访问经 TenantRepo
 - [ ] 非 GET 表单带 `_csrf` 隐藏域（layout 表单已示范）
 - [ ] 依赖在 `Dependencies()` 声明，跨插件调用只经 contract
-- [ ] 行业限定插件在 `Industries()` 声明适用行业码（留空 = 通用）
+- [ ] 行业限定插件在 `Industries()` 声明 GB/T 4754 行业码（留空 = 通用）
 - [ ] `go build ./... && go vet ./...` 干净，启动无模板解析错误

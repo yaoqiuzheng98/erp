@@ -15,17 +15,17 @@
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="col-auto"><label class="form-label">企业名称</label>
             <input class="form-control form-control-sm" name="name" required></div>
-          <div class="col-auto"><label class="form-label">行业</label>
-            <select class="form-select form-select-sm" name="industry">
-              <option value="">通用</option>
-              {{range .Data.Industries}}<option value="{{.Code}}">{{.Name}}</option>{{end}}
-            </select></div>
+          <div class="col-auto"><label class="form-label">行业（GB/T 4754，可搜索）</label>
+            <input class="form-control form-control-sm" name="industry" list="indList" placeholder="通用" autocomplete="off"></div>
           <div class="col-auto"><label class="form-label">管理员账号</label>
             <input class="form-control form-control-sm" name="admin_user" required></div>
           <div class="col-auto"><label class="form-label">管理员密码</label>
             <input class="form-control form-control-sm" name="admin_pass" required></div>
           <div class="col-auto"><button class="btn btn-sm btn-primary">创建租户</button></div>
         </form>
+        <datalist id="indList">
+          {{range .Data.Industries}}<option value="{{.Code}} {{.Name}}">{{industryPath .Code}}</option>{{end}}
+        </datalist>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>名称</th><th>行业</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
@@ -36,13 +36,8 @@
           <td>
             <form method="post" action="/sysadmin/tenants/{{hex .ID}}/industry" class="d-flex gap-1 m-0 align-items-center">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              {{$cur := .Industry}}
-              <select name="industry" class="form-select form-select-sm w-auto">
-                <option value="" {{if eq $cur ""}}selected{{end}}>通用</option>
-                {{range $.Data.Industries}}
-                <option value="{{.Code}}" {{if eq $cur .Code}}selected{{end}}>{{.Name}}</option>
-                {{end}}
-              </select>
+              <input name="industry" list="indList" class="form-control form-control-sm" style="min-width:160px"
+                     value="{{if .Industry}}{{.Industry}} {{industryName .Industry}}{{end}}" placeholder="通用" autocomplete="off">
               <button class="btn btn-sm btn-outline-secondary">保存</button>
             </form>
           </td>
