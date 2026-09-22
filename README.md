@@ -362,7 +362,9 @@ demo_admin_pass = "admin123"
 
 - 安全：`config.toml` 含密钥，加入 `.gitignore` 不入库；仓库只提交 `config.example.toml`；文件权限建议 `chmod 600`。
 - 本地运行：`cp config.example.toml config.toml`，启动 MongoDB，然后 `go run . -config config.toml`；种子开启时自动创建系统超管与演示租户（默认 `admin/admin123`）。
+- 验证：`go build ./...`、`go vet ./...`、`go test ./...`；备份 `scripts/backup.sh [config.toml]` 导出到 `backups/`。
 - 索引初始化：启动时平台与已注册插件各自 `ensureIndexes`。
+- 本地开发（WSL）：MongoDB 用 Docker 容器 `erp-mongo`（`mongo:7`，端口映射 `27017`，`docker start erp-mongo`）。注意 WSL 中监听 `:8080` 的进程会经 localhost 转发占用 Windows 侧端口，GoLand debug 报 `bind: Only one usage...` 时先 `pgrep -af /tmp/erp` 清理遗留进程。
 
 ### 11.1 生产部署（本地打镜像 + docker load）
 
@@ -427,6 +429,19 @@ HTTPS 证书由 Caddy 自动申请续期；`config.prod.toml` 必须 `[session].
 - `[session].secret` 使用新生成的强随机值，勿与开发环境共用；HTTPS 下 `[session].secure = true`
 - `[log].level` 用 `info`/`warn`
 - 首次部署可开 `[seed]` 建超管（`demo_tenant` 建议 `false`），建好后改为 `enabled = false`
+
+### 11.5 当前生产实例
+
+- 主机：`23.249.19.239`（rfchost，Ubuntu / kernel 6.8 / x86_64），用户 `root`；私钥 `D:\ssh_key\id_rsa`（Windows 侧）/ `~/.ssh/erp_prod_key`（WSL 内副本，权限 600）
+
+```bash
+ssh -i ~/.ssh/erp_prod_key root@23.249.19.239
+```
+
+- 站点：`https://erp.dokodemo.top`（已上线）；部署目录 `/opt/erp`，三个容器 `erp-app` / `erp-mongo` / `erp-caddy`。
+- **只有 961MB 内存且内核无 swap**：禁止在服务器上做任何构建（曾经 `compose up --build` 直接 OOM 重启）。只能走本地打镜像 → `docker load` 这条路，即 `scripts/deploy.sh`。
+- 同机另跑 `marzban-node` 容器；mongo 仅 compose 内网可达，不暴露端口。
+- sysadmin `admin`（密码在服务器 `config.prod.toml`，不入库）。
 
 ## 12. 里程碑
 
