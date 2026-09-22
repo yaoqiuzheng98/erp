@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # 一键部署到生产环境：本地编译 → 打镜像 → 上传 → 服务器 docker load + compose up
 # 用法：scripts/deploy.sh           （在仓库根目录或任意目录执行均可）
-# 可用环境变量覆盖：ERP_HOST / ERP_SSH_KEY / ERP_DIR / ERP_IMAGE
+# 可用环境变量覆盖：ERP_HOST / ERP_SSH_KEY / ERP_DIR / ERP_IMAGE / ERP_SSH_OPTS
+# ERP_SSH_OPTS 只接受无空格的简单选项（如 "-o ConnectTimeout=10 -p 2222"）；
+# ProxyCommand 等含空格的选项请写入 ~/.ssh/config 的 Host 条目。
 set -euo pipefail
 
 HOST="${ERP_HOST:-23.249.19.239}"
 SSH_KEY="${ERP_SSH_KEY:-$HOME/.ssh/erp_prod_key}"
+SSH_OPTS="${ERP_SSH_OPTS:-}"
 REMOTE_DIR="${ERP_DIR:-/opt/erp}"
 IMAGE="${ERP_IMAGE:-erp-app:latest}"
 TAR="erp-app.tar.gz"
@@ -32,10 +35,10 @@ docker save "$IMAGE" | gzip > "/tmp/$TAR"
 ls -lh "/tmp/$TAR"
 
 echo "==> [4/5] 上传到 $HOST:$REMOTE_DIR"
-rsync --partial -e "ssh -i $SSH_KEY" "/tmp/$TAR" "root@$HOST:$REMOTE_DIR/" && rm -f "/tmp/$TAR"
+rsync --partial -e "ssh -i $SSH_KEY $SSH_OPTS" "/tmp/$TAR" "root@$HOST:$REMOTE_DIR/" && rm -f "/tmp/$TAR"
 
 echo "==> [5/5] 服务器部署"
-ssh -i "$SSH_KEY" "root@$HOST" bash -s <<REMOTE
+ssh -i "$SSH_KEY" $SSH_OPTS "root@$HOST" bash -s <<REMOTE
 set -euo pipefail
 cd "$REMOTE_DIR"
 if [ ! -f config.prod.toml ]; then
