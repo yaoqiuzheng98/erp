@@ -20,12 +20,12 @@ const (
 // Order 销售订单。
 type Order struct {
 	model.Doc    `bson:",inline"`
-	DocNo        string              `bson:"doc_no"`
-	CustomerID   bson.ObjectID       `bson:"customer_id"`
-	CustomerName string              `bson:"customer_name"`
-	WarehouseID  bson.ObjectID       `bson:"warehouse_id"`
+	DocNo        string               `bson:"doc_no"`
+	CustomerID   bson.ObjectID        `bson:"customer_id"`
+	CustomerName string               `bson:"customer_name"`
+	WarehouseID  bson.ObjectID        `bson:"warehouse_id"`
 	Lines        []contract.OrderLine `bson:"lines"`
-	Total        float64             `bson:"total"`
-	Status       string              `bson:"status"`
-	Remark       string              `bson:"remark"`
+	Total        float64              `bson:"total"`
+	Status       string               `bson:"status"`
+	Remark       string               `bson:"remark"`
 }

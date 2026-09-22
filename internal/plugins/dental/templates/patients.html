@@ -11,18 +11,23 @@
       {{template "partial/flash" .}}
       <h4 class="mb-3">患者</h4>
       <div class="card mb-3"><div class="card-body">
-        <form method="post" action="/app/dental/patients" class="row g-2 align-items-end">
+        <form method="post" action="/app/dental/patients" class="row g-2 align-items-end" id="patForm">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-auto"><label class="form-label">姓名</label>
-            <input class="form-control form-control-sm" name="name" required></div>
+          <div class="col-auto"><label class="form-label">客户</label>
+            <select class="form-select form-select-sm" name="customer_id" id="custSel" onchange="toggleCust(this)">
+              <option value="">（新客户）</option>
+              {{range .Data.Customers}}<option value="{{hex .ID}}">{{.Name}} {{.Phone}}</option>{{end}}
+            </select></div>
+          <div class="col-auto newpat"><label class="form-label">姓名</label>
+            <input class="form-control form-control-sm" name="name"></div>
+          <div class="col-auto newpat"><label class="form-label">电话</label>
+            <input class="form-control form-control-sm" name="phone"></div>
           <div class="col-auto"><label class="form-label">性别</label>
             <select class="form-select form-select-sm" name="gender">
               <option value="">-</option><option>男</option><option>女</option>
             </select></div>
           <div class="col-auto"><label class="form-label">出生日期</label>
             <input class="form-control form-control-sm" name="birth" type="date"></div>
-          <div class="col-auto"><label class="form-label">电话</label>
-            <input class="form-control form-control-sm" name="phone"></div>
           <div class="col-auto"><label class="form-label">过敏史</label>
             <input class="form-control form-control-sm" name="allergy"></div>
           <div class="col-auto"><label class="form-label">既往史</label>
@@ -30,6 +35,12 @@
           <div class="col-auto"><button class="btn btn-sm btn-primary">建档</button></div>
         </form>
       </div></div>
+      <script>
+      function toggleCust(sel){
+        // 选已有客户时姓名/电话以客户为准，隐藏输入
+        document.querySelectorAll('.newpat').forEach(e => e.style.display = sel.value ? 'none' : '');
+      }
+      </script>
       <form method="get" class="row g-2 mb-2">
         <div class="col-auto"><input class="form-control form-control-sm" name="q" value="{{.Data.Q}}" placeholder="姓名/病历号/电话"></div>
         <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">搜索</button></div>

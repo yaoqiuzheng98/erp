@@ -66,12 +66,13 @@ type StockChanged struct {
 	DocNo       string        `json:"doc_no"`
 }
 
-// Charge 业务收费（门诊/服务类，非 partner 订单渠道）：财务生成应收。
+// Charge 业务收费（门诊/服务类）：财务生成应收。PartyID 关联 basedata 客户。
 type Charge struct {
-	DocNo     string  `json:"doc_no"`     // 收费流水号
-	PartyName string  `json:"party_name"` // 付款方名称（患者等）
-	Total     float64 `json:"total"`
-	By        string  `json:"by"`
-	RefType   string  `json:"ref_type"` // 来源单据类型，如 dental_appt
-	RefID     string  `json:"ref_id"`   // 来源单据 hex
+	DocNo     string        `json:"doc_no"` // 收费流水号
+	PartyID   bson.ObjectID `json:"party_id"`
+	PartyName string        `json:"party_name"` // 付款方名称（冗余便于显示）
+	Total     float64       `json:"total"`
+	By        string        `json:"by"`
+	RefType   string        `json:"ref_type"` // 来源单据类型，如 dental_appt
+	RefID     string        `json:"ref_id"`   // 来源单据 hex
 }

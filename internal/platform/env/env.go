@@ -34,22 +34,22 @@ type PluginGate interface {
 }
 
 type Env struct {
-	Cfg      *config.Config
-	DB       *db.DB
-	Sessions *session.Manager
-	Auth     *auth.Service
-	Tenants  *tenant.Service
-	RBAC     *rbac.Service
-	Org      *org.Service
-	Dict     *dict.Service
-	Seq      *seqno.Generator
-	Audit    *audit.Service
-	Notify   *notify.Service
+	Cfg        *config.Config
+	DB         *db.DB
+	Sessions   *session.Manager
+	Auth       *auth.Service
+	Tenants    *tenant.Service
+	RBAC       *rbac.Service
+	Org        *org.Service
+	Dict       *dict.Service
+	Seq        *seqno.Generator
+	Audit      *audit.Service
+	Notify     *notify.Service
 	Industries *industry.Service
-	Attach   *attach.Service
-	Events   *event.Bus
-	Tasks    *task.Scheduler
-	Gate     PluginGate // 启动时装配 plugin.Manager
+	Attach     *attach.Service
+	Events     *event.Bus
+	Tasks      *task.Scheduler
+	Gate       PluginGate // 启动时装配 plugin.Manager
 
 	svcMu    sync.RWMutex
 	services map[string]any // Service Locator：插件间公开的服务

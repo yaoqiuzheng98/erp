@@ -85,10 +85,14 @@ func (s *Service) ListCustomers(ctx context.Context, tenantID bson.ObjectID) ([]
 	return s.customers.FindMany(ctx, tenantID, bson.M{})
 }
 
-func (s *Service) CreateCustomer(ctx context.Context, tenantID bson.ObjectID, cu *model.Customer) error {
+// CreateCustomer 建客户（contract.MasterDataAPI；handler 与跨插件调用共用）。
+func (s *Service) CreateCustomer(ctx context.Context, tenantID bson.ObjectID, in contract.CustomerUpsert) (*contract.PartnerRef, error) {
+	cu := &model.Customer{Code: in.Code, Name: in.Name, Contact: in.Contact, Phone: in.Phone}
 	cu.TenantID, cu.CreatedAt = tenantID, time.Now()
-	_, err := s.customers.Insert(ctx, tenantID, cu)
-	return err
+	if _, err := s.customers.Insert(ctx, tenantID, cu); err != nil {
+		return nil, err
+	}
+	return &contract.PartnerRef{ID: cu.ID, Code: cu.Code, Name: cu.Name}, nil
 }
 
 func (s *Service) ListSuppliers(ctx context.Context, tenantID bson.ObjectID) ([]model.Supplier, error) {
@@ -148,9 +152,18 @@ func (s *Service) Customers(ctx context.Context, tenantID bson.ObjectID) ([]cont
 	}
 	out := make([]contract.PartnerRef, 0, len(list))
 	for _, c := range list {
-		out = append(out, contract.PartnerRef{ID: c.ID, Code: c.Code, Name: c.Name})
+		out = append(out, contract.PartnerRef{ID: c.ID, Code: c.Code, Name: c.Name, Phone: c.Phone})
 	}
 	return out, nil
+}
+
+// Customer 单查（contract.MasterDataAPI）。
+func (s *Service) Customer(ctx context.Context, tenantID, id bson.ObjectID) (*contract.PartnerRef, error) {
+	c, err := s.customers.FindByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	return &contract.PartnerRef{ID: c.ID, Code: c.Code, Name: c.Name, Phone: c.Phone}, nil
 }
 
 func (s *Service) Suppliers(ctx context.Context, tenantID bson.ObjectID) ([]contract.PartnerRef, error) {

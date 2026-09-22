@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"erp/internal/platform/contract"
@@ -30,13 +31,52 @@ func New(e *env.Env) *Service {
 	}
 }
 
-func (s *Service) ListPatients(ctx context.Context, tenantID bson.ObjectID, q string, skip, limit int64) ([]model.Patient, int64, error) {
+// master 取主数据 API（basedata 必须启用，依赖声明保证）。
+func (s *Service) master() (contract.MasterDataAPI, error) {
+	return contract.Master(s.e)
+}
+
+// hydrate 患者 join 客户姓名/电话。
+func (s *Service) hydrate(ctx context.Context, tenantID bson.ObjectID, pats []model.Patient) []model.View {
+	master, err := s.master()
+	if err != nil {
+		return nil
+	}
+	custs, err := master.Customers(ctx, tenantID)
+	if err != nil {
+		return nil
+	}
+	names := map[bson.ObjectID]contract.PartnerRef{}
+	for _, c := range custs {
+		names[c.ID] = c
+	}
+	out := make([]model.View, 0, len(pats))
+	for _, p := range pats {
+		v := model.View{Patient: p}
+		if c, ok := names[p.CustomerID]; ok {
+			v.Name, v.Phone = c.Name, c.Phone
+		}
+		out = append(out, v)
+	}
+	return out
+}
+
+func (s *Service) ListPatients(ctx context.Context, tenantID bson.ObjectID, q string, skip, limit int64) ([]model.View, int64, error) {
 	f := bson.M{}
 	if q != "" {
+		// 姓名/电话/编码经客户表匹配出 customer_id 集合；病历号直接查
+		var ids []bson.ObjectID
+		if master, err := s.master(); err == nil {
+			custs, _ := master.Customers(ctx, tenantID)
+			for _, c := range custs {
+				if strings.Contains(c.Name, q) || strings.Contains(c.Code, q) || strings.Contains(c.Phone, q) {
+					ids = append(ids, c.ID)
+				}
+			}
+		}
 		f["$or"] = []bson.M{
-			{"name": bson.M{"$regex": q}},
 			{"code": bson.M{"$regex": q}},
-			{"phone": bson.M{"$regex": q}},
+			{"customer_id": bson.M{"$in": ids}},
 		}
 	}
 	total, err := s.pats.Count(ctx, tenantID, f)
@@ -44,19 +84,68 @@ func (s *Service) ListPatients(ctx context.Context, tenantID bson.ObjectID, q st
 		return nil, 0, err
 	}
 	list, err := s.pats.FindMany(ctx, tenantID, f)
-	return list, total, err
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.hydrate(ctx, tenantID, list), total, nil
 }
 
 func (s *Service) PatientByID(ctx context.Context, tenantID, id bson.ObjectID) (*model.Patient, error) {
 	return s.pats.FindByID(ctx, tenantID, id)
 }
 
-func (s *Service) CreatePatient(ctx context.Context, tenantID bson.ObjectID, p *model.Patient) error {
-	no, err := s.e.Seq.Next(ctx, tenantID, "PT")
+// PatientView 详情（含客户姓名/电话）。
+func (s *Service) PatientView(ctx context.Context, tenantID, id bson.ObjectID) (*model.View, error) {
+	p, err := s.PatientByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	v := &model.View{Patient: *p}
+	if master, err := s.master(); err == nil {
+		if c, err := master.Customer(ctx, tenantID, p.CustomerID); err == nil {
+			v.Name, v.Phone = c.Name, c.Phone
+		}
+	}
+	return v, nil
+}
+
+// CreatePatient 建档。customerID 非零 = 挂接已有客户（不新建）；否则以
+// name/phone 建 basedata 客户。病历号同时作为新建客户的编码。
+func (s *Service) CreatePatient(ctx context.Context, tenantID bson.ObjectID, p *model.Patient, name, phone string, customerID bson.ObjectID) error {
+	master, err := s.master()
 	if err != nil {
 		return err
 	}
-	p.Code = no
+	if customerID.IsZero() {
+		if name == "" {
+			return errors.New("姓名必填")
+		}
+		no, err := s.e.Seq.Next(ctx, tenantID, "PT")
+		if err != nil {
+			return err
+		}
+		cust, err := master.CreateCustomer(ctx, tenantID, contract.CustomerUpsert{
+			Code: no, Name: name, Phone: phone,
+		})
+		if err != nil {
+			return err
+		}
+		p.Code, p.CustomerID = no, cust.ID
+	} else {
+		cust, err := master.Customer(ctx, tenantID, customerID)
+		if err != nil {
+			return errors.New("客户不存在")
+		}
+		// 一客户一档案
+		if n, _ := s.pats.Count(ctx, tenantID, bson.M{"customer_id": cust.ID}); n > 0 {
+			return errors.New("该客户已有患者档案")
+		}
+		no, err := s.e.Seq.Next(ctx, tenantID, "PT")
+		if err != nil {
+			return err
+		}
+		p.Code, p.CustomerID = no, cust.ID
+	}
 	p.TenantID, p.CreatedAt = tenantID, time.Now()
 	_, err = s.pats.Insert(ctx, tenantID, p)
 	return err
@@ -104,7 +193,12 @@ func (s *Service) CreateAppt(ctx context.Context, tenantID bson.ObjectID, a *mod
 	if err != nil {
 		return errors.New("患者不存在")
 	}
-	a.PatientName = p.Name
+	// 快照患者姓名到预约单（列表显示免 join）
+	if master, err := s.master(); err == nil {
+		if c, err := master.Customer(ctx, tenantID, p.CustomerID); err == nil {
+			a.PatientName = c.Name
+		}
+	}
 	a.TenantID, a.Status, a.CreatedAt = tenantID, model.ApptBooked, time.Now()
 	_, err = s.appts.Insert(ctx, tenantID, a)
 	return err
@@ -161,11 +255,15 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, char
 			return err
 		}
 		set["charge_no"] = no
+		var partyID bson.ObjectID
+		if p, err := s.PatientByID(ctx, tenantID, a.PatientID); err == nil {
+			partyID = p.CustomerID
+		}
 		s.e.Events.Publish(ctx, event.Event{
 			Topic:    contract.TopicCharge,
 			TenantID: tenantID,
 			Payload: contract.Charge{
-				DocNo: no, PartyName: a.PatientName, Total: charge, By: by,
+				DocNo: no, PartyID: partyID, PartyName: a.PatientName, Total: charge, By: by,
 				RefType: "dental_appt", RefID: id.Hex(),
 			},
 		})

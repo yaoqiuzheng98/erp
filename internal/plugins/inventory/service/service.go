@@ -26,9 +26,9 @@ var (
 
 // Service 库存服务；e 用于发号器与事件总线。
 type Service struct {
-	e     *env.Env
-	docs  *repo.DocRepo
-	bal   *repo.BalanceRepo
+	e    *env.Env
+	docs *repo.DocRepo
+	bal  *repo.BalanceRepo
 }
 
 func New(e *env.Env) *Service {

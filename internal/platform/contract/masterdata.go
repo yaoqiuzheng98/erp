@@ -25,9 +25,18 @@ type WarehouseRef struct {
 }
 
 type PartnerRef struct {
-	ID   bson.ObjectID `json:"id"`
-	Code string        `json:"code"`
-	Name string        `json:"name"`
+	ID    bson.ObjectID `json:"id"`
+	Code  string        `json:"code"`
+	Name  string        `json:"name"`
+	Phone string        `json:"phone"`
+}
+
+// CustomerUpsert 创建客户的入参（跨插件写主数据的唯一通道）。
+type CustomerUpsert struct {
+	Code    string `json:"code"`
+	Name    string `json:"name"`
+	Contact string `json:"contact"`
+	Phone   string `json:"phone"`
 }
 
 // MasterDataAPI 由 basedata 插件实现，依赖它的插件经 env.Service 获取。
@@ -35,8 +44,10 @@ type MasterDataAPI interface {
 	Product(ctx context.Context, tenantID, id bson.ObjectID) (*ProductRef, error)
 	Products(ctx context.Context, tenantID bson.ObjectID) ([]ProductRef, error)
 	Warehouses(ctx context.Context, tenantID bson.ObjectID) ([]WarehouseRef, error)
+	Customer(ctx context.Context, tenantID, id bson.ObjectID) (*PartnerRef, error)
 	Customers(ctx context.Context, tenantID bson.ObjectID) ([]PartnerRef, error)
 	Suppliers(ctx context.Context, tenantID bson.ObjectID) ([]PartnerRef, error)
+	CreateCustomer(ctx context.Context, tenantID bson.ObjectID, in CustomerUpsert) (*PartnerRef, error)
 }
 
 const MasterDataService = "basedata"

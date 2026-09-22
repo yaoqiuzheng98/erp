@@ -44,10 +44,16 @@ func (s *Service) OnOrderApproved(ctx context.Context, tenantID bson.ObjectID, o
 	return err
 }
 
-// OnCharge 业务收费事件（门诊/服务类，非 partner 渠道）→ 生成应收。
+// OnCharge 业务收费事件（门诊/服务类）→ 生成应收。PartyID 直接挂客户档案，
+// 按 DocNo 幂等去重（事件重复投递不产生重复应收）。
 func (s *Service) OnCharge(ctx context.Context, tenantID bson.ObjectID, ch contract.Charge) error {
+	if ch.DocNo != "" {
+		if n, _ := s.bills.Count(ctx, tenantID, bson.M{"doc_no": ch.DocNo}); n > 0 {
+			return nil
+		}
+	}
 	b := &model.Bill{
-		Type: model.BillAR, PartnerName: ch.PartyName,
+		Type: model.BillAR, PartnerID: ch.PartyID, PartnerName: ch.PartyName,
 		OrderID: ch.RefID, DocNo: ch.DocNo,
 		Amount: ch.Total, Status: model.BillOpen,
 	}

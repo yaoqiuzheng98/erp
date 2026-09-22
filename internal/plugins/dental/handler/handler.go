@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"erp/internal/platform/contract"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/web"
@@ -44,26 +45,33 @@ func (h *Handler) today(c *gin.Context) {
 }
 
 func (h *Handler) patients(c *gin.Context) {
+	tenantID := mw.TenantID(c)
 	skip, limit, pager := web.ParsePager(c, 30)
 	q := c.Query("q")
-	list, total, err := h.svc.ListPatients(c.Request.Context(), mw.TenantID(c), q, skip, limit)
+	list, total, err := h.svc.ListPatients(c.Request.Context(), tenantID, q, skip, limit)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 	pager.Total = total
-	web.Render(c, h.e, "dental/patients", gin.H{"Rows": list, "Pager": pager, "Q": q})
+	data := gin.H{"Rows": list, "Pager": pager, "Q": q}
+	// 已有客户列表供"挂接已有客户"选择
+	if master, err := contract.Master(h.e); err == nil {
+		if custs, err := master.Customers(c.Request.Context(), tenantID); err == nil {
+			data["Customers"] = custs
+		}
+	}
+	web.Render(c, h.e, "dental/patients", data)
 }
 
 func (h *Handler) createPatient(c *gin.Context) {
 	p := &model.Patient{
-		Name: c.PostForm("name"), Gender: c.PostForm("gender"),
-		Birth: c.PostForm("birth"), Phone: c.PostForm("phone"),
+		Gender: c.PostForm("gender"), Birth: c.PostForm("birth"),
 		Allergy: c.PostForm("allergy"), History: c.PostForm("history"),
 	}
-	if p.Name == "" {
-		web.SetFlash(c, "姓名必填")
-	} else if err := h.svc.CreatePatient(c.Request.Context(), mw.TenantID(c), p); err != nil {
+	custID, _ := bson.ObjectIDFromHex(c.PostForm("customer_id"))
+	if err := h.svc.CreatePatient(c.Request.Context(), mw.TenantID(c), p,
+		c.PostForm("name"), c.PostForm("phone"), custID); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "患者已建档: "+p.Code)
@@ -73,7 +81,7 @@ func (h *Handler) createPatient(c *gin.Context) {
 
 func (h *Handler) patient(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	p, err := h.svc.PatientByID(c.Request.Context(), mw.TenantID(c), id)
+	p, err := h.svc.PatientView(c.Request.Context(), mw.TenantID(c), id)
 	if err != nil {
 		c.String(http.StatusNotFound, "患者不存在")
 		return

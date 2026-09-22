@@ -30,10 +30,10 @@ type Plugin struct {
 
 func init() { plugin.Register(&Plugin{}) }
 
-func (Plugin) ID() string            { return "inventory" }
-func (Plugin) Name() string          { return "库存管理" }
-func (Plugin) Version() string       { return "0.1.0" }
-func (Plugin) Templates() fs.FS      { return tplFS }
+func (Plugin) ID() string             { return "inventory" }
+func (Plugin) Name() string           { return "库存管理" }
+func (Plugin) Version() string        { return "0.1.0" }
+func (Plugin) Templates() fs.FS       { return tplFS }
 func (Plugin) Dependencies() []string { return []string{"basedata"} }
 
 func (Plugin) RegisterRoutes(g *gin.RouterGroup, e *env.Env) {

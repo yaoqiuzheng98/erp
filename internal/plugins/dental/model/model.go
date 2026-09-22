@@ -32,18 +32,25 @@ var ToothStatuses = map[string]string{
 	ToothCrown:   "修复",
 }
 
-// Patient 患者档案；Teeth 为 FDI 牙位码 → 状态（仅存非健康牙）。
+// Patient 患者医疗扩展档案：身份主体是 basedata 客户（CustomerID），
+// 本表只存医疗字段。姓名/电话经 CustomerID join 客户表取。
 type Patient struct {
-	model.Doc `bson:",inline"`
-	Code      string            `bson:"code"` // 病历号 PT-xxxxxx
-	Name      string            `bson:"name"`
-	Gender    string            `bson:"gender"`
-	Birth     string            `bson:"birth"`
-	Phone     string            `bson:"phone"`
-	Allergy   string            `bson:"allergy"` // 过敏史
-	History   string            `bson:"history"` // 既往史
-	Note      string            `bson:"note"`
-	Teeth     map[string]string `bson:"teeth"`
+	model.Doc  `bson:",inline"`
+	CustomerID bson.ObjectID     `bson:"customer_id"` // → basedata 客户
+	Code       string            `bson:"code"`        // 病历号 PT-xxxxxx（兼作客户编码）
+	Gender     string            `bson:"gender"`
+	Birth      string            `bson:"birth"`
+	Allergy    string            `bson:"allergy"` // 过敏史
+	History    string            `bson:"history"` // 既往史
+	Note       string            `bson:"note"`
+	Teeth      map[string]string `bson:"teeth"`
+}
+
+// View 患者 + 客户资料 join 后的展示模型。
+type View struct {
+	Patient
+	Name  string `bson:"-"`
+	Phone string `bson:"-"`
 }
 
 // Appointment 预约（按椅位/医生/时段排）。

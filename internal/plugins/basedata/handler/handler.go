@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"erp/internal/platform/contract"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/web"
@@ -130,11 +131,11 @@ func (h *Handler) customers(c *gin.Context) {
 }
 
 func (h *Handler) createCustomer(c *gin.Context) {
-	cu := &model.Customer{
+	in := contract.CustomerUpsert{
 		Code: c.PostForm("code"), Name: c.PostForm("name"),
 		Contact: c.PostForm("contact"), Phone: c.PostForm("phone"),
 	}
-	if err := h.svc.CreateCustomer(c.Request.Context(), mw.TenantID(c), cu); err != nil {
+	if _, err := h.svc.CreateCustomer(c.Request.Context(), mw.TenantID(c), in); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "客户已创建")
