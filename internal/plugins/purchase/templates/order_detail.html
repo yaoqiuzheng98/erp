@@ -1,0 +1,63 @@
+{{define "purchase/order_detail"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0">采购订单 {{.Data.Order.DocNo}}</h4>
+        <div>
+          {{if or (eq .Data.Order.Status "draft") (eq .Data.Order.Status "rejected")}}
+          <form method="post" action="/app/purchase/orders/{{hex .Data.Order.ID}}/submit" class="d-inline">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <button class="btn btn-sm btn-primary">{{if .Data.FlowEnabled}}提交审批{{else}}提交并审核{{end}}</button>
+          </form>
+          {{end}}
+          {{if and (not .Data.FlowEnabled) (eq .Data.Order.Status "draft")}}
+          <form method="post" action="/app/purchase/orders/{{hex .Data.Order.ID}}/approve" class="d-inline">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <button class="btn btn-sm btn-success">审核通过</button>
+          </form>
+          {{end}}
+          {{if eq .Data.Order.Status "approved"}}
+          <form method="post" action="/app/purchase/orders/{{hex .Data.Order.ID}}/done" class="d-inline">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <button class="btn btn-sm btn-success">标记完成</button>
+          </form>
+          {{end}}
+          {{if or (eq .Data.Order.Status "draft") (eq .Data.Order.Status "submitted") (eq .Data.Order.Status "rejected")}}
+          <form method="post" action="/app/purchase/orders/{{hex .Data.Order.ID}}/cancel" class="d-inline"
+                onsubmit="return confirm('确认作废订单？')">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <button class="btn btn-sm btn-outline-danger">作废</button>
+          </form>
+          {{end}}
+        </div>
+      </div>
+      <div class="card mb-3"><div class="card-body row small">
+        <div class="col-md-3">供应商：<b>{{.Data.Order.SupplierName}}</b></div>
+        <div class="col-md-3">状态：<span class="badge {{if eq .Data.Order.Status "approved"}}bg-success{{else if eq .Data.Order.Status "done"}}bg-primary{{else if or (eq .Data.Order.Status "cancelled") (eq .Data.Order.Status "rejected")}}bg-secondary{{else}}bg-warning text-dark{{end}}">{{.Data.Order.Status}}</span></div>
+        <div class="col-md-3">金额：<b>{{.Data.Order.Total}}</b></div>
+        <div class="col-md-3">备注：{{.Data.Order.Remark}}</div>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>商品编码</th><th>商品名称</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
+        <tbody>
+        {{range .Data.Order.Lines}}
+        <tr><td>{{.ProductCode}}</td><td>{{.ProductName}}</td><td>{{.Qty}}</td><td>{{.Price}}</td><td>{{mul .Qty .Price}}</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      <a class="btn btn-sm btn-outline-secondary" href="/app/purchase/orders">返回列表</a>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

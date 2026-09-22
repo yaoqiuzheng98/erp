@@ -1,0 +1,63 @@
+{{define "admin/roles"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">角色管理</h4>
+      <div class="card mb-4"><div class="card-body">
+        <form method="post" action="/admin/roles">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col-auto"><label class="form-label">编码</label>
+              <input class="form-control form-control-sm" name="code" required></div>
+            <div class="col-auto"><label class="form-label">名称</label>
+              <input class="form-control form-control-sm" name="name" required></div>
+            <div class="col-auto"><label class="form-label">数据范围</label>
+              <select class="form-select form-select-sm" name="data_scope">
+                <option value="self">本人</option>
+                <option value="dept">本部门</option>
+                <option value="all">全部</option>
+              </select></div>
+          </div>
+          <div class="row row-cols-4 g-1 mb-2">
+            {{range .Data.Perms}}
+            <div class="col"><div class="form-check">
+              <input class="form-check-input" type="checkbox" name="perm_codes" value="{{.Code}}">
+              <label class="form-check-label small">{{.Code}} <span class="text-muted">{{.Desc}}</span></label>
+            </div></div>
+            {{end}}
+          </div>
+          <button class="btn btn-sm btn-primary">新增角色</button>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>编码</th><th>名称</th><th>数据范围</th><th>权限码</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Roles}}
+        <tr>
+          <td>{{.Code}}</td><td>{{.Name}}</td><td>{{.DataScope}}</td>
+          <td class="small text-muted">{{range .PermCodes}}{{.}} {{end}}</td>
+          <td>
+            <form method="post" action="/admin/roles/{{hex .ID}}/delete" class="m-0"
+                  onsubmit="return confirm('确认删除角色 {{.Name}}？')">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">删除</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

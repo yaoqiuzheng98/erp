@@ -1,0 +1,48 @@
+{{define "hr/employees"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">员工</h4>
+      <div class="card mb-3"><div class="card-body">
+        <form method="post" action="/app/hr/employees" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">工号</label>
+            <input class="form-control form-control-sm" name="code" required></div>
+          <div class="col-auto"><label class="form-label">姓名</label>
+            <input class="form-control form-control-sm" name="name" required></div>
+          <div class="col-auto"><label class="form-label">部门</label>
+            <input class="form-control form-control-sm" name="dept"></div>
+          <div class="col-auto"><label class="form-label">岗位</label>
+            <input class="form-control form-control-sm" name="position"></div>
+          <div class="col-auto"><label class="form-label">电话</label>
+            <input class="form-control form-control-sm" name="phone"></div>
+          <div class="col-auto"><label class="form-label">入职日期</label>
+            <input class="form-control form-control-sm" name="hire_date" type="date"></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">新增</button></div>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>工号</th><th>姓名</th><th>部门</th><th>岗位</th><th>电话</th><th>入职</th><th>状态</th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr><td>{{.Code}}</td><td>{{.Name}}</td><td>{{.Dept}}</td><td>{{.Position}}</td>
+          <td>{{.Phone}}</td><td>{{date .HireDate}}</td><td>{{.Status}}</td></tr>
+        {{else}}
+        <tr><td colspan="7" class="text-muted">暂无员工</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

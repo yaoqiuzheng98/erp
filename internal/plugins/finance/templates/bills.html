@@ -1,0 +1,46 @@
+{{define "finance/bills"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">{{if eq .Path "/app/finance/receivables"}}应收{{else}}应付{{end}}单据</h4>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>来源单号</th><th>往来单位</th><th>金额</th><th>已核销</th><th>状态</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Bills}}
+        <tr>
+          <td>{{.DocNo}}</td><td>{{.PartnerName}}</td><td>{{f2 .Amount}}</td><td>{{f2 .PaidAmount}}</td>
+          <td><span class="badge {{if eq .Status "paid"}}bg-success{{else}}bg-warning text-dark{{end}}">{{.Status}}</span></td>
+          <td>
+            {{if eq .Status "open"}}
+            <form method="post" action="/app/finance/bills/{{hex .ID}}/pay" class="row g-1">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <div class="col-auto"><input class="form-control form-control-sm" style="width:100px"
+                   name="amount" type="number" step="0.01" value="{{.Amount}}" required></div>
+              <div class="col-auto"><select class="form-select form-select-sm" name="method">
+                <option value="bank">银行</option><option value="cash">现金</option><option value="other">其他</option>
+              </select></div>
+              <div class="col-auto"><button class="btn btn-sm btn-primary">核销</button></div>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="text-muted">暂无单据</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

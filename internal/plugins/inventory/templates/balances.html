@@ -1,0 +1,33 @@
+{{define "inventory/balances"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">库存余额</h4>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>商品编码</th><th>商品名称</th><th>仓库</th><th>数量</th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr {{if index $.Data.Low (hex .ID)}}class="table-danger"{{end}}>
+          <td>{{.ProductCode}}</td><td>{{.ProductName}}</td>
+          <td>{{hex .WarehouseID}}</td><td><b>{{.Qty}}</b></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="text-muted">暂无库存</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

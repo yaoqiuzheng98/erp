@@ -1,0 +1,67 @@
+{{define "basedata/products"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">商品</h4>
+
+      <div class="card mb-3"><div class="card-body">
+        <form method="post" action="/app/basedata/products" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">编码</label>
+            <input class="form-control form-control-sm" name="code" required></div>
+          <div class="col-auto"><label class="form-label">名称</label>
+            <input class="form-control form-control-sm" name="name" required></div>
+          <div class="col-auto"><label class="form-label">单位</label>
+            <input class="form-control form-control-sm" name="unit"></div>
+          <div class="col-auto"><label class="form-label">分类</label>
+            <input class="form-control form-control-sm" name="category"></div>
+          <div class="col-auto"><label class="form-label">规格</label>
+            <input class="form-control form-control-sm" name="spec"></div>
+          <div class="col-auto"><label class="form-label">单价</label>
+            <input class="form-control form-control-sm" name="price" type="number" step="0.01"></div>
+          <div class="col-auto"><label class="form-label">库存下限</label>
+            <input class="form-control form-control-sm" name="min_stock" type="number" step="0.01"></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">新增商品</button></div>
+        </form>
+      </div></div>
+
+      <input class="form-control form-control-sm mb-2" style="width:280px"
+             placeholder="搜索编码/名称..."
+             hx-get="/app/basedata/products/table" hx-trigger="keyup changed delay:300ms"
+             hx-target="#product-wrap" hx-include="this" name="q">
+
+      <div id="product-wrap"
+             hx-get="/app/basedata/products/table" hx-trigger="load"></div>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}
+
+{{define "basedata/product_rows"}}
+<table class="table table-sm bg-white">
+  <thead><tr><th>编码</th><th>名称</th><th>单位</th><th>分类</th><th>规格</th><th>单价</th><th>库存下限</th><th>状态</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Rows}}
+  <tr>
+    <td>{{.Code}}</td><td>{{.Name}}</td><td>{{.Unit}}</td>
+    <td>{{.Category}}</td><td>{{.Spec}}</td><td>{{.Price}}</td>
+    <td>{{.MinStock}}</td><td>{{.Status}}</td>
+    <td><a class="btn btn-sm btn-outline-secondary" href="/app/basedata/products/{{hex .ID}}/edit">编辑</a></td>
+  </tr>
+  {{else}}
+  <tr><td colspan="9" class="text-muted">暂无数据</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{template "partial/pager" .}}
+{{end}}

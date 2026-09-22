@@ -1,0 +1,62 @@
+{{define "hr/leaves"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">请假</h4>
+      <div class="card mb-3"><div class="card-body">
+        <form method="post" action="/app/hr/leaves" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">员工</label>
+            <select class="form-select form-select-sm" name="employee_id" required>
+              {{range .Data.Emps}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
+            </select></div>
+          <div class="col-auto"><label class="form-label">类型</label>
+            <select class="form-select form-select-sm" name="type">
+              <option value="annual">年假</option><option value="sick">病假</option><option value="personal">事假</option>
+            </select></div>
+          <div class="col-auto"><label class="form-label">从</label>
+            <input class="form-control form-control-sm" name="from" type="date" required></div>
+          <div class="col-auto"><label class="form-label">到</label>
+            <input class="form-control form-control-sm" name="to" type="date" required></div>
+          <div class="col-auto"><label class="form-label">事由</label>
+            <input class="form-control form-control-sm" name="reason"></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">新建请假单</button></div>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>单号</th><th>员工</th><th>类型</th><th>区间</th><th>事由</th><th>状态</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr>
+          <td>{{.DocNo}}</td><td>{{.EmpName}}</td><td>{{.Type}}</td>
+          <td>{{.From}} ~ {{.To}}</td><td>{{.Reason}}</td>
+          <td><span class="badge {{if eq .Status "approved"}}bg-success{{else if eq .Status "rejected"}}bg-danger{{else if eq .Status "submitted"}}bg-info{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
+          <td>
+            {{if or (eq .Status "draft") (eq .Status "rejected")}}
+            <form method="post" action="/app/hr/leaves/{{hex .ID}}/submit" class="d-inline">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-primary">{{if $.Data.FlowEnabled}}提交审批{{else}}提交{{end}}</button>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="text-muted">暂无请假单</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

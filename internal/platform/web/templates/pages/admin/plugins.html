@@ -1,0 +1,48 @@
+{{define "admin/plugins"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">插件管理</h4>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>ID</th><th>名称</th><th>版本</th><th>依赖</th><th>状态</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Plugins}}
+        <tr>
+          <td class="text-muted">{{.ID}}</td>
+          <td>{{.Name}}</td>
+          <td>{{.Version}}</td>
+          <td class="small text-muted">{{range .Dependencies}}{{.}} {{end}}</td>
+          <td><span class="badge {{if .Enabled}}bg-success{{else}}bg-secondary{{end}}">
+            {{if .Enabled}}已启用{{else}}未启用{{end}}</span></td>
+          <td>
+            {{if .Enabled}}
+            <form method="post" action="/admin/plugins/{{.ID}}/disable" class="m-0"
+                  onsubmit="return confirm('禁用后该插件对本企业不可见，数据保留。确认？')">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">禁用</button>
+            </form>
+            {{else}}
+            <form method="post" action="/admin/plugins/{{.ID}}/enable" class="m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-success">启用</button>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

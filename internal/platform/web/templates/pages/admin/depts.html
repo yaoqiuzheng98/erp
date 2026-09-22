@@ -1,0 +1,50 @@
+{{define "admin/depts"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">部门管理</h4>
+      <div class="card mb-4"><div class="card-body">
+        <form method="post" action="/admin/depts" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">部门名称</label>
+            <input class="form-control form-control-sm" name="name" required></div>
+          <div class="col-auto"><label class="form-label">上级部门</label>
+            <select class="form-select form-select-sm" name="parent_id">
+              <option value="">（无）</option>
+              {{range .Data.Depts}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
+            </select></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">新增</button></div>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>名称</th><th>上级</th><th>创建时间</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Depts}}
+        <tr>
+          <td>{{.Name}}</td>
+          <td>{{if .ParentID}}{{hex .ParentID}}{{else}}-{{end}}</td>
+          <td>{{date .CreatedAt}}</td>
+          <td>
+            <form method="post" action="/admin/depts/{{hex .ID}}/delete" class="m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">删除</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

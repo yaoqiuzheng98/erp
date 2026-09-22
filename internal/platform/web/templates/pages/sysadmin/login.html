@@ -1,0 +1,23 @@
+{{define "sys/login"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body class="d-flex align-items-center justify-content-center" style="min-height:100vh">
+<div class="card shadow-sm" style="width:360px">
+  <div class="card-body p-4">
+    <h4 class="mb-1 text-center">ERP 平台</h4>
+    <p class="text-muted text-center small mb-3">系统管理后台</p>
+    {{if .Data}}{{if .Data.Err}}<div class="alert alert-danger py-2">{{.Data.Err}}</div>{{end}}{{end}}
+    <form method="post" action="/sysadmin/login">
+      <div class="mb-3"><label class="form-label">用户名</label>
+        <input class="form-control" name="username" required autofocus></div>
+      <div class="mb-3"><label class="form-label">密码</label>
+        <input class="form-control" type="password" name="password" required></div>
+      <button class="btn btn-dark w-100">登录</button>
+    </form>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

@@ -1,0 +1,54 @@
+{{define "flow/approvals"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">审批单</h4>
+      <div class="btn-group btn-group-sm mb-2">
+        <a class="btn btn-outline-secondary {{if eq .Data.Status "pending"}}active{{end}}" href="?status=pending">待审批</a>
+        <a class="btn btn-outline-secondary {{if eq .Data.Status "approved"}}active{{end}}" href="?status=approved">已通过</a>
+        <a class="btn btn-outline-secondary {{if eq .Data.Status "rejected"}}active{{end}}" href="?status=rejected">已驳回</a>
+        <a class="btn btn-outline-secondary {{if eq .Data.Status ""}}active{{end}}" href="?status=">全部</a>
+      </div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>单据</th><th>类型</th><th>提交人</th><th>状态</th><th>提交时间</th><th>审批人/意见</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.List}}
+        <tr>
+          <td>{{.Title}}</td><td>{{.TargetType}}</td><td>{{.By}}</td>
+          <td><span class="badge {{if eq .Status "approved"}}bg-success{{else if eq .Status "rejected"}}bg-danger{{else}}bg-warning text-dark{{end}}">{{.Status}}</span></td>
+          <td>{{date .CreatedAt}}</td>
+          <td class="small">{{.Approver}} {{.Comment}}</td>
+          <td>
+            {{if and (eq .Status "pending") $.Data.CanApprove}}
+            <form method="post" action="/app/flow/approvals/{{hex .ID}}/approve" class="d-inline">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-success">通过</button>
+            </form>
+            <form method="post" action="/app/flow/approvals/{{hex .ID}}/reject" class="d-inline">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="comment" value="驳回">
+              <button class="btn btn-sm btn-outline-danger">驳回</button>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="text-muted">暂无审批单</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

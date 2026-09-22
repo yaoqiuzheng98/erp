@@ -1,0 +1,29 @@
+{{define "admin/audit"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      <h4 class="mb-3">审计日志</h4>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>时间</th><th>用户</th><th>操作</th><th>对象</th><th>详情</th><th>IP</th></tr></thead>
+        <tbody>
+        {{range .Data.Logs}}
+        <tr>
+          <td>{{date .At}}</td><td>{{.Username}}</td><td>{{.Action}}</td>
+          <td>{{.Target}}</td><td class="small text-muted">{{.Detail}}</td><td>{{.IP}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

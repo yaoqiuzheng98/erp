@@ -1,0 +1,30 @@
+{{define "sys/home"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/sysnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/systop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">平台概览</h4>
+      <div class="row g-3">
+        <div class="col-md-3"><div class="card"><div class="card-body">
+          <div class="text-muted small">租户数</div><div class="fs-3">{{.Data.TenantCount}}</div>
+        </div></div></div>
+        <div class="col-md-3"><div class="card"><div class="card-body">
+          <div class="text-muted small">用户总数</div><div class="fs-3">{{.Data.UserCount}}</div>
+        </div></div></div>
+        <div class="col-md-3"><div class="card"><div class="card-body">
+          <div class="text-muted small">已注册插件</div><div class="fs-3">{{.Data.PluginCount}}</div>
+        </div></div></div>
+      </div>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

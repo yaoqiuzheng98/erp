@@ -1,0 +1,59 @@
+{{define "inventory/doc_new"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      <h4 class="mb-3">新建{{if eq .Data.Type "in"}}入库{{else if eq .Data.Type "out"}}出库{{else}}盘点{{end}}单</h4>
+      <div class="card"><div class="card-body">
+        <form method="post" action="/app/inventory/docs">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <input type="hidden" name="type" value="{{.Data.Type}}">
+          <div class="row g-2 mb-3">
+            <div class="col-md-4"><label class="form-label">仓库</label>
+              <select class="form-select form-select-sm" name="warehouse_id" required>
+                {{range .Data.Warehouses}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
+              </select></div>
+            <div class="col-md-6"><label class="form-label">备注</label>
+              <input class="form-control form-control-sm" name="remark"></div>
+          </div>
+          <table class="table table-sm" id="lines">
+            <thead><tr><th style="width:55%">商品</th><th>数量</th><th></th></tr></thead>
+            <tbody>
+              <tr>
+                <td><select class="form-select form-select-sm" name="product_id" required>
+                  {{range .Data.Products}}<option value="{{hex .ID}}">{{.Code}} {{.Name}}</option>{{end}}
+                </select></td>
+                <td><input class="form-control form-control-sm" name="qty" type="number" step="0.01" min="0.01" required></td>
+                <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="delRow(this)">×</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="addRow()">+ 添加行</button>
+          <div><button class="btn btn-sm btn-primary">提交</button>
+            <a class="btn btn-sm btn-outline-secondary" href="/app/inventory/docs">返回</a></div>
+        </form>
+      </div></div>
+    </main>
+  </div>
+</div>
+<script>
+function addRow() {
+  var tbody = document.querySelector('#lines tbody');
+  var row = tbody.rows[0].cloneNode(true);
+  row.querySelectorAll('input').forEach(function(i){ i.value=''; });
+  tbody.appendChild(row);
+}
+function delRow(btn) {
+  var tbody = document.querySelector('#lines tbody');
+  if (tbody.rows.length > 1) btn.closest('tr').remove();
+}
+</script>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

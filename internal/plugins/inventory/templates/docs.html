@@ -1,0 +1,49 @@
+{{define "inventory/docs"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0">出入库单</h4>
+        <div>
+          <a class="btn btn-sm btn-primary" href="/app/inventory/docs/new?type=in">新建入库单</a>
+          <a class="btn btn-sm btn-primary" href="/app/inventory/docs/new?type=out">新建出库单</a>
+          <a class="btn btn-sm btn-outline-primary" href="/app/inventory/docs/new?type=check">新建盘点单</a>
+        </div>
+      </div>
+      <div class="btn-group btn-group-sm mb-2">
+        <a class="btn btn-outline-secondary {{if eq .Data.Type ""}}active{{end}}" href="?type=">全部</a>
+        <a class="btn btn-outline-secondary {{if eq .Data.Type "in"}}active{{end}}" href="?type=in">入库</a>
+        <a class="btn btn-outline-secondary {{if eq .Data.Type "out"}}active{{end}}" href="?type=out">出库</a>
+        <a class="btn btn-outline-secondary {{if eq .Data.Type "check"}}active{{end}}" href="?type=check">盘点</a>
+      </div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>单号</th><th>类型</th><th>状态</th><th>行数</th><th>来源单</th><th>创建</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Docs}}
+        <tr>
+          <td>{{.DocNo}}</td>
+          <td>{{if eq .Type "in"}}入库{{else if eq .Type "out"}}出库{{else}}盘点{{end}}</td>
+          <td><span class="badge {{if eq .Status "confirmed"}}bg-success{{else if eq .Status "cancelled"}}bg-secondary{{else}}bg-warning text-dark{{end}}">{{.Status}}</span></td>
+          <td>{{len .Lines}}</td><td>{{.RefNo}}</td><td>{{date .CreatedAt}}</td>
+          <td><a class="btn btn-sm btn-outline-secondary" href="/app/inventory/docs/{{hex .ID}}">详情</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="text-muted">暂无单据</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

@@ -1,0 +1,33 @@
+{{define "finance/payments"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      <h4 class="mb-3">收付款记录</h4>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>单号</th><th>类型</th><th>关联单据</th><th>金额</th><th>方式</th><th>时间</th></tr></thead>
+        <tbody>
+        {{range .Data.List}}
+        <tr>
+          <td>{{.DocNo}}</td>
+          <td>{{if eq .Type "receipt"}}收款{{else}}付款{{end}}</td>
+          <td>{{.BillDocNo}}</td><td>{{f2 .Amount}}</td><td>{{.Method}}</td><td>{{date .PaidAt}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="text-muted">暂无记录</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

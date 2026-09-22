@@ -1,0 +1,31 @@
+{{define "partial/appnav"}}
+<nav class="sidebar p-2 d-flex flex-column">
+  <a class="fs-5 fw-bold text-white px-2 py-2 mb-1" href="/app">{{if .Tenant}}{{.Tenant.Name}}{{else}}ERP{{end}}</a>
+  {{range .Menu}}
+    {{if .Children}}
+      <div class="nav-group">{{if .Icon}}{{.Icon}} {{end}}{{.Title}}</div>
+      {{range .Children}}
+        <a href="{{.Path}}" {{if eq .Path $.Path}}class="active"{{end}}>{{.Title}}</a>
+      {{end}}
+    {{else}}
+      <a href="{{.Path}}" {{if eq .Path $.Path}}class="active"{{end}}>{{if .Icon}}{{.Icon}} {{end}}{{.Title}}</a>
+    {{end}}
+  {{end}}
+</nav>
+{{end}}
+
+{{define "partial/apptop"}}
+<div class="topbar d-flex justify-content-between align-items-center px-4 py-2">
+  <span class="text-muted small">{{.Path}}</span>
+  <div class="d-flex align-items-center gap-3">
+    <a href="/app/notifications" class="text-decoration-none">
+      通知{{if gt .NotifCount 0}}<span class="badge bg-danger ms-1">{{.NotifCount}}</span>{{end}}
+    </a>
+    <span class="text-dark">{{if .User}}{{.User.Name}}（{{.User.Username}}）{{end}}</span>
+    <form method="post" action="/logout" class="m-0">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button class="btn btn-sm btn-outline-secondary">退出</button>
+    </form>
+  </div>
+</div>
+{{end}}

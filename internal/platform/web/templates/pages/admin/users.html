@@ -1,0 +1,66 @@
+{{define "admin/users"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">用户管理</h4>
+      <div class="card mb-4"><div class="card-body">
+        <form method="post" action="/admin/users" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">用户名</label>
+            <input class="form-control form-control-sm" name="username" required></div>
+          <div class="col-auto"><label class="form-label">姓名</label>
+            <input class="form-control form-control-sm" name="name" required></div>
+          <div class="col-auto"><label class="form-label">密码</label>
+            <input class="form-control form-control-sm" type="password" name="password" required></div>
+          <div class="col-auto">
+            {{range .Data.Roles}}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="role_ids" value="{{hex .ID}}">
+              <label class="form-check-label">{{.Name}}</label>
+            </div>
+            {{end}}
+          </div>
+          <div class="col-auto form-check">
+            <input class="form-check-input" type="checkbox" name="is_admin">
+            <label class="form-check-label">租户管理员</label>
+          </div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">新增用户</button></div>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>用户名</th><th>姓名</th><th>角色</th><th>管理员</th><th>状态</th><th>最近登录</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Users}}
+        <tr>
+          <td>{{.Username}}</td>
+          <td>{{.Name}}</td>
+          <td>{{range .RoleIDs}}{{index $.Data.RoleName (hex .)}} {{end}}</td>
+          <td>{{if .IsTenantAdm}}是{{else}}否{{end}}</td>
+          <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
+          <td>{{date .LastLoginAt}}</td>
+          <td>
+            <form method="post" action="/admin/users/{{hex .ID}}/toggle" class="m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-{{if eq .Status "active"}}danger{{else}}success{{end}}">
+                {{if eq .Status "active"}}禁用{{else}}启用{{end}}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

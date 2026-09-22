@@ -1,0 +1,7 @@
+.git
+backups/
+data/
+config.toml
+config.prod.toml
+*.md
+.devin/

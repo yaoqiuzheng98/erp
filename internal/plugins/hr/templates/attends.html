@@ -1,0 +1,47 @@
+{{define "hr/attends"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">考勤</h4>
+      <div class="card mb-3"><div class="card-body">
+        <form method="post" action="/app/hr/attends" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">员工</label>
+            <select class="form-select form-select-sm" name="employee_id" required>
+              {{range .Data.Emps}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
+            </select></div>
+          <div class="col-auto"><label class="form-label">日期</label>
+            <input class="form-control form-control-sm" name="date" type="date" required></div>
+          <div class="col-auto"><label class="form-label">类型</label>
+            <select class="form-select form-select-sm" name="type">
+              <option value="normal">正常</option><option value="late">迟到</option>
+              <option value="absent">缺勤</option><option value="leave">请假</option>
+            </select></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">打卡/登记</button></div>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>日期</th><th>员工</th><th>类型</th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr><td>{{.Date}}</td><td>{{.EmpName}}</td><td>{{.Type}}</td></tr>
+        {{else}}
+        <tr><td colspan="3" class="text-muted">暂无考勤记录</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

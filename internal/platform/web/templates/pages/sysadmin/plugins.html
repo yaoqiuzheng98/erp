@@ -1,0 +1,29 @@
+{{define "sys/plugins"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/sysnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/systop" .}}
+    <main class="p-4">
+      <h4 class="mb-3">插件目录（全局注册表）</h4>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>ID</th><th>名称</th><th>版本</th><th>依赖</th></tr></thead>
+        <tbody>
+        {{range .Data.Plugins}}
+        <tr>
+          <td class="text-muted">{{.ID}}</td><td>{{.Name}}</td><td>{{.Version}}</td>
+          <td class="small text-muted">{{range .Deps}}{{.}} {{end}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

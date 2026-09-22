@@ -1,0 +1,43 @@
+{{define "basedata/partners"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">{{.Data.Title}}</h4>
+      <div class="card mb-3"><div class="card-body">
+        <form method="post" action="{{.Data.Path}}" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">编码</label>
+            <input class="form-control form-control-sm" name="code" required></div>
+          <div class="col-auto"><label class="form-label">名称</label>
+            <input class="form-control form-control-sm" name="name" required></div>
+          <div class="col-auto"><label class="form-label">联系人</label>
+            <input class="form-control form-control-sm" name="contact"></div>
+          <div class="col-auto"><label class="form-label">电话</label>
+            <input class="form-control form-control-sm" name="phone"></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">新增{{.Data.Title}}</button></div>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>编码</th><th>名称</th><th>联系人</th><th>电话</th><th>创建时间</th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr><td>{{.Code}}</td><td>{{.Name}}</td><td>{{.Contact}}</td><td>{{.Phone}}</td><td>{{date .CreatedAt}}</td></tr>
+        {{else}}
+        <tr><td colspan="5" class="text-muted">暂无数据</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

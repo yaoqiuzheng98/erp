@@ -1,0 +1,41 @@
+{{define "basedata/warehouses"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">仓库</h4>
+      <div class="card mb-3"><div class="card-body">
+        <form method="post" action="/app/basedata/warehouses" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">编码</label>
+            <input class="form-control form-control-sm" name="code" required></div>
+          <div class="col-auto"><label class="form-label">名称</label>
+            <input class="form-control form-control-sm" name="name" required></div>
+          <div class="col-auto"><label class="form-label">地址</label>
+            <input class="form-control form-control-sm" name="address"></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">新增仓库</button></div>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>编码</th><th>名称</th><th>地址</th><th>创建时间</th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr><td>{{.Code}}</td><td>{{.Name}}</td><td>{{.Address}}</td><td>{{date .CreatedAt}}</td></tr>
+        {{else}}
+        <tr><td colspan="4" class="text-muted">暂无仓库</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

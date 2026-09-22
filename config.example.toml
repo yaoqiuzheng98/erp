@@ -1,0 +1,27 @@
+[server]
+addr = ":8080"
+
+[mongo]
+uri = "mongodb://localhost:27017"
+database = "erp"
+
+[session]
+ttl_hours = 12
+cookie_name = "erp_sid"
+sys_cookie_name = "erp_sys"
+secret = "change-me"          # 会话 cookie 签名密钥
+secure = false                # HTTPS 部署置 true，cookie 加 Secure 标记
+
+[storage]
+upload_dir = "./data/uploads"
+
+[log]
+level = "info"
+
+[seed]
+enabled = true                # 首次启动时写入种子数据
+sysadmin_user = "admin"       # 系统超管账号
+sysadmin_pass = "admin123"
+demo_tenant = true            # 创建演示租户 "demo"
+demo_admin_user = "admin"     # 演示租户管理员
+demo_admin_pass = "admin123"

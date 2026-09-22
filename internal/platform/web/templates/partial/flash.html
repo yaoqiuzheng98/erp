@@ -1,0 +1,8 @@
+{{define "partial/flash"}}
+{{if .Flash}}
+<div class="alert alert-info alert-dismissible fade show" role="alert">
+  {{.Flash}}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{{end}}
+{{end}}

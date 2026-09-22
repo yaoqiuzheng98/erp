@@ -1,0 +1,35 @@
+{{define "dashboard"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">工作台</h4>
+      {{if .Data.Cards}}
+      <div class="row g-3">
+        {{range .Data.Cards}}
+        <div class="col-md-3">
+          <a class="card text-decoration-none h-100" href="{{.Path}}">
+            <div class="card-body">
+              <h6 class="card-title">{{.Name}}</h6>
+              <p class="card-text text-muted small">{{.ID}}</p>
+            </div>
+          </a>
+        </div>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="alert alert-secondary">尚未启用任何插件，请让管理员到「系统管理 → 插件」启用。</div>
+      {{end}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

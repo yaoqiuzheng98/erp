@@ -1,0 +1,44 @@
+{{define "finance/expenses"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">费用</h4>
+      <div class="card mb-3"><div class="card-body">
+        <form method="post" action="/app/finance/expenses" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">事项</label>
+            <input class="form-control form-control-sm" name="title" required></div>
+          <div class="col-auto"><label class="form-label">金额</label>
+            <input class="form-control form-control-sm" name="amount" type="number" step="0.01" required></div>
+          <div class="col-auto"><label class="form-label">类别</label>
+            <input class="form-control form-control-sm" name="category"></div>
+          <div class="col-auto"><label class="form-label">日期</label>
+            <input class="form-control form-control-sm" name="at" type="date"></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">记账</button></div>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>日期</th><th>事项</th><th>类别</th><th>金额</th></tr></thead>
+        <tbody>
+        {{range .Data.List}}
+        <tr><td>{{date .At}}</td><td>{{.Title}}</td><td>{{.Category}}</td><td>{{f2 .Amount}}</td></tr>
+        {{else}}
+        <tr><td colspan="4" class="text-muted">暂无费用</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

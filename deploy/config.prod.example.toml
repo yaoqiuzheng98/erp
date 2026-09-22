@@ -1,0 +1,28 @@
+# 生产配置样例：复制为 config.prod.toml 后修改密钥（不入库）
+[server]
+addr = ":8080"                # compose 内部端口，经 caddy 反代暴露
+
+[mongo]
+uri = "mongodb://mongo:27017" # compose 服务名直连，不对外暴露
+database = "erp"
+
+[session]
+ttl_hours = 12
+cookie_name = "erp_sid"
+sys_cookie_name = "erp_sys"
+secret = "REPLACE-WITH-STRONG-RANDOM"   # 生产强随机值，勿与开发共用
+secure = true                           # HTTPS 下必须 true
+
+[storage]
+upload_dir = "./data/uploads"           # 挂载 erp_uploads 卷
+
+[log]
+level = "info"
+
+[seed]
+enabled = true                # 首次启动建超管后改 false 并重启
+sysadmin_user = "admin"
+sysadmin_pass = "REPLACE-ME"
+demo_tenant = false           # 生产不建演示租户
+demo_admin_user = "admin"
+demo_admin_pass = "admin123"

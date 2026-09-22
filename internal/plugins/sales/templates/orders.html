@@ -1,0 +1,38 @@
+{{define "sales/orders"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0">销售订单</h4>
+        <a class="btn btn-sm btn-primary" href="/app/sales/orders/new">新建订单</a>
+      </div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>单号</th><th>客户</th><th>金额</th><th>状态</th><th>创建</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Orders}}
+        <tr>
+          <td>{{.DocNo}}</td><td>{{.CustomerName}}</td><td>{{.Total}}</td>
+          <td><span class="badge {{if eq .Status "approved"}}bg-success{{else if eq .Status "done"}}bg-primary{{else if or (eq .Status "cancelled") (eq .Status "rejected")}}bg-secondary{{else}}bg-warning text-dark{{end}}">{{.Status}}</span></td>
+          <td>{{date .CreatedAt}}</td>
+          <td><a class="btn btn-sm btn-outline-secondary" href="/app/sales/orders/{{hex .ID}}">详情</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="text-muted">暂无订单</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

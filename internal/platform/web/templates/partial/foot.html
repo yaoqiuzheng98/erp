@@ -1,0 +1,9 @@
+{{define "partial/foot"}}
+<script src="/static/vendor/bootstrap.bundle.min.js"></script>
+<script src="/static/vendor/htmx.min.js"></script>
+<script>
+  document.body.addEventListener('htmx:configRequest', function (e) {
+    e.detail.headers['X-CSRF-Token'] = '{{.CSRF}}';
+  });
+</script>
+{{end}}

@@ -1,0 +1,52 @@
+{{define "admin/dicts"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">字典管理</h4>
+      <form method="get" action="/admin/dicts" class="mb-3 row g-2">
+        <div class="col-auto"><input class="form-control form-control-sm" name="type"
+             placeholder="按类型过滤，如 unit" value="{{.Data.Type}}"></div>
+        <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">过滤</button></div>
+      </form>
+      <div class="card mb-4"><div class="card-body">
+        <form method="post" action="/admin/dicts" class="row g-2 align-items-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-auto"><label class="form-label">类型</label>
+            <input class="form-control form-control-sm" name="type" value="{{.Data.Type}}" required></div>
+          <div class="col-auto"><label class="form-label">编码</label>
+            <input class="form-control form-control-sm" name="code" required></div>
+          <div class="col-auto"><label class="form-label">显示名</label>
+            <input class="form-control form-control-sm" name="label" required></div>
+          <div class="col-auto"><button class="btn btn-sm btn-primary">新增</button></div>
+        </form>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>类型</th><th>编码</th><th>显示名</th><th>状态</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Dicts}}
+        <tr>
+          <td>{{.Type}}</td><td>{{.Code}}</td><td>{{.Label}}</td><td>{{.Status}}</td>
+          <td>
+            <form method="post" action="/admin/dicts/{{hex .ID}}/delete" class="m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">删除</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

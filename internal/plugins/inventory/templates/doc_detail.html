@@ -1,0 +1,49 @@
+{{define "inventory/doc_detail"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      {{template "partial/flash" .}}
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0">单据 {{.Data.Doc.DocNo}}</h4>
+        {{if eq .Data.Doc.Status "draft"}}
+        <div>
+          <form method="post" action="/app/inventory/docs/{{hex .Data.Doc.ID}}/confirm" class="d-inline">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <button class="btn btn-sm btn-success">确认入账</button>
+          </form>
+          <form method="post" action="/app/inventory/docs/{{hex .Data.Doc.ID}}/cancel" class="d-inline"
+                onsubmit="return confirm('确认作废该单据？')">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <button class="btn btn-sm btn-outline-danger">作废</button>
+          </form>
+        </div>
+        {{end}}
+      </div>
+      <div class="card mb-3"><div class="card-body row small">
+        <div class="col-md-3">类型：<b>{{if eq .Data.Doc.Type "in"}}入库{{else if eq .Data.Doc.Type "out"}}出库{{else}}盘点{{end}}</b></div>
+        <div class="col-md-3">状态：<span class="badge {{if eq .Data.Doc.Status "confirmed"}}bg-success{{else if eq .Data.Doc.Status "cancelled"}}bg-secondary{{else}}bg-warning text-dark{{end}}">{{.Data.Doc.Status}}</span></div>
+        <div class="col-md-3">来源单：{{.Data.Doc.RefNo}}</div>
+        <div class="col-md-3">备注：{{.Data.Doc.Remark}}</div>
+      </div></div>
+      <table class="table table-sm bg-white">
+        <thead><tr><th>商品编码</th><th>商品名称</th><th>数量</th></tr></thead>
+        <tbody>
+        {{range .Data.Doc.Lines}}
+        <tr><td>{{.ProductCode}}</td><td>{{.ProductName}}</td><td>{{.Qty}}</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+      <a class="btn btn-sm btn-outline-secondary" href="/app/inventory/docs">返回列表</a>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

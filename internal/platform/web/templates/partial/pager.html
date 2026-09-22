@@ -1,0 +1,11 @@
+{{define "partial/pager"}}
+{{if .Data.Pager}}
+<nav><ul class="pagination pagination-sm">
+  <li class="page-item {{if not .Data.Pager.HasPrev}}disabled{{end}}">
+    <a class="page-link" href="?page={{.Data.Pager.Prev}}">上一页</a></li>
+  <li class="page-item disabled"><span class="page-link">{{.Data.Pager.Page}} / {{.Data.Pager.Pages}}</span></li>
+  <li class="page-item {{if not .Data.Pager.HasNext}}disabled{{end}}">
+    <a class="page-link" href="?page={{.Data.Pager.Next}}">下一页</a></li>
+</ul></nav>
+{{end}}
+{{end}}

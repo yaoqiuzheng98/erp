@@ -1,0 +1,8 @@
+config.toml
+config.prod.toml
+data/
+backups/
+*.log
+/erp
+/erp-linux
+.idea/

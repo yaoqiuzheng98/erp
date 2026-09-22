@@ -1,0 +1,35 @@
+{{define "finance/summary"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-4">
+      <h4 class="mb-3">账簿汇总</h4>
+      <div class="row g-3">
+        <div class="col-md-2"><div class="card"><div class="card-body">
+          <div class="text-muted small">未收应收</div><div class="fs-4 text-danger">{{f2 .Data.OpenAR}}</div>
+        </div></div></div>
+        <div class="col-md-2"><div class="card"><div class="card-body">
+          <div class="text-muted small">未付应付</div><div class="fs-4 text-warning">{{f2 .Data.OpenAP}}</div>
+        </div></div></div>
+        <div class="col-md-2"><div class="card"><div class="card-body">
+          <div class="text-muted small">累计收款</div><div class="fs-4 text-success">{{f2 .Data.Received}}</div>
+        </div></div></div>
+        <div class="col-md-2"><div class="card"><div class="card-body">
+          <div class="text-muted small">累计付款</div><div class="fs-4">{{f2 .Data.Paid}}</div>
+        </div></div></div>
+        <div class="col-md-2"><div class="card"><div class="card-body">
+          <div class="text-muted small">累计费用</div><div class="fs-4">{{f2 .Data.Expense}}</div>
+        </div></div></div>
+      </div>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}
