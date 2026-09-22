@@ -32,7 +32,7 @@ docker save "$IMAGE" | gzip > "/tmp/$TAR"
 ls -lh "/tmp/$TAR"
 
 echo "==> [4/5] 上传到 $HOST:$REMOTE_DIR"
-scp -i "$SSH_KEY" "/tmp/$TAR" "root@$HOST:$REMOTE_DIR/"
+scp -i "$SSH_KEY" "/tmp/$TAR" "root@$HOST:$REMOTE_DIR/" && rm -f "/tmp/$TAR"
 
 echo "==> [5/5] 服务器部署"
 ssh -i "$SSH_KEY" "root@$HOST" bash -s <<REMOTE
