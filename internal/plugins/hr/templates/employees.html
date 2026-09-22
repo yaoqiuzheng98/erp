@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">员工</h4>
       <div class="card mb-3"><div class="card-body">
@@ -28,7 +28,7 @@
           <div class="col-auto"><button class="btn btn-sm btn-primary">新增</button></div>
         </form>
       </div></div>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>工号</th><th>姓名</th><th>部门</th><th>岗位</th><th>电话</th><th>入职</th><th>状态</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
@@ -38,7 +38,7 @@
         <tr><td colspan="7" class="text-muted">暂无员工</td></tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
     </main>
   </div>
 </div>

@@ -7,10 +7,10 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">{{if eq .Path "/app/finance/receivables"}}应收{{else}}应付{{end}}单据</h4>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>来源单号</th><th>往来单位</th><th>金额</th><th>已核销</th><th>状态</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Bills}}
@@ -35,7 +35,7 @@
         <tr><td colspan="6" class="text-muted">暂无单据</td></tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
       {{template "partial/pager" .}}
     </main>
   </div>

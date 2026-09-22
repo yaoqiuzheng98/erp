@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">角色管理</h4>
       <div class="card mb-4"><div class="card-body">
@@ -36,7 +36,7 @@
           <button class="btn btn-sm btn-primary">新增角色</button>
         </form>
       </div></div>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>编码</th><th>名称</th><th>数据范围</th><th>权限码</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Roles}}
@@ -53,7 +53,7 @@
         </tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
     </main>
   </div>
 </div>

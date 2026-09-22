@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">部门管理</h4>
       <div class="card mb-4"><div class="card-body">
@@ -23,7 +23,7 @@
           <div class="col-auto"><button class="btn btn-sm btn-primary">新增</button></div>
         </form>
       </div></div>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>名称</th><th>上级</th><th>创建时间</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Depts}}
@@ -40,7 +40,7 @@
         </tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
     </main>
   </div>
 </div>

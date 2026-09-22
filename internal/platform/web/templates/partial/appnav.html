@@ -1,5 +1,9 @@
 {{define "partial/appnav"}}
-<nav class="sidebar p-2 d-flex flex-column">
+<nav class="sidebar offcanvas-md offcanvas-start p-2 d-flex flex-column" id="appnav" tabindex="-1">
+  <div class="d-md-none d-flex justify-content-between align-items-center px-2 pt-1">
+    <span class="fw-bold text-white-50 small">菜单</span>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#appnav" aria-label="关闭"></button>
+  </div>
   <a class="fs-5 fw-bold text-white px-2 py-2 mb-1" href="/app">{{if .Tenant}}{{.Tenant.Name}}{{else}}ERP{{end}}</a>
   {{range .Menu}}
     {{if .Children}}
@@ -15,8 +19,11 @@
 {{end}}
 
 {{define "partial/apptop"}}
-<div class="topbar d-flex justify-content-between align-items-center px-4 py-2">
-  <span class="text-muted small">{{.Path}}</span>
+<div class="topbar d-flex justify-content-between align-items-center px-3 px-md-4 py-2">
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-outline-secondary d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#appnav" aria-controls="appnav">☰</button>
+    <span class="text-muted small">{{.Path}}</span>
+  </div>
   <div class="d-flex align-items-center gap-3">
     <a href="/app/notifications" class="text-decoration-none">
       通知{{if gt .NotifCount 0}}<span class="badge bg-danger ms-1">{{.NotifCount}}</span>{{end}}

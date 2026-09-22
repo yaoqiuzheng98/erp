@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       <h4 class="mb-3">新建销售订单</h4>
       <div class="card"><div class="card-body">
         <form method="post" action="/app/sales/orders">
@@ -24,7 +24,7 @@
             <div class="col-md-4"><label class="form-label">备注</label>
               <input class="form-control form-control-sm" name="remark"></div>
           </div>
-          <table class="table table-sm" id="lines">
+          <div class="table-responsive"><table class="table table-sm" id="lines">
             <thead><tr><th style="width:50%">商品</th><th>数量</th><th>单价</th><th></th></tr></thead>
             <tbody>
               <tr>
@@ -36,7 +36,7 @@
                 <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="delRow(this)">×</button></td>
               </tr>
             </tbody>
-          </table>
+          </table></div>
           <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="addRow()">+ 添加行</button>
           <div><button class="btn btn-sm btn-primary">创建订单</button>
             <a class="btn btn-sm btn-outline-secondary" href="/app/sales/orders">返回</a></div>

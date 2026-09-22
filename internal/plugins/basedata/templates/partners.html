@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">{{.Data.Title}}</h4>
       <div class="card mb-3"><div class="card-body">
@@ -24,7 +24,7 @@
           <div class="col-auto"><button class="btn btn-sm btn-primary">新增{{.Data.Title}}</button></div>
         </form>
       </div></div>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>编码</th><th>名称</th><th>联系人</th><th>电话</th><th>创建时间</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
@@ -33,7 +33,7 @@
         <tr><td colspan="5" class="text-muted">暂无数据</td></tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
     </main>
   </div>
 </div>

@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">审批单</h4>
       <div class="btn-group btn-group-sm mb-2">
@@ -16,7 +16,7 @@
         <a class="btn btn-outline-secondary {{if eq .Data.Status "rejected"}}active{{end}}" href="?status=rejected">已驳回</a>
         <a class="btn btn-outline-secondary {{if eq .Data.Status ""}}active{{end}}" href="?status=">全部</a>
       </div>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>单据</th><th>类型</th><th>提交人</th><th>状态</th><th>提交时间</th><th>审批人/意见</th><th></th></tr></thead>
         <tbody>
         {{range .Data.List}}
@@ -43,7 +43,7 @@
         <tr><td colspan="7" class="text-muted">暂无审批单</td></tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
       {{template "partial/pager" .}}
     </main>
   </div>

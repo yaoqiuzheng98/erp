@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="m-0">出入库单</h4>
@@ -23,7 +23,7 @@
         <a class="btn btn-outline-secondary {{if eq .Data.Type "out"}}active{{end}}" href="?type=out">出库</a>
         <a class="btn btn-outline-secondary {{if eq .Data.Type "check"}}active{{end}}" href="?type=check">盘点</a>
       </div>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>单号</th><th>类型</th><th>状态</th><th>行数</th><th>来源单</th><th>创建</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Docs}}
@@ -38,7 +38,7 @@
         <tr><td colspan="7" class="text-muted">暂无单据</td></tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
       {{template "partial/pager" .}}
     </main>
   </div>

@@ -7,10 +7,10 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">库存余额</h4>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>商品编码</th><th>商品名称</th><th>仓库</th><th>数量</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
@@ -22,7 +22,7 @@
         <tr><td colspan="4" class="text-muted">暂无库存</td></tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
       {{template "partial/pager" .}}
     </main>
   </div>

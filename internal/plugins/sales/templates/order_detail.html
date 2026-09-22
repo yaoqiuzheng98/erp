@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="m-0">销售订单 {{.Data.Order.DocNo}}</h4>
@@ -45,14 +45,14 @@
         <div class="col-md-3">金额：<b>{{.Data.Order.Total}}</b></div>
         <div class="col-md-3">备注：{{.Data.Order.Remark}}</div>
       </div></div>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>商品编码</th><th>商品名称</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
         <tbody>
         {{range .Data.Order.Lines}}
         <tr><td>{{.ProductCode}}</td><td>{{.ProductName}}</td><td>{{.Qty}}</td><td>{{.Price}}</td><td>{{mul .Qty .Price}}</td></tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
       <a class="btn btn-sm btn-outline-secondary" href="/app/sales/orders">返回列表</a>
     </main>
   </div>

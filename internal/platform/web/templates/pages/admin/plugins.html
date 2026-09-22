@@ -7,10 +7,10 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">插件管理</h4>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>ID</th><th>名称</th><th>版本</th><th>依赖</th><th>状态</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Plugins}}
@@ -38,7 +38,7 @@
         </tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
     </main>
   </div>
 </div>

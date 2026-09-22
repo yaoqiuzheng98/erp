@@ -7,9 +7,9 @@
   {{template "partial/sysnav" .}}
   <div class="flex-grow-1">
     {{template "partial/systop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       <h4 class="mb-3">全局审计日志</h4>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>时间</th><th>租户</th><th>用户</th><th>操作</th><th>对象</th><th>详情</th><th>IP</th></tr></thead>
         <tbody>
         {{range .Data.Logs}}
@@ -20,7 +20,7 @@
         </tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
     </main>
   </div>
 </div>

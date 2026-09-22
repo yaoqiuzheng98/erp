@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">请假</h4>
       <div class="card mb-3"><div class="card-body">
@@ -30,7 +30,7 @@
           <div class="col-auto"><button class="btn btn-sm btn-primary">新建请假单</button></div>
         </form>
       </div></div>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>单号</th><th>员工</th><th>类型</th><th>区间</th><th>事由</th><th>状态</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
@@ -51,7 +51,7 @@
         <tr><td colspan="7" class="text-muted">暂无请假单</td></tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
       {{template "partial/pager" .}}
     </main>
   </div>

@@ -7,7 +7,7 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">用户管理</h4>
       <div class="card mb-4"><div class="card-body">
@@ -34,7 +34,7 @@
           <div class="col-auto"><button class="btn btn-sm btn-primary">新增用户</button></div>
         </form>
       </div></div>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>用户名</th><th>姓名</th><th>角色</th><th>管理员</th><th>状态</th><th>最近登录</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Users}}
@@ -56,7 +56,7 @@
         </tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
     </main>
   </div>
 </div>

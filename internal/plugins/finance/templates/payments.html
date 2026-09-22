@@ -7,9 +7,9 @@
   {{template "partial/appnav" .}}
   <div class="flex-grow-1">
     {{template "partial/apptop" .}}
-    <main class="p-4">
+    <main class="p-2 p-md-4">
       <h4 class="mb-3">收付款记录</h4>
-      <table class="table table-sm bg-white">
+      <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>单号</th><th>类型</th><th>关联单据</th><th>金额</th><th>方式</th><th>时间</th></tr></thead>
         <tbody>
         {{range .Data.List}}
@@ -22,7 +22,7 @@
         <tr><td colspan="6" class="text-muted">暂无记录</td></tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div>
       {{template "partial/pager" .}}
     </main>
   </div>
