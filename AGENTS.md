@@ -30,9 +30,10 @@ scripts/backup.sh [config.toml]  # MongoDB 备份到 backups/
 ssh -i ~/.ssh/erp_prod_key root@23.249.19.239
 ```
 
-（截至 2026-09-22 尚未部署 ERP / MongoDB，待实施。）
-
-- 部署方式：Docker Compose（`erp` 应用 + `mongo:7` + `caddy`），域名 `erp.dokodemo.top` 已解析到服务器，Caddy 自动 HTTPS；部署目录 `/opt/erp`，生产配置 `config.prod.toml`（样例 `deploy/config.prod.example.toml`）。
+- 部署方式：Docker Compose，目录 `/opt/erp`；`erp` 应用 + `mongo:7` + `caddy`（erp.dokodemo.top 自动 HTTPS）。
+- **服务器只有 961MB 内存且内核无 swap**：不能在上面编译 Go。部署用预构建方式——本地 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o erp-linux .` 后 scp 上传，`docker compose -f compose.yaml -f compose.prebuilt.yaml up -d --build`；或本地 `docker build` + `docker save` 传镜像（`compose.image.yaml`）。
+- 已部署（2026-09-22）：`https://erp.dokodemo.top` 在线，sysadmin `admin`（密码存于服务器 `config.prod.toml`）。
+- 注意：服务器上另跑 `marzban-node` 容器；mongo 仅内网不暴露端口。
 
 ## 约定
 
