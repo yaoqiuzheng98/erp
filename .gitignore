@@ -1,6 +1,6 @@
 config.toml
 config.prod.toml
-data/
+data/uploads/
 backups/
 *.log
 /erp
