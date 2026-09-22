@@ -31,7 +31,7 @@ ssh -i ~/.ssh/erp_prod_key root@23.249.19.239
 ```
 
 - 部署方式：Docker Compose，目录 `/opt/erp`；`erp` 应用 + `mongo:7` + `caddy`（erp.dokodemo.top 自动 HTTPS）。
-- **服务器只有 961MB 内存且内核无 swap**：不能在上面编译 Go。部署用预构建方式——本地 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o erp-linux .` 后 scp 上传，`docker compose -f compose.yaml -f compose.prebuilt.yaml up -d --build`；或本地 `docker build` + `docker save` 传镜像（`compose.image.yaml`）。
+- **服务器只有 961MB 内存且内核无 swap**：不能在服务器上构建任何东西。唯一部署方式——本地 `docker build -t erp-app:latest .` → `docker save | gzip` 上传 → 服务器 `docker load` → `docker compose up -d`（compose.yaml 中 erp 只引用镜像名，无 build）。
 - 已部署（2026-09-22）：`https://erp.dokodemo.top` 在线，sysadmin `admin`（密码存于服务器 `config.prod.toml`）。
 - 注意：服务器上另跑 `marzban-node` 容器；mongo 仅内网不暴露端口。
 

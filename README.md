@@ -364,27 +364,37 @@ demo_admin_pass = "admin123"
 - 本地运行：`cp config.example.toml config.toml`，启动 MongoDB，然后 `go run . -config config.toml`；种子开启时自动创建系统超管与演示租户（默认 `admin/admin123`）。
 - 索引初始化：启动时平台与已注册插件各自 `ensureIndexes`。
 
-### 11.1 生产部署（Docker Compose + Caddy）
+### 11.1 生产部署（本地打镜像 + docker load）
 
-生产环境用 `compose.yaml` 一键起三个服务：`erp`（本仓库 `Dockerfile` 多阶段构建的静态二进制）、`mongo:7`（仅内部网络，不暴露端口）、`caddy`（反向代理 + 自动 HTTPS，证书卷持久化）。
+生产环境用 `compose.yaml` 编排三个服务：`erp`（`erp-app:latest` 镜像）、`mongo:7`（仅内部网络）、`caddy`（反向代理 + 自动 HTTPS）。
+
+**部署方式只有一种**：镜像在本地 `docker build` 构建后打包上传，服务器 `docker load` 直接运行——服务器不做任何构建（内存小的机器尤其需要）。本仓库 `Dockerfile` 多阶段构建在本地完成。
+
+```bash
+# ① 本地构建镜像并打包
+docker build -t erp-app:latest .
+docker save erp-app:latest | gzip > erp-app.tar.gz
+
+# ② 上传
+scp -i ~/.ssh/erp_prod_key erp-app.tar.gz root@<host>:/opt/erp/
+
+# ③ 服务器：加载镜像并启动（mongo/caddy 首次会从 Docker Hub 拉取）
+cd /opt/erp
+docker load < erp-app.tar.gz
+cp deploy/config.prod.example.toml config.prod.toml   # 首次：改密钥
+docker compose up -d
+docker compose logs -f erp
+```
 
 部署目录约定 `/opt/erp`：
 
 ```
 /opt/erp/
-├── compose.yaml              # 三个服务编排
-├── Dockerfile  .dockerignore
+├── compose.yaml              # 三个服务编排（erp 引用 erp-app:latest，无 build）
 ├── config.prod.toml          # 生产配置（不入库，见 deploy/config.prod.example.toml）
 ├── deploy/Caddyfile          # 域名反代（erp.dokodemo.top → erp:8080）
+├── erp-app.tar.gz            # 本地构建上传的镜像包
 └── backups/                  # mongodump 输出目录（挂载进容器）
-```
-
-```bash
-# 服务器上（仓库 clone 或上传以下文件到 /opt/erp）
-cp deploy/config.prod.example.toml config.prod.toml
-# 编辑 config.prod.toml：session.secret 强随机、mongo uri、seed 账号
-docker compose up -d --build
-docker compose logs -f erp
 ```
 
 Caddy 监听 80/443，`erp.dokodemo.top` 首次访问自动签发证书（域名已解析到服务器即可），转发到 `erp:8080`；应用只监听容器内网。
@@ -406,7 +416,7 @@ HTTPS 证书由 Caddy 自动申请续期；`config.prod.toml` 必须 `[session].
 ### 11.3 备份与升级
 
 - 备份：`scripts/backup.sh /opt/erp/config.prod.toml` 自动识别 `erp-mongo` 容器导出到 `backups/erp-<时间戳>/`；建议 crontab 每日执行并异地转储。
-- 升级：`git pull`（或上传新代码）→ `docker compose up -d --build erp`；插件 `OnInstall`/索引迁移在启动时自动执行，无停机脚本。
+- 升级：本地重新 `docker build` + `docker save` 上传 → 服务器 `docker load` → `docker compose up -d`（compose 检测到镜像变化会重建 erp 容器）；插件 `OnInstall`/索引迁移在启动时自动执行，无停机脚本。
 
 ### 11.4 生产配置差异检查单
 

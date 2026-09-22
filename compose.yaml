@@ -1,5 +1,8 @@
-# 生产部署：erp 应用 + mongo + caddy（自动 HTTPS）
-# 用法：cp deploy/config.prod.example.toml config.prod.toml（修改密钥）后 docker compose up -d --build
+# 生产部署（唯一方式）：本地 docker build 打镜像，docker save 上传，服务器 docker load 后直接跑。
+# 用法：
+#   本地:  docker build -t erp-app:latest . && docker save erp-app:latest | gzip > erp-app.tar.gz
+#   上传:  scp erp-app.tar.gz root@<host>:/opt/erp/
+#   服务器: docker load < erp-app.tar.gz && docker compose up -d
 services:
   mongo:
     image: mongo:7
@@ -7,7 +10,6 @@ services:
     restart: always
     volumes:
       - mongo_data:/data/db
-    # 不暴露端口，仅供 compose 内部网络访问；如需本机调试可映射 127.0.0.1:27017
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -15,7 +17,7 @@ services:
       retries: 12
 
   erp:
-    build: .
+    image: erp-app:latest
     container_name: erp-app
     restart: always
     depends_on:
@@ -36,7 +38,7 @@ services:
       - "443:443/udp"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data      # 证书与 ACME 账户持久化
+      - caddy_data:/data
       - caddy_config:/config
     depends_on:
       - erp

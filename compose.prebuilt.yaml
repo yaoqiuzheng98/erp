@@ -1,8 +1,0 @@
-# 预构建部署：覆盖 erp 服务改用本地编译好的二进制（服务器内存不足时用）。
-# 用法：先本地交叉编译出 erp-linux 并上传到仓库目录，然后
-#   docker compose -f compose.yaml -f compose.prebuilt.yaml up -d --build
-services:
-  erp:
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile.prebuilt
