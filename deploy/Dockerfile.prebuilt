@@ -1,0 +1,9 @@
+# 预构建二进制镜像：用于内存较小的服务器（不在服务器上编译 Go）。
+# 用法：本地执行 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o erp-linux .
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 erp
+WORKDIR /opt/erp
+COPY erp-linux /opt/erp/erp
+USER erp
+EXPOSE 8080
+ENTRYPOINT ["/opt/erp/erp", "-config", "/opt/erp/config.toml"]
