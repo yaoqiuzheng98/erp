@@ -89,10 +89,11 @@ func (s *Service) ListCustomers(ctx context.Context, tenantID bson.ObjectID) ([]
 func (s *Service) CreateCustomer(ctx context.Context, tenantID bson.ObjectID, in contract.CustomerUpsert) (*contract.PartnerRef, error) {
 	cu := &model.Customer{Code: in.Code, Name: in.Name, Contact: in.Contact, Phone: in.Phone}
 	cu.TenantID, cu.CreatedAt = tenantID, time.Now()
-	if _, err := s.customers.Insert(ctx, tenantID, cu); err != nil {
+	id, err := s.customers.Insert(ctx, tenantID, cu)
+	if err != nil {
 		return nil, err
 	}
-	return &contract.PartnerRef{ID: cu.ID, Code: cu.Code, Name: cu.Name}, nil
+	return &contract.PartnerRef{ID: id, Code: cu.Code, Name: cu.Name, Phone: cu.Phone}, nil
 }
 
 func (s *Service) ListSuppliers(ctx context.Context, tenantID bson.ObjectID) ([]model.Supplier, error) {
