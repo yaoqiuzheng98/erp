@@ -1,11 +1,12 @@
 // Package industry 国民经济行业分类（GB/T 4754-2017）：四级行业目录。
-// 数据由官方 docx 解析生成，种子进 industries 集合，运行期全量内存缓存。
+// 数据文件 data/industries.json（解析自官方 docx）随仓库分发，
+// 集合为空时种子进 MongoDB industries 集合，运行期全量内存缓存。
 package industry
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
+	"os"
 	"strings"
 	"sync"
 
@@ -13,9 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
-
-//go:embed industries.json
-var data []byte
 
 // Node 行业节点；Level 1=门类 2=大类 3=中类 4=小类；Path 含自身的祖先码链。
 type Node struct {
@@ -39,14 +37,19 @@ func NewService(db *mongo.Database) *Service {
 	return &Service{col: db.Collection("industries")}
 }
 
-// EnsureSeed 集合为空时导入国标数据（启动时调用一次）。
-func (s *Service) EnsureSeed(ctx context.Context) error {
+// EnsureSeed 集合为空时从 JSON 文件导入国标数据（启动时调用一次）。
+// 集合已有数据时不读文件——正常启动完全不需要数据文件。
+func (s *Service) EnsureSeed(ctx context.Context, path string) error {
 	n, err := s.col.EstimatedDocumentCount(ctx)
 	if err != nil || n > 0 {
 		return err
 	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
 	var nodes []Node
-	if err := json.Unmarshal(data, &nodes); err != nil {
+	if err := json.Unmarshal(raw, &nodes); err != nil {
 		return err
 	}
 	docs := make([]any, len(nodes))

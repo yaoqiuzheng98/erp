@@ -80,7 +80,7 @@ func main() {
 		Tasks:    scheduler,
 	}
 	e.Industries = industry.NewService(d.Database)
-	if err := e.Industries.EnsureSeed(ctx); err != nil {
+	if err := e.Industries.EnsureSeed(ctx, "data/industries.json"); err != nil {
 		slog.Error("seed industries", "err", err)
 		os.Exit(1)
 	}
