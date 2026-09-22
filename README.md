@@ -399,6 +399,8 @@ docker compose logs -f erp
 
 Caddy 监听 80/443，`erp.dokodemo.top` 首次访问自动签发证书（域名已解析到服务器即可），转发到 `erp:8080`；应用只监听容器内网。
 
+> 日常部署直接用一键脚本 `scripts/deploy.sh`（编译→打镜像→上传→load→compose up），可用 `ERP_HOST`/`ERP_SSH_KEY`/`ERP_DIR` 环境变量覆盖默认值。
+
 ### 11.2 域名与 HTTPS
 
 `deploy/Caddyfile`：
