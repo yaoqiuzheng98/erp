@@ -38,6 +38,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func main() {
@@ -84,6 +85,21 @@ func main() {
 	if err := e.Industries.EnsureSeed(ctx, "data/industries.json"); err != nil {
 		slog.Error("seed industries", "err", err)
 		os.Exit(1)
+	}
+	// 唯一索引（幂等）：租户名唯一、用户名按租户唯一
+	for _, ix := range []struct {
+		col  string
+		keys bson.D
+	}{
+		{"tenants", bson.D{{Key: "name", Value: 1}}},
+		{"users", bson.D{{Key: "tenant_id", Value: 1}, {Key: "username", Value: 1}}},
+	} {
+		if _, err := d.Database.Collection(ix.col).Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys: ix.keys, Options: options.Index().SetUnique(true),
+		}); err != nil {
+			slog.Error("ensure index", "col", ix.col, "err", err)
+			os.Exit(1)
+		}
 	}
 	e.Gate = plugin.NewManager(d.Database, e.Industries)
 

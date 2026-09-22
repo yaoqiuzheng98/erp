@@ -9,8 +9,12 @@
     {{if .Data}}{{if .Data.Err}}<div class="alert alert-danger py-2">{{.Data.Err}}</div>{{end}}{{end}}
     <form method="post" action="/login">
       <div class="mb-3">
+        <label class="form-label">企业名称</label>
+        <input class="form-control" name="tenant" required autofocus>
+      </div>
+      <div class="mb-3">
         <label class="form-label">用户名</label>
-        <input class="form-control" name="username" required autofocus>
+        <input class="form-control" name="username" required>
       </div>
       <div class="mb-3">
         <label class="form-label">密码</label>

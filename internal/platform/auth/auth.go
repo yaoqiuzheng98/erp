@@ -43,20 +43,30 @@ type SysAdmin struct {
 type Service struct {
 	users     *mongo.Collection
 	sysadmins *mongo.Collection
+	tenants   *mongo.Collection
 }
 
 func NewService(db *mongo.Database) *Service {
 	return &Service{
 		users:     db.Collection("users"),
 		sysadmins: db.Collection("sys_admins"),
+		tenants:   db.Collection("tenants"),
 	}
 }
 
-var ErrBadCredential = errors.New("用户名或密码错误")
+var ErrBadCredential = errors.New("企业名、用户名或密码错误")
 
-func (s *Service) LoginTenant(ctx context.Context, username, password string) (*User, error) {
+// LoginTenant 租户登录：先按企业名定位租户，再在租户内查用户。
+// 用户名按租户隔离，不同租户可有同名用户（唯一索引在 tenant_id+username 上）。
+func (s *Service) LoginTenant(ctx context.Context, tenantName, username, password string) (*User, error) {
+	var t struct {
+		ID bson.ObjectID `bson:"_id"`
+	}
+	if err := s.tenants.FindOne(ctx, bson.M{"name": tenantName, "status": "active"}).Decode(&t); err != nil {
+		return nil, ErrBadCredential
+	}
 	var u User
-	err := s.users.FindOne(ctx, bson.M{"username": username, "status": "active"}).Decode(&u)
+	err := s.users.FindOne(ctx, bson.M{"tenant_id": t.ID, "username": username, "status": "active"}).Decode(&u)
 	if err != nil || !CheckPassword(u.PasswordHash, password) {
 		return nil, ErrBadCredential
 	}

@@ -17,9 +17,9 @@ import (
 func loginTenant(e *env.Env) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u, err := e.Auth.LoginTenant(c.Request.Context(),
-			c.PostForm("username"), c.PostForm("password"))
+			c.PostForm("tenant"), c.PostForm("username"), c.PostForm("password"))
 		if err != nil {
-			web.Render(c, e, "login", gin.H{"Err": "用户名或密码错误"})
+			web.Render(c, e, "login", gin.H{"Err": "企业名、用户名或密码错误"})
 			return
 		}
 		s, err := e.Sessions.Create(c.Request.Context(), session.KindTenant, u.ID, u.TenantID)

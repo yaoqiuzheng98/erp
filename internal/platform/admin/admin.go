@@ -112,6 +112,12 @@ func (h *Handler) createUser(c *gin.Context) {
 		Status:       "active",
 		IsTenantAdm:  c.PostForm("is_admin") == "on",
 	}
+	var dup bson.M
+	if err := h.users.FindOne(ctx, bson.M{"tenant_id": u.TenantID, "username": u.Username}).Decode(&dup); err == nil {
+		web.SetFlash(c, "用户名已存在: "+u.Username)
+		c.Redirect(http.StatusFound, "/admin/users")
+		return
+	}
 	if _, err := h.users.InsertOne(ctx, &u); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
