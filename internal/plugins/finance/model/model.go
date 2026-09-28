@@ -19,6 +19,15 @@ const (
 	PayOut     = "payment" // 付款（核销应付）
 )
 
+// BillLine 应收明细（门诊价目快照；订单渠道为空）。
+type BillLine struct {
+	Code   string  `bson:"code"`
+	Name   string  `bson:"name"`
+	Qty    float64 `bson:"qty"`
+	Price  float64 `bson:"price"`
+	Amount float64 `bson:"amount"`
+}
+
 // Bill 应收/应付单，订单审核事件自动生成。
 type Bill struct {
 	model.Doc   `bson:",inline"`
@@ -28,6 +37,7 @@ type Bill struct {
 	OrderID     string        `bson:"order_id"`
 	DocNo       string        `bson:"doc_no"`
 	Amount      float64       `bson:"amount"`
+	Lines       []BillLine    `bson:"lines,omitempty"`
 	PaidAmount  float64       `bson:"paid_amount"`
 	Status      string        `bson:"status"`
 }

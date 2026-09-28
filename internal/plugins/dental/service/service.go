@@ -21,6 +21,7 @@ type Service struct {
 	e     *env.Env
 	pats  *repo.TenantRepo[model.Patient]
 	appts *repo.TenantRepo[model.Appointment]
+	items *repo.TenantRepo[model.ServiceItem]
 }
 
 func New(e *env.Env) *Service {
@@ -28,6 +29,7 @@ func New(e *env.Env) *Service {
 		e:     e,
 		pats:  repo.NewTenantRepo[model.Patient](e.DB.Database, "plg_dental_patient"),
 		appts: repo.NewTenantRepo[model.Appointment](e.DB.Database, "plg_dental_appt"),
+		items: repo.NewTenantRepo[model.ServiceItem](e.DB.Database, "plg_dental_service_item"),
 	}
 }
 
@@ -188,6 +190,99 @@ func (s *Service) TodayAppts(ctx context.Context, tenantID bson.ObjectID) ([]mod
 	return s.appts.FindMany(ctx, tenantID, bson.M{"date": time.Now().Format("2006-01-02")})
 }
 
+// ---------- 价目表 ----------
+
+func (s *Service) ListServiceItems(ctx context.Context, tenantID bson.ObjectID, activeOnly bool) ([]model.ServiceItem, error) {
+	f := bson.M{}
+	if activeOnly {
+		f["status"] = "active"
+	}
+	return s.items.FindMany(ctx, tenantID, f)
+}
+
+func (s *Service) ServiceItemByID(ctx context.Context, tenantID, id bson.ObjectID) (*model.ServiceItem, error) {
+	return s.items.FindByID(ctx, tenantID, id)
+}
+
+func (s *Service) CreateServiceItem(ctx context.Context, tenantID bson.ObjectID, it *model.ServiceItem) error {
+	if it.Name == "" {
+		return errors.New("项目名称必填")
+	}
+	if it.Code == "" {
+		no, err := s.e.Seq.Next(ctx, tenantID, "SV")
+		if err != nil {
+			return err
+		}
+		it.Code = no
+	} else if n, _ := s.items.Count(ctx, tenantID, bson.M{"code": it.Code}); n > 0 {
+		return errors.New("编码已存在")
+	}
+	if it.Price < 0 {
+		return errors.New("单价不能为负")
+	}
+	if it.Unit == "" {
+		it.Unit = "次"
+	}
+	it.TenantID, it.CreatedAt = tenantID, time.Now()
+	if it.Status == "" {
+		it.Status = "active"
+	}
+	_, err := s.items.Insert(ctx, tenantID, it)
+	return err
+}
+
+func (s *Service) UpdateServiceItem(ctx context.Context, tenantID, id bson.ObjectID, set bson.M) error {
+	if v, ok := set["price"]; ok {
+		var price float64
+		switch n := v.(type) {
+		case float64:
+			price = n
+		case int:
+			price = float64(n)
+		}
+		if price < 0 {
+			return errors.New("单价不能为负")
+		}
+	}
+	return s.items.Update(ctx, tenantID, id, set)
+}
+
+func (s *Service) DeleteServiceItem(ctx context.Context, tenantID, id bson.ObjectID) error {
+	return s.items.Delete(ctx, tenantID, id)
+}
+
+// fillItems 按价目表回填明细快照（防前端改价），并汇总 Item 显示串与合计。
+func (s *Service) fillItems(ctx context.Context, tenantID bson.ObjectID, in []model.ApptItem) ([]model.ApptItem, string, float64, error) {
+	out := make([]model.ApptItem, 0, len(in))
+	var total float64
+	names := []string{}
+	for _, l := range in {
+		if l.Qty <= 0 {
+			continue
+		}
+		si, err := s.ServiceItemByID(ctx, tenantID, l.ServiceID)
+		if err != nil {
+			return nil, "", 0, errors.New("价目项目不存在")
+		}
+		if si.Status != "active" {
+			return nil, "", 0, errors.New("项目已停用：" + si.Name)
+		}
+		amt := l.Qty * si.Price
+		out = append(out, model.ApptItem{
+			ServiceID: si.ID, Code: si.Code, Name: si.Name,
+			Qty: l.Qty, Price: si.Price, Amount: amt,
+		})
+		total += amt
+		if l.Qty > 1 {
+			names = append(names, si.Name)
+		} else {
+			names = append(names, si.Name)
+		}
+	}
+	summary := strings.Join(names, "、")
+	return out, summary, total, nil
+}
+
 func (s *Service) CreateAppt(ctx context.Context, tenantID bson.ObjectID, a *model.Appointment) error {
 	p, err := s.PatientByID(ctx, tenantID, a.PatientID)
 	if err != nil {
@@ -198,6 +293,14 @@ func (s *Service) CreateAppt(ctx context.Context, tenantID bson.ObjectID, a *mod
 		if c, err := master.Customer(ctx, tenantID, p.CustomerID); err == nil {
 			a.PatientName = c.Name
 		}
+	}
+	// 明细回填：有明细以价目表为准重算，兼容老单自由文本
+	if len(a.Items) > 0 {
+		items, summary, _, err := s.fillItems(ctx, tenantID, a.Items)
+		if err != nil {
+			return err
+		}
+		a.Items, a.Item = items, summary
 	}
 	a.TenantID, a.Status, a.CreatedAt = tenantID, model.ApptBooked, time.Now()
 	_, err = s.appts.Insert(ctx, tenantID, a)
@@ -236,8 +339,13 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id bson.ObjectID) error 
 	return err
 }
 
-// Complete 完成就诊并收费：发 billing.charge 事件，财务启用时生成应收。
-func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, charge float64, by string) error {
+func (s *Service) ApptByID(ctx context.Context, tenantID, id bson.ObjectID) (*model.Appointment, error) {
+	return s.appts.FindByID(ctx, tenantID, id)
+}
+
+// Complete 完成就诊并收费：优先按明细结算（items 非空则以价目表重算），
+// 否则沿用预约单存量明细，再否则用手工 charge（兼容老单）。发 billing.charge 事件。
+func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, items []model.ApptItem, charge float64, by string) error {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return err
@@ -245,11 +353,27 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, char
 	if a.Status != model.ApptBooked && a.Status != model.ApptArrived {
 		return ErrBadStatus
 	}
-	if charge < 0 {
+	finalItems := a.Items
+	summary := a.Item
+	total := charge
+	if len(items) > 0 {
+		filled, sum, t, err := s.fillItems(ctx, tenantID, items)
+		if err != nil {
+			return err
+		}
+		finalItems, summary, total = filled, sum, t
+	} else if len(a.Items) > 0 {
+		var t float64
+		for _, it := range a.Items {
+			t += it.Amount
+		}
+		total = t
+	}
+	if total < 0 {
 		return errors.New("收费额不能为负")
 	}
-	set := bson.M{"status": model.ApptDone, "charge": charge}
-	if charge > 0 {
+	set := bson.M{"status": model.ApptDone, "charge": total, "items": finalItems, "item": summary}
+	if total > 0 {
 		no, err := s.e.Seq.Next(ctx, tenantID, "CH")
 		if err != nil {
 			return err
@@ -259,11 +383,17 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, char
 		if p, err := s.PatientByID(ctx, tenantID, a.PatientID); err == nil {
 			partyID = p.CustomerID
 		}
+		lines := make([]contract.ChargeLine, 0, len(finalItems))
+		for _, it := range finalItems {
+			lines = append(lines, contract.ChargeLine{
+				Code: it.Code, Name: it.Name, Qty: it.Qty, Price: it.Price, Amount: it.Amount,
+			})
+		}
 		s.e.Events.Publish(ctx, event.Event{
 			Topic:    contract.TopicCharge,
 			TenantID: tenantID,
 			Payload: contract.Charge{
-				DocNo: no, PartyID: partyID, PartyName: a.PatientName, Total: charge, By: by,
+				DocNo: no, PartyID: partyID, PartyName: a.PatientName, Total: total, Lines: lines, By: by,
 				RefType: "dental_appt", RefID: id.Hex(),
 			},
 		})

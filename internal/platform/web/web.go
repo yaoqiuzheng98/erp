@@ -116,6 +116,9 @@ func buildPage(c *gin.Context, e *env.Env, data any) *Page {
 		enabled := e.Gate.EnabledSet(c.Request.Context(), t.ID)
 		items := []menu.Item{{ID: "home", Title: "工作台", Path: "/app", Icon: "⌂"}}
 		items = append(items, plugin.MenusOf(enabled)...)
+		if isDentalTenant(c.Request.Context(), e, t.Industry) {
+			items = filterDentalMenus(items)
+		}
 		items = append(items, adminMenu...)
 		p.Menu = menu.Filter(items, func(code string) bool {
 			return p.Perms["*"] || p.Perms[code]
@@ -123,6 +126,40 @@ func buildPage(c *gin.Context, e *env.Env, data any) *Page {
 		p.NotifCount = e.Notify.UnreadCount(c.Request.Context(), t.ID, p.User.ID)
 	}
 	return p
+}
+
+// isDentalTenant 口腔租户判定：行业祖先链含 8425/8415（未知码退化为精确匹配）。
+func isDentalTenant(ctx context.Context, e *env.Env, industry string) bool {
+	if industry == "" {
+		return false
+	}
+	if n, ok := e.Industries.Get(ctx, industry); ok {
+		for _, c := range n.Path {
+			if c == "8425" || c == "8415" {
+				return true
+			}
+		}
+		return false
+	}
+	return industry == "8425" || industry == "8415"
+}
+
+// filterDentalMenus 口腔租户只留基础资料/客户（患者挂接用）；
+// 商品/仓库/供应商入口隐藏（路由仍可用，药品走价目表 Category=药品，不走库存）。
+func filterDentalMenus(items []menu.Item) []menu.Item {
+	for i, it := range items {
+		if it.ID != "basedata" {
+			continue
+		}
+		keep := it.Children[:0]
+		for _, ch := range it.Children {
+			if ch.ID == "basedata.customers" {
+				keep = append(keep, ch)
+			}
+		}
+		items[i].Children = keep
+	}
+	return items
 }
 
 // Render 渲染完整页面（含布局）。

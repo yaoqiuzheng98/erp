@@ -45,7 +45,7 @@ func (s *Service) OnOrderApproved(ctx context.Context, tenantID bson.ObjectID, o
 }
 
 // OnCharge 业务收费事件（门诊/服务类）→ 生成应收。PartyID 直接挂客户档案，
-// 按 DocNo 幂等去重（事件重复投递不产生重复应收）。
+// 按 DocNo 幂等去重（事件重复投递不产生重复应收）。明细原样存 Bill.Lines 备查。
 func (s *Service) OnCharge(ctx context.Context, tenantID bson.ObjectID, ch contract.Charge) error {
 	if ch.DocNo != "" {
 		if n, _ := s.bills.Count(ctx, tenantID, bson.M{"doc_no": ch.DocNo}); n > 0 {
@@ -56,6 +56,11 @@ func (s *Service) OnCharge(ctx context.Context, tenantID bson.ObjectID, ch contr
 		Type: model.BillAR, PartnerID: ch.PartyID, PartnerName: ch.PartyName,
 		OrderID: ch.RefID, DocNo: ch.DocNo,
 		Amount: ch.Total, Status: model.BillOpen,
+	}
+	for _, l := range ch.Lines {
+		b.Lines = append(b.Lines, model.BillLine{
+			Code: l.Code, Name: l.Name, Qty: l.Qty, Price: l.Price, Amount: l.Amount,
+		})
 	}
 	b.TenantID, b.CreatedAt = tenantID, time.Now()
 	_, err := s.bills.Insert(ctx, tenantID, b)

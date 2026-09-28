@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"net/http"
 
 	"erp/internal/platform/audit"
@@ -77,6 +78,7 @@ func dashboard(e *env.Env) gin.HandlerFunc {
 		enabled := e.Gate.EnabledSet(c.Request.Context(), t.ID)
 		type card struct{ ID, Name, Path string }
 		var cards []card
+		dental := isDentalTenant(c.Request.Context(), e, t.Industry)
 		for _, p := range plugin.All() {
 			if !enabled[p.ID()] {
 				continue
@@ -87,10 +89,30 @@ func dashboard(e *env.Env) gin.HandlerFunc {
 					path = m.Children[0].Path
 				}
 			}
+			// 口腔租户：基础资料卡片直达客户（患者挂接），不进商品
+			if dental && p.ID() == "basedata" {
+				path = "/app/basedata/customers"
+			}
 			cards = append(cards, card{ID: p.ID(), Name: p.Name(), Path: path})
 		}
 		web.Render(c, e, "dashboard", gin.H{"Cards": cards})
 	}
+}
+
+// isDentalTenant 口腔租户判定（同 web.filterDentalMenus 口径）。
+func isDentalTenant(ctx context.Context, e *env.Env, industry string) bool {
+	if industry == "" {
+		return false
+	}
+	if n, ok := e.Industries.Get(ctx, industry); ok {
+		for _, c := range n.Path {
+			if c == "8425" || c == "8415" {
+				return true
+			}
+		}
+		return false
+	}
+	return industry == "8425" || industry == "8415"
 }
 
 func notifications(e *env.Env) gin.HandlerFunc {

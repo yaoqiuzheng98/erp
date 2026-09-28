@@ -26,8 +26,21 @@
             <input class="form-control form-control-sm" name="chair" style="width:5em" placeholder="1"></div>
           <div class="col-auto"><label class="form-label">医生</label>
             <input class="form-control form-control-sm" name="doctor"></div>
-          <div class="col-auto"><label class="form-label">项目</label>
-            <input class="form-control form-control-sm" name="item" placeholder="洗牙/补牙/根管…"></div>
+          <div class="col-12"><label class="form-label">诊疗项目（价目表勾选，不选则填下行备注）</label>
+            <div class="border rounded p-2 d-flex flex-wrap gap-2" style="max-height:9em;overflow:auto">
+              {{range .Data.Services}}
+              <label class="form-check form-check-inline m-0 border rounded px-2 py-1 bg-light">
+                <input class="form-check-input" type="checkbox" name="service_id" value="{{hex .ID}}">
+                {{.Name}} ¥{{printf "%.2f" .Price}}/{{.Unit}}
+                <input class="form-control form-control-sm d-inline ms-1" name="qty_{{hex .ID}}"
+                       type="number" min="1" step="1" value="1" style="width:4em" title="数量">
+              </label>
+              {{else}}
+              <span class="text-muted small">价目表为空，先去<a href="/app/dental/services">价目表</a>维护</span>
+              {{end}}
+            </div></div>
+          <div class="col-auto"><label class="form-label">备注/临时项目</label>
+            <input class="form-control form-control-sm" name="item" placeholder="无价目时填"></div>
           <div class="col-auto"><button class="btn btn-sm btn-primary">预约</button></div>
         </form>
       </div></div>
@@ -40,10 +53,14 @@
         <thead><tr><th>日期</th><th>时间</th><th>患者</th><th>椅位</th><th>医生</th><th>项目</th><th>状态</th><th>收费</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
+        {{$a := .}}
         <tr>
           <td>{{.Date}}</td><td>{{.Slot}}</td>
           <td><a href="/app/dental/patients/{{hex .PatientID}}">{{.PatientName}}</a></td>
-          <td>{{.Chair}}</td><td>{{.Doctor}}</td><td>{{.Item}}</td>
+          <td>{{.Chair}}</td><td>{{.Doctor}}</td>
+          <td>{{.DisplayItem}}
+            {{if .Items}}<br>{{range .Items}}<small class="text-muted">{{.Name}}x{{.Qty}} ¥{{printf "%.2f" .Amount}}</small><br>{{end}}{{end}}
+          </td>
           <td><span class="badge {{.Badge}}">{{.StatusName}}</span></td>
           <td>{{if .Charge}}¥{{printf "%.2f" .Charge}}{{end}}{{if .ChargeNo}}<br><small class="text-muted">{{.ChargeNo}}</small>{{end}}</td>
           <td class="text-nowrap">
@@ -53,11 +70,28 @@
               <button class="btn btn-sm btn-outline-primary">到诊</button></form>
             {{end}}
             {{if or (eq .Status "booked") (eq .Status "arrived")}}
-            <form method="post" action="/app/dental/appointments/{{hex .ID}}/done" class="d-inline-flex gap-1 m-0 align-items-center"
-                  onsubmit="return this.charge.value !== '' ? true : confirm('未填收费额，按 0 完成？')">
+            <form method="post" action="/app/dental/appointments/{{hex .ID}}/done" class="d-inline m-0"
+                  onsubmit="return confirm('按明细/金额完成就诊？')">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <input class="form-control form-control-sm" name="charge" type="number" step="0.01" min="0" placeholder="收费" style="width:5.5em">
-              <button class="btn btn-sm btn-outline-success">完成</button></form>
+              <details class="d-inline">
+                <summary class="btn btn-sm btn-outline-secondary">调项目</summary>
+                <div class="border rounded p-2 mt-1 d-flex flex-wrap gap-2" style="max-width:32em">
+                  {{range $.Data.Services}}
+                  {{$sv := .}}
+                  {{$checked := ""}}{{$q := 1}}
+                  {{range $a.Items}}{{if eq .ServiceID $sv.ID}}{{$checked = "checked"}}{{$q = .Qty}}{{end}}{{end}}
+                  <label class="form-check form-check-inline m-0 border rounded px-2 py-1 bg-light">
+                    <input class="form-check-input" type="checkbox" name="service_id" value="{{hex $sv.ID}}" {{$checked}}>
+                    {{$sv.Name}} ¥{{printf "%.2f" $sv.Price}}
+                    <input class="form-control form-control-sm d-inline ms-1" name="qty_{{hex $sv.ID}}"
+                           type="number" min="1" step="1" value="{{$q}}" style="width:4em">
+                  </label>
+                  {{end}}
+                  <small class="text-muted w-100">不勾选=按预约明细结算；勾选则按勾选重算；下行手工额仅无明细时用。</small>
+                </div>
+              </details>
+              <input class="form-control form-control-sm d-inline ms-1" name="charge" type="number" step="0.01" min="0" placeholder="手工收费" style="width:6.5em">
+              <button class="btn btn-sm btn-outline-success ms-1">完成</button></form>
             {{end}}
             {{if eq .Status "booked"}}
             <form method="post" action="/app/dental/appointments/{{hex .ID}}/noshow" class="d-inline m-0">

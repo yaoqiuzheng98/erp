@@ -31,7 +31,7 @@
               <thead><tr><th>日期</th><th>项目</th><th>医生</th><th>状态</th><th>收费</th></tr></thead>
               <tbody>
               {{range .Data.Appts}}
-              <tr><td>{{.Date}} {{.Slot}}</td><td>{{.Item}}</td><td>{{.Doctor}}</td>
+              <tr><td>{{.Date}} {{.Slot}}</td><td>{{.DisplayItem}}</td><td>{{.Doctor}}</td>
                 <td><span class="badge {{.Badge}}">{{.StatusName}}</span></td>
                 <td>{{if .Charge}}¥{{printf "%.2f" .Charge}}{{end}}</td></tr>
               {{else}}

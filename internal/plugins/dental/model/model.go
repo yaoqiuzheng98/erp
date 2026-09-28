@@ -1,6 +1,8 @@
 package model
 
 import (
+	"strconv"
+
 	"erp/internal/platform/model"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -53,6 +55,29 @@ type View struct {
 	Phone string `bson:"-"`
 }
 
+// ServiceItem 诊疗价目表：服务型门诊的核心主数据（替代 basedata 商品）。
+// Category 约定：洁治/充填/根管/拔牙/正畸/种植/修复/检查/药品，其他 free text。
+// 药品少量直接建 Category=药品 的条目，按次收费不走库存。
+type ServiceItem struct {
+	model.Doc `bson:",inline"`
+	Code      string  `bson:"code"`     // 如 SV-0001，租户内唯一
+	Name      string  `bson:"name"`     // 如 洗牙（超声洁治）
+	Category  string  `bson:"category"` // 分类
+	Price     float64 `bson:"price"`    // 单价
+	Unit      string  `bson:"unit"`     // 次/颗/小时…
+	Status    string  `bson:"status"`   // active / disabled
+}
+
+// ApptItem 预约/结算明细行：下单时快照 Code/Name/Price，防价目表改价影响历史单。
+type ApptItem struct {
+	ServiceID bson.ObjectID `bson:"service_id"`
+	Code      string        `bson:"code"`
+	Name      string        `bson:"name"`
+	Qty       float64       `bson:"qty"`
+	Price     float64       `bson:"price"`
+	Amount    float64       `bson:"amount"` // Qty*Price
+}
+
 // Appointment 预约（按椅位/医生/时段排）。
 type Appointment struct {
 	model.Doc   `bson:",inline"`
@@ -62,10 +87,53 @@ type Appointment struct {
 	Chair       string        `bson:"chair"` // 椅位号
 	Date        string        `bson:"date"`  // YYYY-MM-DD
 	Slot        string        `bson:"slot"`  // HH:MM
-	Item        string        `bson:"item"`  // 项目：洗牙/补牙/根管/正畸复诊…
+	Item        string        `bson:"item"`  // 存量自由文本（兼容老单）；新单由 Items 汇总生成
+	Items       []ApptItem    `bson:"items,omitempty"`
 	Status      string        `bson:"status"`
-	Charge      float64       `bson:"charge"` // 完成时收费额
+	Charge      float64       `bson:"charge"` // 完成时收费总额（明细合计或手工额）
 	ChargeNo    string        `bson:"charge_no"`
+}
+
+// DisplayItem 列表展示用：有明细显示明细名，否则回落老 Item。
+func (a Appointment) DisplayItem() string {
+	if len(a.Items) > 0 {
+		names := make([]string, 0, len(a.Items))
+		for _, it := range a.Items {
+			if it.Qty > 1 {
+				names = append(names, it.Name+"x"+trimNum(it.Qty))
+			} else {
+				names = append(names, it.Name)
+			}
+		}
+		s := ""
+		for i, n := range names {
+			if i > 0 {
+				s += "、"
+			}
+			s += n
+		}
+		return s
+	}
+	return a.Item
+}
+
+// Total 明细合计（无明细回落 Charge，保持老模板可用）。
+func (a Appointment) Total() float64 {
+	if len(a.Items) > 0 {
+		var s float64
+		for _, it := range a.Items {
+			s += it.Amount
+		}
+		return s
+	}
+	return a.Charge
+}
+
+func trimNum(f float64) string {
+	if f == float64(int64(f)) {
+		return strconv.FormatInt(int64(f), 10)
+	}
+	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
 // StatusName 状态中文名（模板调用）。

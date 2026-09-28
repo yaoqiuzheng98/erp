@@ -5,12 +5,14 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+	"time"
 
 	"erp/internal/platform/env"
 	"erp/internal/platform/menu"
 	"erp/internal/platform/plugin"
 	"erp/internal/platform/rbac"
 	"erp/internal/plugins/dental/handler"
+	"erp/internal/plugins/dental/model"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -28,7 +30,7 @@ func init() { plugin.Register(&Plugin{}) }
 
 func (Plugin) ID() string             { return "dental" }
 func (Plugin) Name() string           { return "口腔门诊" }
-func (Plugin) Version() string        { return "0.1.0" }
+func (Plugin) Version() string        { return "0.2.0" }
 func (Plugin) Templates() fs.FS       { return tplFS }
 func (Plugin) Dependencies() []string { return []string{"basedata", "finance"} }
 
@@ -46,6 +48,7 @@ func (Plugin) Menus() []menu.Item {
 			{ID: "dental.today", Title: "今日预约", Path: "/app/dental", Perm: "dental.read"},
 			{ID: "dental.patients", Title: "患者", Path: "/app/dental/patients", Perm: "dental.read"},
 			{ID: "dental.appts", Title: "预约", Path: "/app/dental/appointments", Perm: "dental.read"},
+			{ID: "dental.services", Title: "价目表", Path: "/app/dental/services", Perm: "dental.read"},
 		},
 	}}
 }
@@ -57,16 +60,60 @@ func (Plugin) Permissions() []rbac.PermissionDef {
 	}
 }
 
-// OnInstall 建索引。
+// OnEnable 已启用租户同样幂等补索引与价目（覆盖升级前已启用的租户）。
+func (Plugin) OnEnable(ctx context.Context, e *env.Env, tenantID bson.ObjectID) error {
+	return ensureDental(ctx, e, tenantID)
+}
+
+// OnInstall 建索引并种子默认价目表（幂等：已有条目则跳过）。
 func (Plugin) OnInstall(ctx context.Context, e *env.Env, tenantID bson.ObjectID) error {
+	return ensureDental(ctx, e, tenantID)
+}
+
+func ensureDental(ctx context.Context, e *env.Env, tenantID bson.ObjectID) error {
 	_, err := e.DB.C("plg_dental_patient").Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "code", Value: 1}},
 	})
 	if err != nil {
 		return err
 	}
-	_, err = e.DB.C("plg_dental_appt").Indexes().CreateOne(ctx, mongo.IndexModel{
+	if _, err = e.DB.C("plg_dental_appt").Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "date", Value: 1}},
-	})
+	}); err != nil {
+		return err
+	}
+	if _, err = e.DB.C("plg_dental_service_item").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "code", Value: 1}},
+	}); err != nil {
+		return err
+	}
+	return seedServiceItems(ctx, e, tenantID)
+}
+
+// seedServiceItems 默认诊疗价目（参考价，租户可改）；已有条目则跳过。
+func seedServiceItems(ctx context.Context, e *env.Env, tenantID bson.ObjectID) error {
+	n, err := e.DB.C("plg_dental_service_item").CountDocuments(ctx, bson.M{"tenant_id": tenantID})
+	if err != nil || n > 0 {
+		return err
+	}
+	defaults := []model.ServiceItem{
+		{Code: "SV-0001", Name: "初诊检查", Category: "检查", Price: 50, Unit: "次", Status: "active"},
+		{Code: "SV-0002", Name: "口腔拍片", Category: "检查", Price: 100, Unit: "次", Status: "active"},
+		{Code: "SV-0003", Name: "超声洁治", Category: "洁治", Price: 300, Unit: "次", Status: "active"},
+		{Code: "SV-0004", Name: "树脂补牙", Category: "充填", Price: 300, Unit: "颗", Status: "active"},
+		{Code: "SV-0005", Name: "根管治疗", Category: "根管", Price: 1200, Unit: "颗", Status: "active"},
+		{Code: "SV-0006", Name: "简单拔牙", Category: "拔牙", Price: 300, Unit: "颗", Status: "active"},
+		{Code: "SV-0007", Name: "阻生智齿拔除", Category: "拔牙", Price: 1200, Unit: "颗", Status: "active"},
+		{Code: "SV-0008", Name: "正畸复诊", Category: "正畸", Price: 200, Unit: "次", Status: "active"},
+		{Code: "SV-0009", Name: "烤瓷冠修复", Category: "修复", Price: 1500, Unit: "颗", Status: "active"},
+		{Code: "SV-0010", Name: "种植牙", Category: "种植", Price: 8000, Unit: "颗", Status: "active"},
+	}
+	docs := make([]any, 0, len(defaults))
+	now := time.Now()
+	for _, d := range defaults {
+		d.TenantID, d.CreatedAt = tenantID, now
+		docs = append(docs, d)
+	}
+	_, err = e.DB.C("plg_dental_service_item").InsertMany(ctx, docs)
 	return err
 }

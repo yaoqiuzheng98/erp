@@ -15,7 +15,7 @@
         <tbody>
         {{range .Data.Bills}}
         <tr>
-          <td>{{.DocNo}}</td><td>{{.PartnerName}}</td><td>{{f2 .Amount}}</td><td>{{f2 .PaidAmount}}</td>
+          <td>{{.DocNo}}{{if .Lines}}<br>{{range .Lines}}<small class="text-muted">{{.Name}}x{{.Qty}} {{f2 .Amount}}</small><br>{{end}}{{end}}</td><td>{{.PartnerName}}</td><td>{{f2 .Amount}}</td><td>{{f2 .PaidAmount}}</td>
           <td><span class="badge {{if eq .Status "paid"}}bg-success{{else}}bg-warning text-dark{{end}}">{{.Status}}</span></td>
           <td>
             {{if eq .Status "open"}}

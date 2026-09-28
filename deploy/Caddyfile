@@ -7,3 +7,12 @@ erp.dokodemo.top {
 		max_size 64MB
 	}
 }
+
+erp.test.dokodemo.top {
+	reverse_proxy erp-test:8080
+	encode gzip
+
+	request_body {
+		max_size 64MB
+	}
+}

@@ -66,12 +66,22 @@ type StockChanged struct {
 	DocNo       string        `json:"doc_no"`
 }
 
+// ChargeLine 收费明细行（价目快照）。
+type ChargeLine struct {
+	Code   string  `json:"code"`
+	Name   string  `json:"name"`
+	Qty    float64 `json:"qty"`
+	Price  float64 `json:"price"`
+	Amount float64 `json:"amount"`
+}
+
 // Charge 业务收费（门诊/服务类）：财务生成应收。PartyID 关联 basedata 客户。
 type Charge struct {
 	DocNo     string        `json:"doc_no"` // 收费流水号
 	PartyID   bson.ObjectID `json:"party_id"`
 	PartyName string        `json:"party_name"` // 付款方名称（冗余便于显示）
 	Total     float64       `json:"total"`
+	Lines     []ChargeLine  `json:"lines,omitempty"`
 	By        string        `json:"by"`
 	RefType   string        `json:"ref_type"` // 来源单据类型，如 dental_appt
 	RefID     string        `json:"ref_id"`   // 来源单据 hex

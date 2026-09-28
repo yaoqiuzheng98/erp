@@ -29,6 +29,20 @@ services:
       - erp_uploads:/opt/erp/data/uploads
       - ./backups:/opt/erp/backups
 
+  # 测试环境：复用 mongo/caddy，仅多一个 app 容器（省内存，不另起 mongo）。
+  # 镜像 erp-app:test，库 erp_test，域名 erp.test.dokodemo.top。
+  erp-test:
+    image: erp-app:test
+    container_name: erp-test
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./config.test.toml:/opt/erp/config.toml:ro
+      - ./data/industries.json:/opt/erp/data/industries.json:ro
+      - erp_test_uploads:/opt/erp/data/uploads
+
   caddy:
     image: caddy:2-alpine
     container_name: erp-caddy
@@ -43,9 +57,11 @@ services:
       - caddy_config:/config
     depends_on:
       - erp
+      - erp-test
 
 volumes:
   mongo_data:
   erp_uploads:
+  erp_test_uploads:
   caddy_data:
   caddy_config:

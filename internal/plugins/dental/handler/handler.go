@@ -36,6 +36,10 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 	g.POST("/appointments/:id/done", mw.RequirePerm("dental.write"), h.done)
 	g.POST("/appointments/:id/noshow", mw.RequirePerm("dental.write"), h.noshow)
 	g.POST("/appointments/:id/cancel", mw.RequirePerm("dental.write"), h.cancel)
+	g.GET("/services", mw.RequirePerm("dental.read"), h.services)
+	g.POST("/services", mw.RequirePerm("dental.write"), h.createService)
+	g.POST("/services/:id", mw.RequirePerm("dental.write"), h.updateService)
+	g.POST("/services/:id/delete", mw.RequirePerm("dental.write"), h.deleteService)
 }
 
 // today 今日预约工作台。
@@ -135,9 +139,40 @@ func (h *Handler) appointments(c *gin.Context) {
 	}
 	pager.Total = total
 	pats, _, _ := h.svc.ListPatients(c.Request.Context(), mw.TenantID(c), "", 0, 500)
+	items, _ := h.svc.ListServiceItems(c.Request.Context(), mw.TenantID(c), true)
 	web.Render(c, h.e, "dental/appointments", gin.H{
-		"Rows": list, "Pager": pager, "Date": date, "Patients": pats,
+		"Rows": list, "Pager": pager, "Date": date, "Patients": pats, "Services": items,
 	})
+}
+
+// parseApptItems 解析明细表单：service_id[] 多选 + qty_<hex> 数量
+// （不用同下标 qty[] 对齐，避免 checkbox 未勾选时数组错位）。价格以后端价目表为准。
+func parseApptItems(c *gin.Context) []model.ApptItem {
+	ids := c.PostFormArray("service_id")
+	qtys := c.PostFormArray("qty") // 兼容旧模板同下标写法
+	var out []model.ApptItem
+	for i, sid := range ids {
+		oid, err := bson.ObjectIDFromHex(sid)
+		if err != nil || oid.IsZero() {
+			continue
+		}
+		qty := 1.0
+		if v := c.PostForm("qty_" + sid); v != "" {
+			if q, err := strconv.ParseFloat(v, 64); err == nil && q > 0 {
+				qty = q
+			} else {
+				continue
+			}
+		} else if i < len(qtys) && len(qtys) == len(ids) {
+			if q, err := strconv.ParseFloat(qtys[i], 64); err == nil && q > 0 {
+				qty = q
+			} else if qtys[i] != "" {
+				continue
+			}
+		}
+		out = append(out, model.ApptItem{ServiceID: oid, Qty: qty})
+	}
+	return out
 }
 
 func (h *Handler) createAppt(c *gin.Context) {
@@ -145,7 +180,9 @@ func (h *Handler) createAppt(c *gin.Context) {
 	a := &model.Appointment{
 		PatientID: patID,
 		Doctor:    c.PostForm("doctor"), Chair: c.PostForm("chair"),
-		Date: c.PostForm("date"), Slot: c.PostForm("slot"), Item: c.PostForm("item"),
+		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
+		Item:  c.PostForm("item"), // 老单自由文本兜底；新单以明细为准
+		Items: parseApptItems(c),
 	}
 	if err := h.svc.CreateAppt(c.Request.Context(), mw.TenantID(c), a); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
@@ -153,6 +190,60 @@ func (h *Handler) createAppt(c *gin.Context) {
 		web.SetFlash(c, "已预约")
 	}
 	c.Redirect(http.StatusFound, "/app/dental/appointments")
+}
+
+// ---------- 价目表 ----------
+
+func (h *Handler) services(c *gin.Context) {
+	list, err := h.svc.ListServiceItems(c.Request.Context(), mw.TenantID(c), false)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	web.Render(c, h.e, "dental/services", gin.H{"Rows": list})
+}
+
+func (h *Handler) createService(c *gin.Context) {
+	price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
+	it := &model.ServiceItem{
+		Code: c.PostForm("code"), Name: c.PostForm("name"),
+		Category: c.PostForm("category"), Unit: c.PostForm("unit"),
+		Price: price, Status: "active",
+	}
+	if err := h.svc.CreateServiceItem(c.Request.Context(), mw.TenantID(c), it); err != nil {
+		web.SetFlash(c, "创建失败: "+err.Error())
+	} else {
+		web.SetFlash(c, "价目已创建: "+it.Code)
+	}
+	c.Redirect(http.StatusFound, "/app/dental/services")
+}
+
+func (h *Handler) updateService(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
+	set := bson.M{
+		"name": c.PostForm("name"), "category": c.PostForm("category"),
+		"unit": c.PostForm("unit"), "price": price, "status": c.PostForm("status"),
+	}
+	if set["status"] != "active" && set["status"] != "disabled" {
+		set["status"] = "active"
+	}
+	if err := h.svc.UpdateServiceItem(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
+		web.SetFlash(c, "更新失败: "+err.Error())
+	} else {
+		web.SetFlash(c, "价目已更新")
+	}
+	c.Redirect(http.StatusFound, "/app/dental/services")
+}
+
+func (h *Handler) deleteService(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	if err := h.svc.DeleteServiceItem(c.Request.Context(), mw.TenantID(c), id); err != nil {
+		web.SetFlash(c, "删除失败: "+err.Error())
+	} else {
+		web.SetFlash(c, "价目已删除")
+	}
+	c.Redirect(http.StatusFound, "/app/dental/services")
 }
 
 func (h *Handler) arrive(c *gin.Context) {
@@ -166,7 +257,8 @@ func (h *Handler) arrive(c *gin.Context) {
 func (h *Handler) done(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	charge, _ := strconv.ParseFloat(c.PostForm("charge"), 64)
-	if err := h.svc.Complete(c.Request.Context(), mw.TenantID(c), id, charge, mw.User(c).Username); err != nil {
+	items := parseApptItems(c)
+	if err := h.svc.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge, mw.User(c).Username); err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "已完成就诊")
