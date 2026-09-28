@@ -24,7 +24,6 @@ const (
 
 type Line struct {
 	ProductID   bson.ObjectID `bson:"product_id"`
-	ProductCode string        `bson:"product_code"`
 	ProductName string        `bson:"product_name"`
 	Qty         float64       `bson:"qty"`
 }
@@ -46,7 +45,6 @@ type StockDoc struct {
 type Balance struct {
 	model.Doc   `bson:",inline"`
 	ProductID   bson.ObjectID `bson:"product_id"`
-	ProductCode string        `bson:"product_code"`
 	ProductName string        `bson:"product_name"`
 	WarehouseID bson.ObjectID `bson:"warehouse_id"`
 	Qty         float64       `bson:"qty"`

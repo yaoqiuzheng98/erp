@@ -26,7 +26,7 @@
             <tbody>
               <tr>
                 <td><select class="form-select form-select-sm" name="product_id" required>
-                  {{range .Data.Products}}<option value="{{hex .ID}}">{{.Code}} {{.Name}}</option>{{end}}
+                  {{range .Data.Products}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
                 </select></td>
                 <td><input class="form-control form-control-sm" name="qty" type="number" step="0.01" min="0.01" required></td>
                 <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="delRow(this)">×</button></td>

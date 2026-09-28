@@ -59,7 +59,7 @@ func (s *Service) OnCharge(ctx context.Context, tenantID bson.ObjectID, ch contr
 	}
 	for _, l := range ch.Lines {
 		b.Lines = append(b.Lines, model.BillLine{
-			Code: l.Code, Name: l.Name, Qty: l.Qty, Price: l.Price, Amount: l.Amount,
+			Name: l.Name, Qty: l.Qty, Price: l.Price, Amount: l.Amount,
 		})
 	}
 	b.TenantID, b.CreatedAt = tenantID, time.Now()

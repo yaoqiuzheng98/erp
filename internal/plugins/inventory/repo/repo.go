@@ -48,7 +48,7 @@ func (r *BalanceRepo) List(ctx context.Context, tenantID bson.ObjectID, skip, li
 		return nil, 0, err
 	}
 	list, err := r.FindMany(ctx, tenantID, bson.M{},
-		options.Find().SetSort(bson.D{{Key: "product_code", Value: 1}}).SetSkip(skip).SetLimit(limit))
+		options.Find().SetSort(bson.D{{Key: "product_name", Value: 1}}).SetSkip(skip).SetLimit(limit))
 	return list, total, err
 }
 
@@ -62,12 +62,12 @@ func (r *BalanceRepo) Get(ctx context.Context, tenantID, productID, warehouseID 
 }
 
 // AddQty 原子增减余额，upsert。
-func (r *BalanceRepo) AddQty(ctx context.Context, tenantID, productID, warehouseID bson.ObjectID, code, name string, delta float64) error {
+func (r *BalanceRepo) AddQty(ctx context.Context, tenantID, productID, warehouseID bson.ObjectID, name string, delta float64) error {
 	_, err := r.Col.UpdateOne(ctx,
 		bson.M{"tenant_id": tenantID, "product_id": productID, "warehouse_id": warehouseID},
 		bson.M{
 			"$inc": bson.M{"qty": delta},
-			"$set": bson.M{"product_code": code, "product_name": name, "updated_at": time.Now()},
+			"$set": bson.M{"product_name": name, "updated_at": time.Now()},
 			"$setOnInsert": bson.M{
 				"tenant_id": tenantID, "product_id": productID,
 				"warehouse_id": warehouseID, "created_at": time.Now(),

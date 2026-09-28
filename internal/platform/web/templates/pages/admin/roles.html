@@ -14,8 +14,6 @@
         <form method="post" action="/admin/roles">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="row g-2 align-items-end mb-2">
-            <div class="col-auto"><label class="form-label">编码</label>
-              <input class="form-control form-control-sm" name="code" required></div>
             <div class="col-auto"><label class="form-label">名称</label>
               <input class="form-control form-control-sm" name="name" required></div>
             <div class="col-auto"><label class="form-label">数据范围</label>
@@ -37,11 +35,11 @@
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>编码</th><th>名称</th><th>数据范围</th><th>权限码</th><th></th></tr></thead>
+        <thead><tr><th>名称</th><th>数据范围</th><th>权限码</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Roles}}
         <tr>
-          <td>{{.Code}}</td><td>{{.Name}}</td><td>{{.DataScope}}</td>
+          <td>{{.Name}}</td><td>{{.DataScope}}</td>
           <td class="small text-muted">{{range .PermCodes}}{{.}} {{end}}</td>
           <td>
             <form method="post" action="/admin/roles/{{hex .ID}}/delete" class="m-0"

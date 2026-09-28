@@ -21,7 +21,6 @@ const (
 
 // BillLine 应收明细（门诊价目快照；订单渠道为空）。
 type BillLine struct {
-	Code   string  `bson:"code"`
 	Name   string  `bson:"name"`
 	Qty    float64 `bson:"qty"`
 	Price  float64 `bson:"price"`

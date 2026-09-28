@@ -71,19 +71,15 @@ func (Plugin) OnInstall(ctx context.Context, e *env.Env, tenantID bson.ObjectID)
 }
 
 func ensureDental(ctx context.Context, e *env.Env, tenantID bson.ObjectID) error {
-	_, err := e.DB.C("plg_dental_patient").Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "code", Value: 1}},
-	})
-	if err != nil {
-		return err
+	// 去编码迁移：删掉历史 {tenant_id, code} 唯一索引，清理存量 code 字段。
+	_ = e.DB.C("plg_dental_patient").Indexes().DropOne(ctx, "tenant_id_1_code_1")
+	_ = e.DB.C("plg_dental_service_item").Indexes().DropOne(ctx, "tenant_id_1_code_1")
+	for _, col := range []string{"plg_dental_patient", "plg_dental_service_item"} {
+		_, _ = e.DB.C(col).UpdateMany(ctx, bson.M{"code": bson.M{"$exists": true}},
+			bson.M{"$unset": bson.M{"code": ""}})
 	}
-	if _, err = e.DB.C("plg_dental_appt").Indexes().CreateOne(ctx, mongo.IndexModel{
+	if _, err := e.DB.C("plg_dental_appt").Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "date", Value: 1}},
-	}); err != nil {
-		return err
-	}
-	if _, err = e.DB.C("plg_dental_service_item").Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "code", Value: 1}},
 	}); err != nil {
 		return err
 	}
@@ -97,16 +93,16 @@ func seedServiceItems(ctx context.Context, e *env.Env, tenantID bson.ObjectID) e
 		return err
 	}
 	defaults := []model.ServiceItem{
-		{Code: "SV-0001", Name: "初诊检查", Category: "检查", Price: 50, Unit: "次", Status: "active"},
-		{Code: "SV-0002", Name: "口腔拍片", Category: "检查", Price: 100, Unit: "次", Status: "active"},
-		{Code: "SV-0003", Name: "超声洁治", Category: "洁治", Price: 300, Unit: "次", Status: "active"},
-		{Code: "SV-0004", Name: "树脂补牙", Category: "充填", Price: 300, Unit: "颗", Status: "active"},
-		{Code: "SV-0005", Name: "根管治疗", Category: "根管", Price: 1200, Unit: "颗", Status: "active"},
-		{Code: "SV-0006", Name: "简单拔牙", Category: "拔牙", Price: 300, Unit: "颗", Status: "active"},
-		{Code: "SV-0007", Name: "阻生智齿拔除", Category: "拔牙", Price: 1200, Unit: "颗", Status: "active"},
-		{Code: "SV-0008", Name: "正畸复诊", Category: "正畸", Price: 200, Unit: "次", Status: "active"},
-		{Code: "SV-0009", Name: "烤瓷冠修复", Category: "修复", Price: 1500, Unit: "颗", Status: "active"},
-		{Code: "SV-0010", Name: "种植牙", Category: "种植", Price: 8000, Unit: "颗", Status: "active"},
+		{Name: "初诊检查", Category: "检查", Price: 50, Unit: "次", Status: "active"},
+		{Name: "口腔拍片", Category: "检查", Price: 100, Unit: "次", Status: "active"},
+		{Name: "超声洁治", Category: "洁治", Price: 300, Unit: "次", Status: "active"},
+		{Name: "树脂补牙", Category: "充填", Price: 300, Unit: "颗", Status: "active"},
+		{Name: "根管治疗", Category: "根管", Price: 1200, Unit: "颗", Status: "active"},
+		{Name: "简单拔牙", Category: "拔牙", Price: 300, Unit: "颗", Status: "active"},
+		{Name: "阻生智齿拔除", Category: "拔牙", Price: 1200, Unit: "颗", Status: "active"},
+		{Name: "正畸复诊", Category: "正畸", Price: 200, Unit: "次", Status: "active"},
+		{Name: "烤瓷冠修复", Category: "修复", Price: 1500, Unit: "颗", Status: "active"},
+		{Name: "种植牙", Category: "种植", Price: 8000, Unit: "颗", Status: "active"},
 	}
 	docs := make([]any, 0, len(defaults))
 	now := time.Now()

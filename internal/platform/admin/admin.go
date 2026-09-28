@@ -160,7 +160,6 @@ func (h *Handler) rolesPage(c *gin.Context) {
 func (h *Handler) createRole(c *gin.Context) {
 	r := rbac.Role{
 		TenantID:  mw.TenantID(c),
-		Code:      c.PostForm("code"),
 		Name:      c.PostForm("name"),
 		PermCodes: c.PostFormArray("perm_codes"),
 		DataScope: c.PostForm("data_scope"),
@@ -171,7 +170,7 @@ func (h *Handler) createRole(c *gin.Context) {
 	if err := h.e.RBAC.Create(c.Request.Context(), &r); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		h.audit(c, "role.create", r.Code, r.Name)
+		h.audit(c, "role.create", r.Name, r.Name)
 		web.SetFlash(c, "角色已创建")
 	}
 	c.Redirect(http.StatusFound, "/admin/roles")

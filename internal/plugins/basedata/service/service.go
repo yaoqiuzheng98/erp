@@ -12,10 +12,9 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var ErrDupCode = errors.New("编码已存在")
+var ErrDupName = errors.New("同名已存在")
 
 // Service 实现 contract.MasterDataAPI，同时承担插件内部 CRUD。
 type Service struct {
@@ -39,10 +38,7 @@ func New(db *mongo.Database) *Service {
 func (s *Service) ListProducts(ctx context.Context, tenantID bson.ObjectID, kw string, skip, limit int64) ([]model.Product, int64, error) {
 	f := bson.M{}
 	if kw != "" {
-		f["$or"] = bson.A{
-			bson.M{"code": bson.M{"$regex": kw}},
-			bson.M{"name": bson.M{"$regex": kw}},
-		}
+		f["name"] = bson.M{"$regex": kw}
 	}
 	total, err := s.products.Count(ctx, tenantID, f)
 	if err != nil {
@@ -53,8 +49,11 @@ func (s *Service) ListProducts(ctx context.Context, tenantID bson.ObjectID, kw s
 }
 
 func (s *Service) CreateProduct(ctx context.Context, tenantID bson.ObjectID, p *model.Product, by string) error {
-	if dup, _ := s.products.FindOne(ctx, tenantID, bson.M{"code": p.Code}); dup != nil {
-		return ErrDupCode
+	if p.Name == "" {
+		return errors.New("名称必填")
+	}
+	if dup, _ := s.products.FindOne(ctx, tenantID, bson.M{"name": p.Name}); dup != nil {
+		return ErrDupName
 	}
 	p.TenantID, p.CreatedAt, p.CreatedBy, p.Status = tenantID, time.Now(), by, "active"
 	_, err := s.products.Insert(ctx, tenantID, p)
@@ -87,13 +86,16 @@ func (s *Service) ListCustomers(ctx context.Context, tenantID bson.ObjectID) ([]
 
 // CreateCustomer 建客户（contract.MasterDataAPI；handler 与跨插件调用共用）。
 func (s *Service) CreateCustomer(ctx context.Context, tenantID bson.ObjectID, in contract.CustomerUpsert) (*contract.PartnerRef, error) {
-	cu := &model.Customer{Code: in.Code, Name: in.Name, Contact: in.Contact, Phone: in.Phone}
+	if in.Name == "" {
+		return nil, errors.New("名称必填")
+	}
+	cu := &model.Customer{Name: in.Name, Contact: in.Contact, Phone: in.Phone}
 	cu.TenantID, cu.CreatedAt = tenantID, time.Now()
 	id, err := s.customers.Insert(ctx, tenantID, cu)
 	if err != nil {
 		return nil, err
 	}
-	return &contract.PartnerRef{ID: id, Code: cu.Code, Name: cu.Name, Phone: cu.Phone}, nil
+	return &contract.PartnerRef{ID: id, Name: cu.Name, Phone: cu.Phone}, nil
 }
 
 func (s *Service) ListSuppliers(ctx context.Context, tenantID bson.ObjectID) ([]model.Supplier, error) {
@@ -114,7 +116,7 @@ func (s *Service) Product(ctx context.Context, tenantID, id bson.ObjectID) (*con
 		return nil, err
 	}
 	return &contract.ProductRef{
-		ID: p.ID, Code: p.Code, Name: p.Name, Unit: p.Unit,
+		ID: p.ID, Name: p.Name, Unit: p.Unit,
 		Price: p.Price, MinStock: p.MinStock,
 	}, nil
 }
@@ -127,7 +129,7 @@ func (s *Service) Products(ctx context.Context, tenantID bson.ObjectID) ([]contr
 	out := make([]contract.ProductRef, 0, len(list))
 	for _, p := range list {
 		out = append(out, contract.ProductRef{
-			ID: p.ID, Code: p.Code, Name: p.Name, Unit: p.Unit,
+			ID: p.ID, Name: p.Name, Unit: p.Unit,
 			Price: p.Price, MinStock: p.MinStock,
 		})
 	}
@@ -153,7 +155,7 @@ func (s *Service) Customers(ctx context.Context, tenantID bson.ObjectID) ([]cont
 	}
 	out := make([]contract.PartnerRef, 0, len(list))
 	for _, c := range list {
-		out = append(out, contract.PartnerRef{ID: c.ID, Code: c.Code, Name: c.Name, Phone: c.Phone})
+		out = append(out, contract.PartnerRef{ID: c.ID, Name: c.Name, Phone: c.Phone})
 	}
 	return out, nil
 }
@@ -164,7 +166,7 @@ func (s *Service) Customer(ctx context.Context, tenantID, id bson.ObjectID) (*co
 	if err != nil {
 		return nil, err
 	}
-	return &contract.PartnerRef{ID: c.ID, Code: c.Code, Name: c.Name, Phone: c.Phone}, nil
+	return &contract.PartnerRef{ID: c.ID, Name: c.Name, Phone: c.Phone}, nil
 }
 
 func (s *Service) Suppliers(ctx context.Context, tenantID bson.ObjectID) ([]contract.PartnerRef, error) {
@@ -174,20 +176,20 @@ func (s *Service) Suppliers(ctx context.Context, tenantID bson.ObjectID) ([]cont
 	}
 	out := make([]contract.PartnerRef, 0, len(list))
 	for _, su := range list {
-		out = append(out, contract.PartnerRef{ID: su.ID, Code: su.Code, Name: su.Name})
+		out = append(out, contract.PartnerRef{ID: su.ID, Name: su.Name})
 	}
 	return out, nil
 }
 
-// EnsureIndexes 插件安装钩子调用：编码在租户内唯一。
+// EnsureIndexes 插件安装钩子调用：去编码迁移——删掉历史 {tenant_id, code}
+// 唯一索引（无编码后多文档缺字段会在唯一索引下冲突），并清理存量 code 字段。
 func (s *Service) EnsureIndexes(ctx context.Context) error {
-	uniq := options.Index().SetUnique(true)
-	for _, m := range []mongo.IndexModel{
-		{Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "code", Value: 1}}, Options: uniq},
+	_ = s.products.Col.Indexes().DropOne(ctx, "tenant_id_1_code_1")
+	for _, col := range []*mongo.Collection{
+		s.products.Col, s.warehouses.Col, s.customers.Col, s.suppliers.Col,
 	} {
-		if _, err := s.products.Col.Indexes().CreateOne(ctx, m); err != nil {
-			return err
-		}
+		_, _ = col.UpdateMany(ctx, bson.M{"code": bson.M{"$exists": true}},
+			bson.M{"$unset": bson.M{"code": ""}})
 	}
 	return nil
 }

@@ -57,7 +57,6 @@ func (h *Handler) productTable(c *gin.Context) {
 }
 
 func productForm(c *gin.Context, p *model.Product) {
-	p.Code = c.PostForm("code")
 	p.Name = c.PostForm("name")
 	p.Unit = c.PostForm("unit")
 	p.Category = c.PostForm("category")
@@ -113,7 +112,7 @@ func (h *Handler) warehouses(c *gin.Context) {
 
 func (h *Handler) createWarehouse(c *gin.Context) {
 	w := &model.Warehouse{
-		Code: c.PostForm("code"), Name: c.PostForm("name"), Address: c.PostForm("address"),
+		Name: c.PostForm("name"), Address: c.PostForm("address"),
 	}
 	if err := h.svc.CreateWarehouse(c.Request.Context(), mw.TenantID(c), w); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
@@ -132,7 +131,7 @@ func (h *Handler) customers(c *gin.Context) {
 
 func (h *Handler) createCustomer(c *gin.Context) {
 	in := contract.CustomerUpsert{
-		Code: c.PostForm("code"), Name: c.PostForm("name"),
+		Name: c.PostForm("name"),
 		Contact: c.PostForm("contact"), Phone: c.PostForm("phone"),
 	}
 	if _, err := h.svc.CreateCustomer(c.Request.Context(), mw.TenantID(c), in); err != nil {
@@ -152,7 +151,7 @@ func (h *Handler) suppliers(c *gin.Context) {
 
 func (h *Handler) createSupplier(c *gin.Context) {
 	su := &model.Supplier{
-		Code: c.PostForm("code"), Name: c.PostForm("name"),
+		Name: c.PostForm("name"),
 		Contact: c.PostForm("contact"), Phone: c.PostForm("phone"),
 	}
 	if err := h.svc.CreateSupplier(c.Request.Context(), mw.TenantID(c), su); err != nil {

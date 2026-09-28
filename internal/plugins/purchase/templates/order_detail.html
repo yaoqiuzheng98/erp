@@ -46,10 +46,10 @@
         <div class="col-md-3">备注：{{.Data.Order.Remark}}</div>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>商品编码</th><th>商品名称</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
+        <thead><tr><th>商品名称</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
         <tbody>
         {{range .Data.Order.Lines}}
-        <tr><td>{{.ProductCode}}</td><td>{{.ProductName}}</td><td>{{.Qty}}</td><td>{{.Price}}</td><td>{{mul .Qty .Price}}</td></tr>
+        <tr><td>{{.ProductName}}</td><td>{{.Qty}}</td><td>{{.Price}}</td><td>{{mul .Qty .Price}}</td></tr>
         {{end}}
         </tbody>
       </table></div>

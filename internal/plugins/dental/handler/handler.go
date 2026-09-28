@@ -78,7 +78,7 @@ func (h *Handler) createPatient(c *gin.Context) {
 		c.PostForm("name"), c.PostForm("phone"), custID); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		web.SetFlash(c, "患者已建档: "+p.Code)
+		web.SetFlash(c, "患者已建档")
 	}
 	c.Redirect(http.StatusFound, "/app/dental/patients")
 }
@@ -206,14 +206,14 @@ func (h *Handler) services(c *gin.Context) {
 func (h *Handler) createService(c *gin.Context) {
 	price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
 	it := &model.ServiceItem{
-		Code: c.PostForm("code"), Name: c.PostForm("name"),
+		Name: c.PostForm("name"),
 		Category: c.PostForm("category"), Unit: c.PostForm("unit"),
 		Price: price, Status: "active",
 	}
 	if err := h.svc.CreateServiceItem(c.Request.Context(), mw.TenantID(c), it); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		web.SetFlash(c, "价目已创建: "+it.Code)
+		web.SetFlash(c, "价目已创建: "+it.Name)
 	}
 	c.Redirect(http.StatusFound, "/app/dental/services")
 }

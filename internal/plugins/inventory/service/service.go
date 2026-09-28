@@ -125,7 +125,7 @@ func (s *Service) apply(ctx context.Context, tenantID bson.ObjectID, d *model.St
 			delta = l.Qty - cur
 		}
 		if err := s.bal.AddQty(ctx, tenantID, l.ProductID, d.WarehouseID,
-			l.ProductCode, l.ProductName, delta); err != nil {
+			l.ProductName, delta); err != nil {
 			return err
 		}
 		s.e.Events.Publish(ctx, event.Event{
@@ -161,7 +161,7 @@ func (s *Service) AutoOutbound(ctx context.Context, tenantID bson.ObjectID, o co
 	for _, l := range o.Lines {
 		d.WarehouseID = l.WarehouseID
 		d.Lines = append(d.Lines, model.Line{
-			ProductID: l.ProductID, ProductCode: l.ProductCode,
+			ProductID: l.ProductID,
 			ProductName: l.ProductName, Qty: l.Qty,
 		})
 	}
@@ -182,7 +182,7 @@ func (s *Service) AutoInbound(ctx context.Context, tenantID bson.ObjectID, o con
 	for _, l := range o.Lines {
 		d.WarehouseID = l.WarehouseID
 		d.Lines = append(d.Lines, model.Line{
-			ProductID: l.ProductID, ProductCode: l.ProductCode,
+			ProductID: l.ProductID,
 			ProductName: l.ProductName, Qty: l.Qty,
 		})
 	}

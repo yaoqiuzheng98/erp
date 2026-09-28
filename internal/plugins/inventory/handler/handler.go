@@ -84,11 +84,10 @@ func (h *Handler) createDoc(c *gin.Context) {
 		}
 		d.Lines = append(d.Lines, model.Line{ProductID: oid, Qty: qty})
 	}
-	// 回填商品编码/名称
+	// 回填商品名称
 	if master, err := contract.Master(h.e); err == nil {
 		for i, l := range d.Lines {
 			if p, err := master.Product(c.Request.Context(), mw.TenantID(c), l.ProductID); err == nil {
-				d.Lines[i].ProductCode = p.Code
 				d.Lines[i].ProductName = p.Name
 			}
 		}

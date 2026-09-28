@@ -86,10 +86,10 @@ func (Plugin) SubscribeEvents(b *event.Bus, e *env.Env) {
 // RegisterServices 把对外服务放进 Env，供其他插件经 contract 接口取用。
 func (Plugin) RegisterServices(e *env.Env) { e.Provide("example.api", struct{}{}) }
 
-// OnInstall 首次启用时执行：建索引等一次性工作。
+// OnInstall 首次启用时执行：建索引等一次性工作（主数据以名称标识，不设编码）。
 func (Plugin) OnInstall(ctx context.Context, e *env.Env, tenantID bson.ObjectID) error {
 	_, err := e.DB.C("plg_example_item").Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "code", Value: 1}},
+		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "name", Value: 1}},
 	})
 	return err
 }

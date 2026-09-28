@@ -32,10 +32,10 @@
         <div class="col-md-3">备注：{{.Data.Doc.Remark}}</div>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>商品编码</th><th>商品名称</th><th>数量</th></tr></thead>
+        <thead><tr><th>商品名称</th><th>数量</th></tr></thead>
         <tbody>
         {{range .Data.Doc.Lines}}
-        <tr><td>{{.ProductCode}}</td><td>{{.ProductName}}</td><td>{{.Qty}}</td></tr>
+        <tr><td>{{.ProductName}}</td><td>{{.Qty}}</td></tr>
         {{end}}
         </tbody>
       </table></div>

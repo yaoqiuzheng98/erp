@@ -222,7 +222,7 @@ tenants          { _id, name, code, status, created_at }
 users            { _id, tenant_id, username, password_hash, name, dept_id,
                    role_ids[], status, last_login_at }
 sys_admins       { _id, username, password_hash }          // 系统级，无 tenant_id
-roles            { _id, tenant_id, code, name, perm_codes[], data_scope }
+roles            { _id, tenant_id, name, perm_codes[], data_scope }
 departments      { _id, tenant_id, parent_id, name, sort }
 dicts            { _id, tenant_id, type, code, label, sort, status }
 params           { _id, tenant_id, key, value, desc }
@@ -243,7 +243,7 @@ plugin_catalog   { _id(plugin_id), name, version, description }       // 启动�
 插件集合命名 `plg_{pluginID}_{entity}`，例：
 
 ```
-plg_basedata_product   { _id, tenant_id, code, name, unit, category, price, min_stock }
+plg_basedata_product   { _id, tenant_id, name, unit, category, price, min_stock }
 plg_basedata_warehouse / _customer / _supplier
 plg_inventory_doc      { _id, tenant_id, doc_no, type[in|out|check], lines[], status }
 plg_inventory_balance  { _id, tenant_id, product_id, warehouse_id, qty }

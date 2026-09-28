@@ -66,20 +66,17 @@ func (s *Service) hydrate(ctx context.Context, tenantID bson.ObjectID, pats []mo
 func (s *Service) ListPatients(ctx context.Context, tenantID bson.ObjectID, q string, skip, limit int64) ([]model.View, int64, error) {
 	f := bson.M{}
 	if q != "" {
-		// 姓名/电话/编码经客户表匹配出 customer_id 集合；病历号直接查
+		// 姓名/电话经客户表匹配出 customer_id 集合
 		var ids []bson.ObjectID
 		if master, err := s.master(); err == nil {
 			custs, _ := master.Customers(ctx, tenantID)
 			for _, c := range custs {
-				if strings.Contains(c.Name, q) || strings.Contains(c.Code, q) || strings.Contains(c.Phone, q) {
+				if strings.Contains(c.Name, q) || strings.Contains(c.Phone, q) {
 					ids = append(ids, c.ID)
 				}
 			}
 		}
-		f["$or"] = []bson.M{
-			{"code": bson.M{"$regex": q}},
-			{"customer_id": bson.M{"$in": ids}},
-		}
+		f = bson.M{"customer_id": bson.M{"$in": ids}}
 	}
 	total, err := s.pats.Count(ctx, tenantID, f)
 	if err != nil {
@@ -112,7 +109,7 @@ func (s *Service) PatientView(ctx context.Context, tenantID, id bson.ObjectID) (
 }
 
 // CreatePatient 建档。customerID 非零 = 挂接已有客户（不新建）；否则以
-// name/phone 建 basedata 客户。病历号同时作为新建客户的编码。
+// name/phone 建 basedata 客户。
 func (s *Service) CreatePatient(ctx context.Context, tenantID bson.ObjectID, p *model.Patient, name, phone string, customerID bson.ObjectID) error {
 	master, err := s.master()
 	if err != nil {
@@ -122,17 +119,13 @@ func (s *Service) CreatePatient(ctx context.Context, tenantID bson.ObjectID, p *
 		if name == "" {
 			return errors.New("姓名必填")
 		}
-		no, err := s.e.Seq.Next(ctx, tenantID, "PT")
-		if err != nil {
-			return err
-		}
 		cust, err := master.CreateCustomer(ctx, tenantID, contract.CustomerUpsert{
-			Code: no, Name: name, Phone: phone,
+			Name: name, Phone: phone,
 		})
 		if err != nil {
 			return err
 		}
-		p.Code, p.CustomerID = no, cust.ID
+		p.CustomerID = cust.ID
 	} else {
 		cust, err := master.Customer(ctx, tenantID, customerID)
 		if err != nil {
@@ -142,14 +135,10 @@ func (s *Service) CreatePatient(ctx context.Context, tenantID bson.ObjectID, p *
 		if n, _ := s.pats.Count(ctx, tenantID, bson.M{"customer_id": cust.ID}); n > 0 {
 			return errors.New("该客户已有患者档案")
 		}
-		no, err := s.e.Seq.Next(ctx, tenantID, "PT")
-		if err != nil {
-			return err
-		}
-		p.Code, p.CustomerID = no, cust.ID
+		p.CustomerID = cust.ID
 	}
 	p.TenantID, p.CreatedAt = tenantID, time.Now()
-	_, err = s.pats.Insert(ctx, tenantID, p)
+	p.ID, err = s.pats.Insert(ctx, tenantID, p)
 	return err
 }
 
@@ -208,14 +197,8 @@ func (s *Service) CreateServiceItem(ctx context.Context, tenantID bson.ObjectID,
 	if it.Name == "" {
 		return errors.New("项目名称必填")
 	}
-	if it.Code == "" {
-		no, err := s.e.Seq.Next(ctx, tenantID, "SV")
-		if err != nil {
-			return err
-		}
-		it.Code = no
-	} else if n, _ := s.items.Count(ctx, tenantID, bson.M{"code": it.Code}); n > 0 {
-		return errors.New("编码已存在")
+	if n, _ := s.items.Count(ctx, tenantID, bson.M{"name": it.Name}); n > 0 {
+		return errors.New("同名项目已存在")
 	}
 	if it.Price < 0 {
 		return errors.New("单价不能为负")
@@ -269,7 +252,7 @@ func (s *Service) fillItems(ctx context.Context, tenantID bson.ObjectID, in []mo
 		}
 		amt := l.Qty * si.Price
 		out = append(out, model.ApptItem{
-			ServiceID: si.ID, Code: si.Code, Name: si.Name,
+			ServiceID: si.ID, Name: si.Name,
 			Qty: l.Qty, Price: si.Price, Amount: amt,
 		})
 		total += amt
@@ -386,7 +369,7 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, item
 		lines := make([]contract.ChargeLine, 0, len(finalItems))
 		for _, it := range finalItems {
 			lines = append(lines, contract.ChargeLine{
-				Code: it.Code, Name: it.Name, Qty: it.Qty, Price: it.Price, Amount: it.Amount,
+				Name: it.Name, Qty: it.Qty, Price: it.Price, Amount: it.Amount,
 			})
 		}
 		s.e.Events.Publish(ctx, event.Event{

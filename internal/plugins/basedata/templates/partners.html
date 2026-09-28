@@ -13,8 +13,6 @@
       <div class="card mb-3"><div class="card-body">
         <form method="post" action="{{.Data.Path}}" class="row g-2 align-items-end">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-auto"><label class="form-label">编码</label>
-            <input class="form-control form-control-sm" name="code" required></div>
           <div class="col-auto"><label class="form-label">名称</label>
             <input class="form-control form-control-sm" name="name" required></div>
           <div class="col-auto"><label class="form-label">联系人</label>
@@ -25,12 +23,12 @@
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>编码</th><th>名称</th><th>联系人</th><th>电话</th><th>创建时间</th></tr></thead>
+        <thead><tr><th>名称</th><th>联系人</th><th>电话</th><th>创建时间</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
-        <tr><td>{{.Code}}</td><td>{{.Name}}</td><td>{{.Contact}}</td><td>{{.Phone}}</td><td>{{date .CreatedAt}}</td></tr>
+        <tr><td>{{.Name}}</td><td>{{.Contact}}</td><td>{{.Phone}}</td><td>{{date .CreatedAt}}</td></tr>
         {{else}}
-        <tr><td colspan="5" class="text-muted">暂无数据</td></tr>
+        <tr><td colspan="4" class="text-muted">暂无数据</td></tr>
         {{end}}
         </tbody>
       </table></div>

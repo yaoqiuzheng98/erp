@@ -16,7 +16,7 @@
           <div class="col-auto"><label class="form-label">患者</label>
             <select class="form-select form-select-sm" name="patient_id" required>
               <option value="">选择患者</option>
-              {{range .Data.Patients}}<option value="{{hex .ID}}">{{.Code}} {{.Name}}</option>{{end}}
+              {{range .Data.Patients}}<option value="{{hex .ID}}">{{.Name}} {{.Phone}}</option>{{end}}
             </select></div>
           <div class="col-auto"><label class="form-label">日期</label>
             <input class="form-control form-control-sm" name="date" type="date" required></div>

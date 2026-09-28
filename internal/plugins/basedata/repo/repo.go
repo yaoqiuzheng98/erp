@@ -24,10 +24,7 @@ func NewProductRepo(db *mongo.Database) *ProductRepo {
 func (r *ProductRepo) Search(ctx context.Context, tenantID bson.ObjectID, kw string, skip, limit int64) ([]model.Product, error) {
 	f := bson.M{}
 	if kw != "" {
-		f["$or"] = bson.A{
-			bson.M{"code": bson.M{"$regex": kw}},
-			bson.M{"name": bson.M{"$regex": kw}},
-		}
+		f["name"] = bson.M{"$regex": kw}
 	}
 	return r.FindMany(ctx, tenantID, f,
 		options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}).

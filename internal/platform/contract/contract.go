@@ -41,7 +41,6 @@ type FlowResult struct {
 // OrderLine 订单行（也是库存单行）。
 type OrderLine struct {
 	ProductID   bson.ObjectID `json:"product_id"`
-	ProductCode string        `json:"product_code"`
 	ProductName string        `json:"product_name"`
 	WarehouseID bson.ObjectID `json:"warehouse_id"`
 	Qty         float64       `json:"qty"`
@@ -68,7 +67,6 @@ type StockChanged struct {
 
 // ChargeLine 收费明细行（价目快照）。
 type ChargeLine struct {
-	Code   string  `json:"code"`
 	Name   string  `json:"name"`
 	Qty    float64 `json:"qty"`
 	Price  float64 `json:"price"`

@@ -93,7 +93,6 @@ func (h *Handler) create(c *gin.Context) {
 	if master, err := contract.Master(h.e); err == nil {
 		for i, l := range o.Lines {
 			if p, err := master.Product(c.Request.Context(), tid, l.ProductID); err == nil {
-				o.Lines[i].ProductCode = p.Code
 				o.Lines[i].ProductName = p.Name
 				if o.Lines[i].Price == 0 {
 					o.Lines[i].Price = p.Price

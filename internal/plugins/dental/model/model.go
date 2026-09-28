@@ -35,11 +35,10 @@ var ToothStatuses = map[string]string{
 }
 
 // Patient 患者医疗扩展档案：身份主体是 basedata 客户（CustomerID），
-// 本表只存医疗字段。姓名/电话经 CustomerID join 客户表取。
+// 本表只存医疗字段。姓名/电话经 CustomerID join 客户表取。以姓名+电话标识。
 type Patient struct {
 	model.Doc  `bson:",inline"`
 	CustomerID bson.ObjectID     `bson:"customer_id"` // → basedata 客户
-	Code       string            `bson:"code"`        // 病历号 PT-xxxxxx（兼作客户编码）
 	Gender     string            `bson:"gender"`
 	Birth      string            `bson:"birth"`
 	Allergy    string            `bson:"allergy"` // 过敏史
@@ -57,21 +56,19 @@ type View struct {
 
 // ServiceItem 诊疗价目表：服务型门诊的核心主数据（替代 basedata 商品）。
 // Category 约定：洁治/充填/根管/拔牙/正畸/种植/修复/检查/药品，其他 free text。
-// 药品少量直接建 Category=药品 的条目，按次收费不走库存。
+// 药品少量直接建 Category=药品 的条目，按次收费不走库存。以名称标识，租户内唯一。
 type ServiceItem struct {
 	model.Doc `bson:",inline"`
-	Code      string  `bson:"code"`     // 如 SV-0001，租户内唯一
-	Name      string  `bson:"name"`     // 如 洗牙（超声洁治）
+	Name      string  `bson:"name"`     // 如 洗牙（超声洁治），租户内唯一
 	Category  string  `bson:"category"` // 分类
 	Price     float64 `bson:"price"`    // 单价
 	Unit      string  `bson:"unit"`     // 次/颗/小时…
 	Status    string  `bson:"status"`   // active / disabled
 }
 
-// ApptItem 预约/结算明细行：下单时快照 Code/Name/Price，防价目表改价影响历史单。
+// ApptItem 预约/结算明细行：下单时快照 Name/Price，防价目表改价影响历史单。
 type ApptItem struct {
 	ServiceID bson.ObjectID `bson:"service_id"`
-	Code      string        `bson:"code"`
 	Name      string        `bson:"name"`
 	Qty       float64       `bson:"qty"`
 	Price     float64       `bson:"price"`

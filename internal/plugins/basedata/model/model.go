@@ -2,10 +2,9 @@ package model
 
 import "erp/internal/platform/model"
 
-// Product 商品/物料。
+// Product 商品/物料（无编码，以名称标识）。
 type Product struct {
 	model.Doc `bson:",inline"`
-	Code      string  `bson:"code"`
 	Name      string  `bson:"name"`
 	Unit      string  `bson:"unit"`
 	Category  string  `bson:"category"`
@@ -18,7 +17,6 @@ type Product struct {
 // Warehouse 仓库。
 type Warehouse struct {
 	model.Doc `bson:",inline"`
-	Code      string `bson:"code"`
 	Name      string `bson:"name"`
 	Address   string `bson:"address"`
 }
@@ -26,7 +24,6 @@ type Warehouse struct {
 // Customer 客户。
 type Customer struct {
 	model.Doc `bson:",inline"`
-	Code      string `bson:"code"`
 	Name      string `bson:"name"`
 	Contact   string `bson:"contact"`
 	Phone     string `bson:"phone"`
@@ -35,7 +32,6 @@ type Customer struct {
 // Supplier 供应商。
 type Supplier struct {
 	model.Doc `bson:",inline"`
-	Code      string `bson:"code"`
 	Name      string `bson:"name"`
 	Contact   string `bson:"contact"`
 	Phone     string `bson:"phone"`

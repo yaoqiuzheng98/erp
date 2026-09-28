@@ -41,7 +41,7 @@ func (h *Handler) employees(c *gin.Context) {
 func (h *Handler) createEmployee(c *gin.Context) {
 	hd, _ := time.Parse("2006-01-02", c.PostForm("hire_date"))
 	em := &model.Employee{
-		Code: c.PostForm("code"), Name: c.PostForm("name"),
+		Name: c.PostForm("name"),
 		Dept: c.PostForm("dept"), Position: c.PostForm("position"),
 		Phone: c.PostForm("phone"), HireDate: hd,
 	}

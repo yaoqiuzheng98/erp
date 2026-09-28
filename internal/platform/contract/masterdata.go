@@ -12,7 +12,6 @@ import (
 // 主数据引用（跨插件只读视图，字段精简避免耦合文档结构）。
 type ProductRef struct {
 	ID       bson.ObjectID `json:"id"`
-	Code     string        `json:"code"`
 	Name     string        `json:"name"`
 	Unit     string        `json:"unit"`
 	Price    float64       `json:"price"`
@@ -26,14 +25,12 @@ type WarehouseRef struct {
 
 type PartnerRef struct {
 	ID    bson.ObjectID `json:"id"`
-	Code  string        `json:"code"`
 	Name  string        `json:"name"`
 	Phone string        `json:"phone"`
 }
 
 // CustomerUpsert 创建客户的入参（跨插件写主数据的唯一通道）。
 type CustomerUpsert struct {
-	Code    string `json:"code"`
 	Name    string `json:"name"`
 	Contact string `json:"contact"`
 	Phone   string `json:"phone"`

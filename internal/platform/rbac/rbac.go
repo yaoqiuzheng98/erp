@@ -7,11 +7,10 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// Role 租户角色，持有权限码集合。
+// Role 租户角色，持有权限码集合（以名称标识，无编码）。
 type Role struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	TenantID  bson.ObjectID `bson:"tenant_id"`
-	Code      string        `bson:"code"`
 	Name      string        `bson:"name"`
 	PermCodes []string      `bson:"perm_codes"`
 	DataScope string        `bson:"data_scope"` // self / dept / all

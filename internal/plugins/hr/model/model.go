@@ -15,10 +15,9 @@ const (
 	LeaveRejected  = "rejected"
 )
 
-// Employee 员工档案。
+// Employee 员工档案（以姓名+电话标识，无工号）。
 type Employee struct {
 	model.Doc `bson:",inline"`
-	Code      string    `bson:"code"`
 	Name      string    `bson:"name"`
 	Dept      string    `bson:"dept"`
 	Position  string    `bson:"position"`
