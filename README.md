@@ -370,7 +370,7 @@ demo_admin_pass = "admin123"
 
 ### 11.1 生产部署（本地打镜像 + docker load）
 
-生产环境用 `compose.yaml` 编排三个服务：`erp`（`erp-app:latest` 镜像）、`mongo:7`（仅内部网络）、`caddy`（反向代理 + 自动 HTTPS）。
+生产环境用 `compose.yaml` 编排四个服务：`erp`（`erp-app:latest` 镜像）、`erp-test`（`erp-app:test` 测试镜像）、`mongo:7`（仅内部网络，生产/测试共用，换库隔离）、`caddy`（反向代理 + 自动 HTTPS，按域名分流）。
 
 **部署方式只有一种**：镜像在本地 `docker build` 构建后打包上传，服务器 `docker load` 直接运行——服务器不做任何构建（内存小的机器尤其需要）。本仓库 `Dockerfile` 多阶段构建在本地完成。
 
@@ -394,14 +394,15 @@ docker compose logs -f erp
 
 ```
 /opt/erp/
-├── compose.yaml              # 三个服务编排（erp 引用 erp-app:latest，无 build）
+├── compose.yaml              # 四个服务编排（erp/test 引用镜像，无 build）
 ├── config.prod.toml          # 生产配置（不入库，见 deploy/config.prod.example.toml）
-├── deploy/Caddyfile          # 域名反代（erp.dokodemo.top → erp:8080）
+├── config.test.toml          # 测试配置（不入库，见 deploy/config.test.example.toml，库 erp_test）
+├── deploy/Caddyfile          # 域名反代（erp.dokodemo.top → erp:8080；erp.test → erp-test:8080）
 └── backups/                  # mongodump 输出目录（挂载进容器）
-                              # （erp-app.tar.gz 镜像包 docker load 后自动删除）
+                               # （erp-app*.tar.gz 镜像包 docker load 后自动删除）
 ```
 
-Caddy 监听 80/443，`erp.dokodemo.top` 首次访问自动签发证书（域名已解析到服务器即可），转发到 `erp:8080`；应用只监听容器内网。
+Caddy 监听 80/443，`erp.dokodemo.top` / `erp.test.dokodemo.top` 首次访问自动签发证书（域名已解析到服务器即可），分别转发到 `erp:8080` / `erp-test:8080`；应用只监听容器内网。
 
 > 日常部署直接用一键脚本 `scripts/deploy.sh`（编译→打镜像→上传→load→compose up），可用 `ERP_HOST`/`ERP_SSH_KEY`/`ERP_DIR` 环境变量覆盖默认值。
 
@@ -412,6 +413,12 @@ Caddy 监听 80/443，`erp.dokodemo.top` 首次访问自动签发证书（域名
 ```
 erp.dokodemo.top {
 	reverse_proxy erp:8080
+	encode gzip
+	request_body { max_size 64MB }
+}
+
+erp.test.dokodemo.top {
+	reverse_proxy erp-test:8080
 	encode gzip
 	request_body { max_size 64MB }
 }
@@ -440,10 +447,18 @@ HTTPS 证书由 Caddy 自动申请续期；`config.prod.toml` 必须 `[session].
 ssh -i ~/.ssh/erp_prod_key root@23.249.19.239
 ```
 
-- 站点：`https://erp.dokodemo.top`（已上线）；部署目录 `/opt/erp`，三个容器 `erp-app` / `erp-mongo` / `erp-caddy`。
-- **只有 961MB 内存且内核无 swap**：禁止在服务器上做任何构建（曾经 `compose up --build` 直接 OOM 重启）。只能走本地打镜像 → `docker load` 这条路，即 `scripts/deploy.sh`。
+- 站点：`https://erp.dokodemo.top`（已上线）；部署目录 `/opt/erp`，容器 `erp-app` / `erp-test` / `erp-mongo` / `erp-caddy`。
+- **只有 961MB 内存（已加 1G swap，仍吃紧）**：禁止在服务器上做任何构建（曾经 `compose up --build` 直接 OOM 重启）。只能走本地打镜像 → `docker load` 这条路，即 `scripts/deploy.sh`。
 - 同机另跑 `marzban-node` 容器；mongo 仅 compose 内网可达，不暴露端口。
 - sysadmin `admin`（密码在服务器 `config.prod.toml`，不入库）。
+
+### 11.6 测试环境
+
+- 站点：`https://erp.test.dokodemo.top`（已上线）；与生产同机同 `mongo`，库名 `erp_test`、上传卷 `erp_test_uploads`，数据完全隔离。
+- 镜像：`erp-app:test`（与生产 `:latest` 分开 tag，互不影响）；配置 `config.test.toml`（不入库，`secret` 与生产不同，`secure = true`，`[seed].enabled = true` 常开，含演示租户）。
+- 用途：先在测试验证新功能（如 dental 价目表），确认后再用 `scripts/deploy.sh` 升生产。
+- 同步测试：本地重新 `docker build -t erp-app:test` → `docker save` 上传 → 服务器 `docker load` → `docker compose up -d erp-test`；改了 `deploy/Caddyfile` 后 `docker exec erp-caddy caddy reload --config /etc/caddy/Caddyfile`（零停机，勿重建 caddy）。
+- 注意：`config.test.toml` 须属主 `10001:10001`（容器内 `erp` 用户），否则报 `permission denied`；`sysadmin` 密码在服务器 `config.test.toml`，不入库。
 
 ## 12. 里程碑
 
