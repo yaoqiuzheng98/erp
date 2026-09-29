@@ -1,7 +1,7 @@
 {{define "partial/combo"}}
 <div class="combo">
   <div class="input-group input-group-sm">
-    <input class="form-control form-control-sm combo-input" name="{{.name}}" value="{{.value}}"
+    <input class="form-control form-control-sm combo-input" name="{{.name}}" value="{{.value}}"{{if .form}} form="{{.form}}"{{end}}
       placeholder="{{.placeholder}}" autocomplete="off">
     <button type="button" class="btn btn-sm btn-outline-secondary combo-toggle" title="展开选项">▾</button>
   </div>
