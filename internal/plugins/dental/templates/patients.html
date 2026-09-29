@@ -32,9 +32,9 @@
         </form>
       </div></div>
       <h6 class="text-muted mb-2">患者列表（下框输入只做筛选，不建档）</h6>
-      <form method="get" class="row g-2 mb-2">
-        <div class="col-12 col-md-auto"><input class="form-control form-control-sm" name="q" value="{{.Data.Q}}" placeholder="姓名/电话筛选"></div>
-        <div class="col-12 col-md-auto"><button class="btn btn-sm btn-outline-secondary">搜索</button></div>
+      <form method="get" class="d-flex gap-2 mb-2">
+        <input class="form-control form-control-sm flex-grow-1" name="q" value="{{.Data.Q}}" placeholder="姓名/电话筛选">
+        <button class="btn btn-sm btn-outline-secondary flex-shrink-0">搜索</button>
       </form>
       <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>姓名</th><th>性别</th><th>出生</th><th>电话</th><th>过敏史</th><th></th></tr></thead>
