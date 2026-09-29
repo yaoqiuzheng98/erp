@@ -6,7 +6,6 @@ import (
 
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
-	"erp/internal/platform/plugin"
 	"erp/internal/platform/rbac"
 	"erp/internal/platform/session"
 	"erp/internal/platform/tenant"
@@ -75,9 +74,8 @@ func TenantResolver(e *env.Env) gin.HandlerFunc {
 			return
 		}
 		c.Set(CtxTenant, t)
-		enabled := e.Gate.EnabledSet(c.Request.Context(), t.ID)
 		perms := e.RBAC.PermSetOf(c.Request.Context(), user.RoleIDs, user.IsTenantAdm,
-			plugin.PermissionsOf(enabled))
+			rbac.Catalog())
 		c.Set(CtxPerms, perms)
 		c.Next()
 	}
@@ -128,32 +126,6 @@ func SysAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		c.Next()
-	}
-}
-
-// PluginGuard 校验当前租户已启用该插件。
-func PluginGuard(e *env.Env, pluginID string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		t, ok := c.Get(CtxTenant)
-		if !ok {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "no tenant"})
-			return
-		}
-		tenantID := t.(*tenant.Tenant).ID
-		if !e.Gate.IsEnabled(c.Request.Context(), tenantID, pluginID) {
-			if c.GetHeader("HX-Request") != "" {
-				c.String(http.StatusForbidden, "插件未启用")
-			} else {
-				c.HTML(http.StatusForbidden, "error", gin.H{
-					"Data": gin.H{"Msg": "插件未启用或已被禁用"},
-					"CSRF": c.GetString(CtxCSRF),
-				})
-			}
-			c.Abort()
-			return
-		}
-		c.Set("pluginID", pluginID)
 		c.Next()
 	}
 }

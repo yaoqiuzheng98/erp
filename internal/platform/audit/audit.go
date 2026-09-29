@@ -15,7 +15,7 @@ type Entry struct {
 	TenantID bson.ObjectID `bson:"tenant_id,omitempty"`
 	UserID   bson.ObjectID `bson:"user_id,omitempty"`
 	Username string        `bson:"username"`
-	Action   string        `bson:"action"` // login / plugin.enable / user.create ...
+	Action   string        `bson:"action"` // login / user.create / tenant.create ...
 	Target   string        `bson:"target"`
 	Detail   string        `bson:"detail"`
 	IP       string        `bson:"ip"`

@@ -9,35 +9,25 @@
     {{template "partial/systop" .}}
     <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
-      <h4 class="mb-3">租户管理</h4>
+      <h4 class="mb-3">门诊管理</h4>
       <div class="card mb-4"><div class="card-body">
         <form method="post" action="/sysadmin/tenants" class="row g-2 align-items-md-end">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-12 col-md-auto"><label class="form-label">企业名称</label>
+          <div class="col-12 col-md-auto"><label class="form-label">门诊名称</label>
             <input class="form-control form-control-sm" name="name" required></div>
-          <div class="col-12 col-md-auto"><label class="form-label">行业（GB/T 4754，搜索选择）</label>
-            <div class="ind-picker">
-              <input class="form-control form-control-sm" placeholder="通用（输入名称/编码搜索）" autocomplete="off">
-              <input type="hidden" name="industry">
-            </div></div>
           <div class="col-12 col-md-auto"><label class="form-label">管理员账号</label>
             <input class="form-control form-control-sm" name="admin_user" required></div>
           <div class="col-12 col-md-auto"><label class="form-label">管理员密码</label>
             <input class="form-control form-control-sm" name="admin_pass" required></div>
-          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">创建租户</button></div>
+          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">创建门诊</button></div>
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>名称</th><th>行业</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
+        <thead><tr><th>名称</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Tenants}}
         <tr>
           <td>{{.Name}}</td>
-          <td>
-            <span>{{if .Industry}}{{.Industry}} {{industryName .Industry}}{{else}}通用{{end}}</span>
-            <button type="button" class="btn btn-sm btn-outline-secondary"
-                    onclick="openInd('{{hex .ID}}','{{.Industry}}','{{.Name}}')">修改</button>
-          </td>
           <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
           <td>{{date .CreatedAt}}</td>
           <td>
@@ -55,85 +45,7 @@
     </main>
   </div>
 </div>
-<div class="modal fade" id="indModal" tabindex="-1"><div class="modal-dialog">
-  <form method="post" class="modal-content" id="indForm">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="modal-header"><h5 class="modal-title">设置行业</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <div class="small text-muted mb-2" id="indModalTenant"></div>
-      <div class="ind-picker">
-        <input class="form-control form-control-sm" placeholder="通用（输入名称/编码搜索）" autocomplete="off">
-        <input type="hidden" name="industry">
-      </div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-sm btn-primary">保存</button></div>
-  </form>
-</div></div>
 {{template "partial/foot" .}}
-<style>
-.ind-picker { position: relative; }
-.ind-picker .ind-list {
-  position: absolute; z-index: 1056; left: 0; right: 0; top: 100%;
-  max-height: 260px; overflow-y: auto; background: #fff;
-  border: 1px solid rgba(0,0,0,.15); border-radius: .375rem; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
-}
-.ind-picker .ind-item { padding: .4rem .75rem; cursor: pointer; font-size: .875rem; }
-.ind-picker .ind-item:hover { background: #e9ecef; }
-.ind-picker .ind-item .text-muted { font-size: .75rem; }
-</style>
-<script>
-const IND = {{.Data.IndustriesJSON}};
-const indByCode = {};
-IND.forEach(n => { indByCode[n.code] = n; });
-IND.forEach(n => {
-  const names = [n.name];
-  let p = indByCode[n.parent];
-  while (p) { names.unshift(p.name); p = indByCode[p.parent]; }
-  n.pathName = names.join(' › ');
-  n.searchKey = (n.code + ' ' + names.join(' ')).toLowerCase();
-});
-function indPicker(wrap) {
-  const input = wrap.querySelector('input.form-control');
-  const hidden = wrap.querySelector('input[type=hidden]');
-  const list = document.createElement('div');
-  list.className = 'ind-list'; list.hidden = true;
-  wrap.appendChild(list);
-  const set = code => {
-    hidden.value = code;
-    input.value = code ? code + ' ' + indByCode[code].name : '';
-  };
-  const render = q => {
-    q = q.trim().toLowerCase();
-    const hits = q ? IND.filter(n => n.searchKey.includes(q)) : IND;
-    list.innerHTML = hits.slice(0, 60).map(n =>
-      '<div class="ind-item" data-code="' + n.code + '"><b>' + n.code + '</b> ' + n.name +
-      '<div class="text-muted">' + n.pathName + '</div></div>').join('') ||
-      '<div class="ind-item text-muted">无匹配</div>';
-    if (hits.length > 60)
-      list.innerHTML += '<div class="ind-item text-muted">… 共 ' + hits.length + ' 条，继续输入筛选</div>';
-    list.hidden = false;
-  };
-  input.addEventListener('focus', () => render(''));
-  input.addEventListener('input', () => { hidden.value = ''; render(input.value); });
-  input.addEventListener('blur', () => setTimeout(() => {
-    list.hidden = true;
-    if (!hidden.value) input.value = '';
-  }, 150));
-  list.addEventListener('mousedown', e => {
-    const item = e.target.closest('.ind-item[data-code]');
-    if (item) { set(item.dataset.code); list.hidden = true; }
-  });
-  wrap._set = set;
-}
-document.querySelectorAll('.ind-picker').forEach(indPicker);
-function openInd(id, code, name) {
-  document.getElementById('indForm').action = '/sysadmin/tenants/' + id + '/industry';
-  document.getElementById('indModalTenant').textContent = '租户：' + name;
-  document.querySelector('#indModal .ind-picker')._set(code || '');
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('indModal')).show();
-}
-</script>
 </body>
 </html>
 {{end}}

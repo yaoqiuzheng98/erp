@@ -16,7 +16,7 @@ import (
 type Attachment struct {
 	ID         bson.ObjectID `bson:"_id,omitempty"`
 	TenantID   bson.ObjectID `bson:"tenant_id"`
-	OwnerType  string        `bson:"owner_type"` // 如 product / order
+	OwnerType  string        `bson:"owner_type"` // 如 patient / appointment
 	OwnerID    bson.ObjectID `bson:"owner_id"`
 	Filename   string        `bson:"filename"`
 	Path       string        `bson:"path"`

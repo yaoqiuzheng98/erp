@@ -1,0 +1,70 @@
+{{define "dental/patients"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-2 p-md-4">
+      {{template "partial/flash" .}}
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0">患者</h4>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#patModal">＋ 新建建档</button>
+      </div>
+      <div class="modal fade" id="patModal" tabindex="-1"><div class="modal-dialog">
+        <form method="post" action="/app/patients" class="modal-content">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="modal-header"><h5 class="modal-title">新建建档</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="mb-2"><label class="form-label">姓名</label>
+              <input class="form-control form-control-sm" name="name" required></div>
+            <div class="mb-2"><label class="form-label">电话</label>
+              <input class="form-control form-control-sm" name="phone" inputmode="tel"></div>
+            <div class="row g-2">
+              <div class="col-6"><label class="form-label">性别</label>
+                <select class="form-select form-select-sm" name="gender">
+                  <option value="">-</option><option>男</option><option>女</option>
+                </select></div>
+              <div class="col-6"><label class="form-label">出生日期</label>
+                <input class="form-control form-control-sm" name="birth" type="date"></div>
+            </div>
+            <div class="mb-2 mt-2"><label class="form-label">过敏史</label>
+              <input class="form-control form-control-sm" name="allergy"></div>
+            <div class="mb-2"><label class="form-label">既往史</label>
+              <input class="form-control form-control-sm" name="history"></div>
+            <div class="small text-muted">提交后按电话自动认领老客户，没有才新建。</div>
+          </div>
+          <div class="modal-footer"><button class="btn btn-sm btn-primary">建档</button></div>
+        </form>
+      </div></div>
+      <h6 class="text-muted mb-2">患者列表</h6>
+      <form method="get" class="d-flex gap-2 mb-2">
+        <input class="form-control form-control-sm flex-grow-1" name="q" value="{{.Data.Q}}" placeholder="姓名/电话筛选">
+        <button class="btn btn-sm btn-outline-secondary flex-shrink-0">搜索</button>
+      </form>
+      <div class="table-responsive"><table class="table table-sm bg-white">
+        <thead><tr><th>姓名</th><th>性别</th><th>出生</th><th>电话</th><th>过敏史</th><th></th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr>
+          <td>{{.Name}}</td><td>{{.Gender}}</td>
+          <td>{{.Birth}}</td><td>{{.Phone}}</td>
+          <td>{{if .Allergy}}<span class="text-danger">{{.Allergy}}</span>{{end}}</td>
+          <td><a class="btn btn-sm btn-outline-secondary" href="/app/patients/{{hex .ID}}">详情</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="text-muted">暂无患者</td></tr>
+        {{end}}
+        </tbody>
+      </table></div>
+      {{template "partial/pager" .}}
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

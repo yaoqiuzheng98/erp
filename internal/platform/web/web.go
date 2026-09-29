@@ -2,7 +2,6 @@
 package web
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"html/template"
@@ -15,7 +14,6 @@ import (
 	"erp/internal/platform/env"
 	"erp/internal/platform/menu"
 	"erp/internal/platform/middleware"
-	"erp/internal/platform/plugin"
 	"erp/internal/platform/tenant"
 
 	"github.com/gin-gonic/gin"
@@ -40,18 +38,33 @@ type Page struct {
 	Perms      map[string]bool
 }
 
+// appMenu 固定导航：单垂直应用无插件贡献，菜单写死。
+var appMenu = []menu.Item{
+	{ID: "home", Title: "工作台", Path: "/app", Icon: "⌂"},
+	{ID: "dental", Title: "门诊", Icon: "✚", Children: []menu.Item{
+		{ID: "dental.today", Title: "今日预约", Path: "/app", Perm: "appt.read"},
+		{ID: "dental.patients", Title: "患者", Path: "/app/patients", Perm: "patient.read"},
+		{ID: "dental.appts", Title: "预约", Path: "/app/appointments", Perm: "appt.read"},
+		{ID: "dental.services", Title: "价目表", Path: "/app/services", Perm: "catalog.read"},
+		{ID: "dental.staff", Title: "员工", Path: "/app/staff", Perm: "staff.read"},
+	}},
+	{ID: "finance", Title: "财务", Icon: "￥", Children: []menu.Item{
+		{ID: "finance.summary", Title: "账簿汇总", Path: "/app/billing", Perm: "billing.read"},
+		{ID: "finance.ar", Title: "应收", Path: "/app/billing/receivables", Perm: "billing.read"},
+		{ID: "finance.payments", Title: "收款", Path: "/app/billing/payments", Perm: "billing.read"},
+		{ID: "finance.expenses", Title: "费用", Path: "/app/billing/expenses", Perm: "billing.read"},
+	}},
+}
+
 var adminMenu = []menu.Item{
 	{ID: "admin", Title: "系统管理", Icon: "⚙", Children: []menu.Item{
 		{ID: "admin.users", Title: "用户", Path: "/admin/users", Perm: "admin.users"},
 		{ID: "admin.roles", Title: "角色", Path: "/admin/roles", Perm: "admin.roles"},
-		{ID: "admin.depts", Title: "部门", Path: "/admin/depts", Perm: "admin.depts"},
-		{ID: "admin.dicts", Title: "字典", Path: "/admin/dicts", Perm: "admin.dicts"},
-		{ID: "admin.plugins", Title: "插件", Path: "/admin/plugins", Perm: "admin.plugins"},
 		{ID: "admin.audit", Title: "审计日志", Path: "/admin/audit", Perm: "admin.audit"},
 	}},
 }
 
-func funcMap(e *env.Env) template.FuncMap {
+func funcMap() template.FuncMap {
 	return template.FuncMap{
 		"date": func(t time.Time) string {
 			if t.IsZero() {
@@ -67,24 +80,18 @@ func funcMap(e *env.Env) template.FuncMap {
 		},
 		"mul": func(a, b float64) string { return fmt.Sprintf("%.2f", a*b) },
 		"f2":  func(a float64) string { return fmt.Sprintf("%.2f", a) },
-		"industryName": func(code string) string {
-			return e.Industries.Name(context.Background(), code)
-		},
-		"industryPath": func(code string) string {
-			return e.Industries.PathName(context.Background(), code)
-		},
 	}
 }
 
-// Build 解析平台模板 + 全部注册插件模板到同一 *template.Template。
-func Build(e *env.Env) (*template.Template, error) {
-	t := template.New("root").Funcs(funcMap(e))
+// Build 解析全部模板到同一 *template.Template。
+func Build() (*template.Template, error) {
+	t := template.New("root").Funcs(funcMap())
 	var err error
 	t, err = t.ParseFS(FS, "templates/*/*.html", "templates/*/*/*.html")
 	if err != nil {
-		return nil, fmt.Errorf("parse platform templates: %w", err)
+		return nil, fmt.Errorf("parse templates: %w", err)
 	}
-	return plugin.ParseTemplates(t)
+	return t, nil
 }
 
 func StaticFS() (http.FileSystem, error) {
@@ -113,49 +120,13 @@ func buildPage(c *gin.Context, e *env.Env, data any) *Page {
 	}
 	if t := middleware.Tenant(c); t != nil {
 		p.Tenant = t
-		enabled := e.Gate.EnabledSet(c.Request.Context(), t.ID)
-		items := []menu.Item{{ID: "home", Title: "工作台", Path: "/app", Icon: "⌂"}}
-		items = append(items, plugin.MenusOf(enabled)...)
-		if isDentalTenant(c.Request.Context(), e, t.Industry) {
-			items = filterDentalMenus(items)
-		}
-		items = append(items, adminMenu...)
+		items := append(append([]menu.Item{}, appMenu...), adminMenu...)
 		p.Menu = menu.Filter(items, func(code string) bool {
 			return p.Perms["*"] || p.Perms[code]
 		})
 		p.NotifCount = e.Notify.UnreadCount(c.Request.Context(), t.ID, p.User.ID)
 	}
 	return p
-}
-
-// isDentalTenant 口腔租户判定：行业祖先链含 8425/8415（未知码退化为精确匹配）。
-func isDentalTenant(ctx context.Context, e *env.Env, industry string) bool {
-	if industry == "" {
-		return false
-	}
-	if n, ok := e.Industries.Get(ctx, industry); ok {
-		for _, c := range n.Path {
-			if c == "8425" || c == "8415" {
-				return true
-			}
-		}
-		return false
-	}
-	return industry == "8425" || industry == "8415"
-}
-
-// filterDentalMenus 口腔租户隐藏整个基础资料菜单：门诊只有患者概念，
-// 患者建档时自动建客户（财务应收挂账用），用户无需感知客户。
-// 药品走价目表 Category=药品，不走库存；路由仍可用。
-func filterDentalMenus(items []menu.Item) []menu.Item {
-	keep := items[:0]
-	for _, it := range items {
-		if it.ID == "basedata" {
-			continue
-		}
-		keep = append(keep, it)
-	}
-	return keep
 }
 
 // Render 渲染完整页面（含布局）。

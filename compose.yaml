@@ -25,7 +25,6 @@ services:
         condition: service_healthy
     volumes:
       - ./config.prod.toml:/opt/erp/config.toml:ro
-      - ./data/industries.json:/opt/erp/data/industries.json:ro
       - erp_uploads:/opt/erp/data/uploads
       - ./backups:/opt/erp/backups
 
@@ -40,7 +39,6 @@ services:
         condition: service_healthy
     volumes:
       - ./config.test.toml:/opt/erp/config.toml:ro
-      - ./data/industries.json:/opt/erp/data/industries.json:ro
       - erp_test_uploads:/opt/erp/data/uploads
 
   caddy:

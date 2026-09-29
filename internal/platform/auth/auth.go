@@ -26,7 +26,6 @@ type User struct {
 	Username     string          `bson:"username"`
 	PasswordHash string          `bson:"password_hash"`
 	Name         string          `bson:"name"`
-	DeptID       bson.ObjectID   `bson:"dept_id,omitempty"`
 	RoleIDs      []bson.ObjectID `bson:"role_ids"`
 	Status       string          `bson:"status"` // active / disabled
 	IsTenantAdm  bool            `bson:"is_tenant_admin"`
@@ -54,7 +53,7 @@ func NewService(db *mongo.Database) *Service {
 	}
 }
 
-var ErrBadCredential = errors.New("企业名、用户名或密码错误")
+var ErrBadCredential = errors.New("门诊名、用户名或密码错误")
 
 // LoginTenant 租户登录：先按企业名定位租户，再在租户内查用户。
 // 用户名按租户隔离，不同租户可有同名用户（唯一索引在 tenant_id+username 上）。

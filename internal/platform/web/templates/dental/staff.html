@@ -1,0 +1,65 @@
+{{define "dental/staff"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-2 p-md-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">员工</h4>
+      <div class="card mb-3"><div class="card-body">
+        <form method="post" action="/app/staff" class="row g-2 align-items-md-end">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="col-12 col-md-auto"><label class="form-label">姓名</label>
+            <input class="form-control form-control-sm" name="name" required></div>
+          <div class="col-12 col-md-auto"><label class="form-label">角色</label>
+            <select class="form-select form-select-sm" name="role">
+              {{range $k, $v := .Data.Roles}}<option value="{{$k}}">{{$v}}</option>{{end}}
+            </select></div>
+          <div class="col-12 col-md-auto"><label class="form-label">电话</label>
+            <input class="form-control form-control-sm" name="phone" inputmode="tel"></div>
+          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">新增员工</button></div>
+        </form>
+      </div></div>
+      <div class="table-responsive"><table class="table table-sm bg-white align-middle">
+        <thead><tr><th>姓名</th><th>角色</th><th>电话</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        {{$row := .}}
+        <tr>
+          <form method="post" action="/app/staff/{{hex .ID}}">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <td><input class="form-control form-control-sm" name="name" value="{{.Name}}" required></td>
+            <td><select class="form-select form-select-sm" name="role">
+              {{range $k, $v := $.Data.Roles}}<option value="{{$k}}" {{if eq $k $row.Role}}selected{{end}}>{{$v}}</option>{{end}}
+            </select></td>
+            <td><input class="form-control form-control-sm" name="phone" value="{{.Phone}}"></td>
+            <td><select class="form-select form-select-sm" name="status">
+              <option value="active" {{if eq .Status "active"}}selected{{end}}>在职</option>
+              <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>离职</option>
+            </select></td>
+            <td class="text-nowrap">
+              <button class="btn btn-sm btn-outline-primary">保存</button>
+          </form>
+          <form method="post" action="/app/staff/{{hex .ID}}/delete" class="d-inline m-0"
+                onsubmit="return confirm('删除员工 {{.Name}}？历史预约不受影响。')">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <button class="btn btn-sm btn-outline-danger">删除</button>
+          </form>
+            </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="text-muted">暂无员工，先新增医生（预约需要）</td></tr>
+        {{end}}
+        </tbody>
+      </table></div>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

@@ -1,6 +1,7 @@
 # 协作流程（测试先行，验证通过才提交）
 
-后续所有开发默认走这个流程，不直接提交未验证的代码。
+口腔门诊 SaaS，单垂直应用，无插件。后续所有开发默认走这个流程，
+不直接提交未验证的代码。
 
 ## 1. 本地开发与自测
 
@@ -9,11 +10,11 @@ go build ./... && go vet ./... && go test ./internal/...
 ```
 
 模板大改后，用临时 `main.go`（放仓库内如 `./tmpcheck/main.go`，跑完删除）
-调 `web.Build` 全量解析 + 关键页面真实渲染，防止 `{{.Code}}` 这类
-"字段已删、模板还在引用"的运行时错误。
+调 `web.Build()` 全量解析 + 关键页面真实渲染，防止"字段已删、
+模板还在引用"的运行时错误。
 
 涉及 Mongo 逻辑改动时，连本地 `erp-mongo`（`mongodb://localhost:27017`）
-跑集成验证：建唯一索引迁移、种子幂等、事件链，用完 `Drop` 测试库。
+跑集成验证：唯一索引、种子幂等、收费→应收链路，用完 `Drop` 测试库。
 
 ## 2. 发测试环境
 
@@ -33,17 +34,18 @@ ENTRYPOINT ["/opt/erp/erp", "-config", "/opt/erp/config.toml"]
 DOCKER
 docker save erp-app:test | gzip > /tmp/erp-app-test.tar.gz
 
-# ② 上传并加载启动（生产容器不动，它用 :latest）
+# ② 上传并加载启动（生产容器不动，它用 :latest；改了 compose.yaml/Caddyfile 一起 scp）
 scp -i ~/.ssh/erp_prod_key /tmp/erp-app-test.tar.gz root@23.249.19.239:/opt/erp/
 ssh -i ~/.ssh/erp_prod_key root@23.249.19.239 "cd /opt/erp && docker load < erp-app-test.tar.gz && rm -f erp-app-test.tar.gz && docker compose up -d erp-test"
 
 # ③ 验证：测试站登录 + 新功能页面（登录 POST 无需 CSRF）
-curl -sk -c jar -d "tenant=演示企业&username=admin&password=admin123" https://erp.test.dokodemo.top/login
-curl -sk -b jar https://erp.test.dokodemo.top/app/basedata/customers | grep "个人"
+curl -sk -c jar -d "tenant=演示门诊&username=admin&password=admin123" https://erp.test.dokodemo.top/login
+curl -sk -b jar https://erp.test.dokodemo.top/app/patients | grep "患者"
 ```
 
-测试账号：系统后台 `admin` 密码见服务器 `/opt/erp/config.test.toml`；
-演示租户 `admin/admin123`。生产密码在 `config.prod.toml`，互不通用。
+测试账号：系统后台 `admin` 密码见服务器 `/opt/erp/config.test.toml`
+（当前 `admin123`）；演示门诊 `admin/admin123`。生产密码在
+`config.prod.toml`，互不通用。
 
 ## 3. 验证通过才提交推送
 
@@ -64,4 +66,4 @@ WSL 侧 key 可直推 GitHub；Windows 侧 GoLand 推不动时，把
 - `config.*.toml` 属主必须是 `10001:10001`（容器内 `erp` 用户），否则 `permission denied`。
 - 改了 `deploy/Caddyfile` 后用 `docker exec erp-caddy caddy reload --config /etc/caddy/Caddyfile`，不要重建 caddy（零停机）。
 - 种子幂等：改 `config.*.toml` 的密码不影响已有账号；要重置先删对应集合文档再重启容器。
-- 插件 `OnInstall` 只对新启用租户跑一次；存量租户的数据迁移要同时写进 `OnEnable`（幂等）。
+- 业务服务直连装配（`main.go` 构造注入），不许加全局单例、不许跨模块直连 Mongo（走 service/repo）。

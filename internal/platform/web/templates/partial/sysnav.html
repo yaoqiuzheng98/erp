@@ -4,10 +4,9 @@
     <span class="fw-bold text-white-50 small">菜单</span>
     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#sysnav" aria-label="关闭"></button>
   </div>
-  <a class="fs-5 fw-bold text-white px-2 py-2 mb-1" href="/sysadmin">ERP 平台</a>
+  <a class="fs-5 fw-bold text-white px-2 py-2 mb-1" href="/sysadmin">门诊平台</a>
   <a href="/sysadmin" {{if eq .Path "/sysadmin"}}class="active"{{end}}>概览</a>
-  <a href="/sysadmin/tenants" {{if eq .Path "/sysadmin/tenants"}}class="active"{{end}}>租户管理</a>
-  <a href="/sysadmin/plugins" {{if eq .Path "/sysadmin/plugins"}}class="active"{{end}}>插件目录</a>
+  <a href="/sysadmin/tenants" {{if eq .Path "/sysadmin/tenants"}}class="active"{{end}}>门诊管理</a>
   <a href="/sysadmin/audit" {{if eq .Path "/sysadmin/audit"}}class="active"{{end}}>全局审计</a>
 </nav>
 {{end}}

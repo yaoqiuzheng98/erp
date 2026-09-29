@@ -9,12 +9,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// Tenant 企业租户。
+// Tenant 门诊租户（一家门诊）。
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
-	Industry  string        `bson:"industry"` // GB/T 4754 行业码（任意层级）；空 = 通用
-	Status    string        `bson:"status"`   // active / suspended
+	Status    string        `bson:"status"` // active / suspended
 	CreatedAt time.Time     `bson:"created_at"`
 }
 
@@ -45,8 +44,8 @@ func (s *Service) List(ctx context.Context) ([]Tenant, error) {
 	return out, cur.All(ctx, &out)
 }
 
-func (s *Service) Create(ctx context.Context, name, industry string) (*Tenant, error) {
-	t := &Tenant{Name: name, Industry: industry, Status: "active", CreatedAt: time.Now()}
+func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {
+	t := &Tenant{Name: name, Status: "active", CreatedAt: time.Now()}
 	res, err := s.col.InsertOne(ctx, t)
 	if err != nil {
 		return nil, err
@@ -57,10 +56,5 @@ func (s *Service) Create(ctx context.Context, name, industry string) (*Tenant, e
 
 func (s *Service) SetStatus(ctx context.Context, id bson.ObjectID, status string) error {
 	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"status": status}})
-	return err
-}
-
-func (s *Service) SetIndustry(ctx context.Context, id bson.ObjectID, industry string) error {
-	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"industry": industry}})
 	return err
 }

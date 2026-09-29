@@ -7,19 +7,37 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// Role 租户角色，持有权限码集合（以名称标识，无编码）。
+// Role 租户角色，持有权限码集合（以名称标识）。
 type Role struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	TenantID  bson.ObjectID `bson:"tenant_id"`
 	Name      string        `bson:"name"`
 	PermCodes []string      `bson:"perm_codes"`
-	DataScope string        `bson:"data_scope"` // self / dept / all
 }
 
-// PermissionDef 插件声明的权限码。
+// PermissionDef 权限码定义。单垂直应用：全量固定目录，无插件贡献。
 type PermissionDef struct {
-	Code string // {pluginID}.{resource}.{action}
+	Code string // {domain}.{resource}.{action}
 	Desc string
+}
+
+// Catalog 全量权限目录（管理后台角色勾选 + 中间件鉴权共用）。
+func Catalog() []PermissionDef {
+	return []PermissionDef{
+		{Code: "patient.read", Desc: "患者查看"},
+		{Code: "patient.write", Desc: "患者建档/牙位"},
+		{Code: "appt.read", Desc: "预约查看"},
+		{Code: "appt.write", Desc: "预约操作/收费"},
+		{Code: "catalog.read", Desc: "价目查看"},
+		{Code: "catalog.write", Desc: "价目维护"},
+		{Code: "staff.read", Desc: "员工查看"},
+		{Code: "staff.write", Desc: "员工维护"},
+		{Code: "billing.read", Desc: "财务查看"},
+		{Code: "billing.write", Desc: "财务操作"},
+		{Code: "admin.users", Desc: "用户管理"},
+		{Code: "admin.roles", Desc: "角色管理"},
+		{Code: "admin.audit", Desc: "审计查看"},
+	}
 }
 
 type Service struct {

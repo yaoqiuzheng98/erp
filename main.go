@@ -6,35 +6,21 @@ import (
 	"log/slog"
 	"os"
 
+	"erp/internal/billing"
+	"erp/internal/dental"
 	"erp/internal/platform/attach"
 	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/config"
 	"erp/internal/platform/db"
-	"erp/internal/platform/dict"
 	"erp/internal/platform/env"
-	"erp/internal/platform/event"
 	"erp/internal/platform/httpserver"
-	"erp/internal/platform/industry"
 	"erp/internal/platform/notify"
-	"erp/internal/platform/org"
-	"erp/internal/platform/plugin"
 	"erp/internal/platform/rbac"
 	"erp/internal/platform/seqno"
 	"erp/internal/platform/session"
-	"erp/internal/platform/task"
 	"erp/internal/platform/tenant"
 	"erp/internal/platform/web"
-
-	// 插件编译期注册（blank import 触发 init）
-	_ "erp/internal/plugins/basedata"
-	_ "erp/internal/plugins/dental"
-	_ "erp/internal/plugins/finance"
-	_ "erp/internal/plugins/flow"
-	_ "erp/internal/plugins/hr"
-	_ "erp/internal/plugins/inventory"
-	_ "erp/internal/plugins/purchase"
-	_ "erp/internal/plugins/sales"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -59,12 +45,6 @@ func main() {
 	}
 	defer d.Close(ctx)
 
-	scheduler, err := task.New(d.Database)
-	if err != nil {
-		slog.Error("init scheduler", "err", err)
-		os.Exit(1)
-	}
-
 	e := &env.Env{
 		Cfg:      cfg,
 		DB:       d,
@@ -72,21 +52,16 @@ func main() {
 		Auth:     auth.NewService(d.Database),
 		Tenants:  tenant.NewService(d.Database),
 		RBAC:     rbac.NewService(d.Database),
-		Org:      org.NewService(d.Database),
-		Dict:     dict.NewService(d.Database),
 		Seq:      seqno.New(d.Database),
 		Audit:    audit.New(d.Database),
 		Notify:   notify.New(d.Database),
 		Attach:   attach.New(d.Database, cfg.Storage.UploadDir),
-		Events:   event.NewBus(),
-		Tasks:    scheduler,
 	}
-	e.Industries = industry.NewService(d.Database)
-	if err := e.Industries.EnsureSeed(ctx, "data/industries.json"); err != nil {
-		slog.Error("seed industries", "err", err)
-		os.Exit(1)
-	}
-	// 唯一索引（幂等）：租户名唯一、用户名按租户唯一
+	// 业务服务直连装配
+	billingSvc := billing.New(d.Database, e.Seq)
+	dentalSvc := dental.New(d.Database, e.Seq, billingSvc)
+
+	// 唯一索引（幂等）
 	for _, ix := range []struct {
 		col  string
 		keys bson.D
@@ -101,42 +76,33 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	e.Gate = plugin.NewManager(d.Database, e.Industries)
-
-	// 按依赖拓扑序：先注册服务（Service Locator），再挂任务与事件订阅
-	for _, p := range plugin.TopoSorted() {
-		p.RegisterServices(e)
+	if err := billingSvc.EnsureIndexes(ctx); err != nil {
+		slog.Error("ensure billing indexes", "err", err)
+		os.Exit(1)
 	}
-	for _, p := range plugin.All() {
-		scheduler.RegisterPlugin(p.ID(), p.Tasks(e))
-		p.SubscribeEvents(e.Events, e)
-	}
-	scheduler.Start()
-	defer scheduler.Shutdown()
 
-	tpl, err := web.Build(e)
+	tpl, err := web.Build()
 	if err != nil {
 		slog.Error("build templates", "err", err)
 		os.Exit(1)
 	}
 
 	if cfg.Seed.Enabled {
-		if err := seed(ctx, e, cfg); err != nil {
+		if err := seed(ctx, e, dentalSvc, cfg); err != nil {
 			slog.Error("seed", "err", err)
 		}
 	}
 
-	r := httpserver.Build(e, tpl)
-	slog.Info("erp listening", "addr", cfg.Server.Addr, "plugins", len(plugin.All()))
+	r := httpserver.Build(e, httpserver.Services{Dental: dentalSvc, Billing: billingSvc}, tpl)
+	slog.Info("dental listening", "addr", cfg.Server.Addr)
 	if err := r.Run(cfg.Server.Addr); err != nil {
 		slog.Error("server", "err", err)
 		os.Exit(1)
 	}
 }
 
-// seed 初始化系统超管与演示租户（幂等：已存在则跳过）。
-func seed(ctx context.Context, e *env.Env, cfg *config.Config) error {
-	// 系统超管
+// seed 初始化系统超管与演示门诊（幂等：已存在则跳过）。
+func seed(ctx context.Context, e *env.Env, dentalSvc *dental.Service, cfg *config.Config) error {
 	if n, _ := e.DB.C("sys_admins").EstimatedDocumentCount(ctx); n == 0 {
 		hash, err := auth.HashPassword(cfg.Seed.SysadminPass)
 		if err != nil {
@@ -155,14 +121,14 @@ func seed(ctx context.Context, e *env.Env, cfg *config.Config) error {
 		return nil
 	}
 	var existing bson.M
-	err := e.DB.C("tenants").FindOne(ctx, bson.M{"name": "演示企业"}).Decode(&existing)
+	err := e.DB.C("tenants").FindOne(ctx, bson.M{"name": "演示门诊"}).Decode(&existing)
 	if err == nil {
-		return nil // 演示租户已存在
+		return nil
 	}
 	if err != mongo.ErrNoDocuments {
 		return err
 	}
-	t, err := e.Tenants.Create(ctx, "演示企业", "")
+	t, err := e.Tenants.Create(ctx, "演示门诊")
 	if err != nil {
 		return err
 	}
@@ -177,10 +143,9 @@ func seed(ctx context.Context, e *env.Env, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	// 演示租户默认启用 basedata 插件
-	if err := e.Gate.Enable(ctx, e, t.ID, "basedata"); err != nil {
+	if err := dentalSvc.EnsureSeed(ctx, t.ID); err != nil {
 		return err
 	}
-	slog.Info("seeded demo tenant", "code", "demo", "admin", cfg.Seed.DemoAdminUser)
+	slog.Info("seeded demo clinic", "admin", cfg.Seed.DemoAdminUser)
 	return nil
 }

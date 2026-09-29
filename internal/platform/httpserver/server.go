@@ -1,4 +1,4 @@
-// Package httpserver 装配 gin.Engine：中间件链、平台路由、插件路由分组。
+// Package httpserver 装配 gin.Engine：中间件链与业务路由（单垂直，无插件）。
 package httpserver
 
 import (
@@ -6,17 +6,23 @@ import (
 	"log/slog"
 	"net/http"
 
+	"erp/internal/billing"
+	"erp/internal/dental"
 	"erp/internal/platform/admin"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
-	"erp/internal/platform/plugin"
 	"erp/internal/platform/sysadmin"
 	"erp/internal/platform/web"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Build(e *env.Env, tpl *template.Template) *gin.Engine {
+type Services struct {
+	Dental  *dental.Service
+	Billing *billing.Service
+}
+
+func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery(), requestLogger())
@@ -24,12 +30,6 @@ func Build(e *env.Env, tpl *template.Template) *gin.Engine {
 
 	if staticFS, err := web.StaticFS(); err == nil {
 		r.StaticFS("/static", staticFS)
-	}
-	// 插件静态资源 /static/plugins/{id}/
-	for _, p := range plugin.All() {
-		if s := p.Static(); s != nil {
-			r.StaticFS("/static/plugins/"+p.ID(), http.FS(s))
-		}
 	}
 
 	r.GET("/", func(c *gin.Context) {
@@ -58,14 +58,15 @@ func Build(e *env.Env, tpl *template.Template) *gin.Engine {
 	r.POST("/sysadmin/login", mw.SysSession(e), loginSys(e))
 	r.POST("/sysadmin/logout", logout(e, e.Cfg.Session.SysCookieName))
 
-	// ---------- 租户业务区 /app ----------
+	// ---------- 门诊业务 /app（首页即今日预约） ----------
 	app := r.Group("/app",
 		mw.Session(e), mw.TenantResolver(e), mw.CSRF(), mw.Auth())
-	app.GET("", dashboard(e))
 	app.GET("/notifications", notifications(e))
 	app.POST("/notifications/:id/read", notificationRead(e))
 	app.POST("/attach", attachUpload(e))
 	app.GET("/attach/:id", attachDownload(e))
+	dental.NewHandler(e, svc.Dental).Register(app)
+	billing.NewHandler(e, svc.Billing).Register(app.Group("/billing"))
 
 	// ---------- 租户管理区 /admin ----------
 	adm := r.Group("/admin",
@@ -76,19 +77,6 @@ func Build(e *env.Env, tpl *template.Template) *gin.Engine {
 	sys := r.Group("/sysadmin",
 		mw.SysSession(e), mw.CSRF(), mw.SysAuth())
 	sysadmin.Register(sys, e)
-
-	// ---------- 插件路由 ----------
-	for _, p := range plugin.All() {
-		g := r.Group("/app/"+p.ID(),
-			mw.Session(e), mw.TenantResolver(e), mw.CSRF(), mw.Auth(),
-			mw.PluginGuard(e, p.ID()))
-		p.RegisterRoutes(g, e)
-
-		ag := r.Group("/api/plugins/"+p.ID(),
-			mw.Session(e), mw.TenantResolver(e), mw.CSRF(), mw.Auth(),
-			mw.PluginGuard(e, p.ID()))
-		p.RegisterAPI(ag, e)
-	}
 
 	return r
 }
