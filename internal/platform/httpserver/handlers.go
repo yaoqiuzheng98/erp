@@ -83,15 +83,15 @@ func dashboard(e *env.Env) gin.HandlerFunc {
 			if !enabled[p.ID()] {
 				continue
 			}
+			// 口腔租户：基础资料（含客户）整体隐藏，门诊只见患者
+			if dental && p.ID() == "basedata" {
+				continue
+			}
 			path := "/app/" + p.ID()
 			for _, m := range p.Menus() {
 				if len(m.Children) > 0 && m.Children[0].Path != "" {
 					path = m.Children[0].Path
 				}
-			}
-			// 口腔租户：基础资料卡片直达客户（患者挂接），不进商品
-			if dental && p.ID() == "basedata" {
-				path = "/app/basedata/customers"
 			}
 			cards = append(cards, card{ID: p.ID(), Name: p.Name(), Path: path})
 		}

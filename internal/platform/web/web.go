@@ -144,22 +144,18 @@ func isDentalTenant(ctx context.Context, e *env.Env, industry string) bool {
 	return industry == "8425" || industry == "8415"
 }
 
-// filterDentalMenus 口腔租户只留基础资料/客户（患者挂接用）；
-// 商品/仓库/供应商入口隐藏（路由仍可用，药品走价目表 Category=药品，不走库存）。
+// filterDentalMenus 口腔租户隐藏整个基础资料菜单：门诊只有患者概念，
+// 患者建档时自动建客户（财务应收挂账用），用户无需感知客户。
+// 药品走价目表 Category=药品，不走库存；路由仍可用。
 func filterDentalMenus(items []menu.Item) []menu.Item {
-	for i, it := range items {
-		if it.ID != "basedata" {
+	keep := items[:0]
+	for _, it := range items {
+		if it.ID == "basedata" {
 			continue
 		}
-		keep := it.Children[:0]
-		for _, ch := range it.Children {
-			if ch.ID == "basedata.customers" {
-				keep = append(keep, ch)
-			}
-		}
-		items[i].Children = keep
+		keep = append(keep, it)
 	}
-	return items
+	return keep
 }
 
 // Render 渲染完整页面（含布局）。
