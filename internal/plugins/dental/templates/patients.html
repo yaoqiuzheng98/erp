@@ -11,6 +11,7 @@
       {{template "partial/flash" .}}
       <h4 class="mb-3">患者</h4>
       <div class="card mb-3"><div class="card-body">
+        <h6 class="text-muted mb-2">新建建档</h6>
         <form method="post" action="/app/dental/patients" class="row g-2 align-items-md-end">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="col-12 col-md-auto"><label class="form-label">姓名</label>
@@ -30,8 +31,9 @@
           <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">建档</button></div>
         </form>
       </div></div>
+      <h6 class="text-muted mb-2">患者列表（下框输入只做筛选，不建档）</h6>
       <form method="get" class="row g-2 mb-2">
-        <div class="col-12 col-md-auto"><input class="form-control form-control-sm" name="q" value="{{.Data.Q}}" placeholder="姓名/电话"></div>
+        <div class="col-12 col-md-auto"><input class="form-control form-control-sm" name="q" value="{{.Data.Q}}" placeholder="姓名/电话筛选"></div>
         <div class="col-12 col-md-auto"><button class="btn btn-sm btn-outline-secondary">搜索</button></div>
       </form>
       <div class="table-responsive"><table class="table table-sm bg-white">
