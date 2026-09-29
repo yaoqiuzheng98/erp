@@ -9,7 +9,7 @@
     {{template "partial/apptop" .}}
     <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
-      <h4 class="mb-3">团队成员</h4>
+      <h4 class="mb-3">员工</h4>
       <div class="card mb-3"><div class="card-body">
         <form method="post" action="/app/staff" class="row g-2 align-items-md-end">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
@@ -21,7 +21,7 @@
             </select></div>
           <div class="col-12 col-md-auto"><label class="form-label">电话</label>
             <input class="form-control form-control-sm" name="phone" inputmode="tel"></div>
-          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">新增成员</button></div>
+          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">新增员工</button></div>
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white align-middle">
@@ -45,19 +45,19 @@
               <button class="btn btn-sm btn-outline-primary">保存</button>
           </form>
           <form method="post" action="/app/staff/{{hex .ID}}/delete" class="d-inline m-0"
-                onsubmit="return confirm('删除成员 {{.Name}}？历史预约不受影响。')">
+                onsubmit="return confirm('删除员工 {{.Name}}？历史预约不受影响。')">
             <input type="hidden" name="_csrf" value="{{$.CSRF}}">
             <button class="btn btn-sm btn-outline-danger">删除</button>
           </form>
             </td>
         </tr>
         {{else}}
-        <tr><td colspan="5" class="text-muted">暂无成员，先新增医生（预约需要）</td></tr>
+        <tr><td colspan="5" class="text-muted">暂无员工，先新增医生（预约需要）</td></tr>
         {{end}}
         </tbody>
       </table></div>
       <div class="card mt-3"><div class="card-body">
-        <h6>角色维护 <span class="text-muted small">可接诊的角色才能排诊；停用后新增成员不可选；有人在用删不掉</span></h6>
+        <h6>角色维护 <span class="text-muted small">可接诊的角色才能排诊；停用后新增员工不可选；有人在用删不掉</span></h6>
         <form method="post" action="/app/staff/roles" class="row g-2 align-items-md-end mb-2">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="col-12 col-md-auto"><label class="form-label">角色名</label>

@@ -73,7 +73,7 @@ func (h *Handler) createStaff(c *gin.Context) {
 	if err := h.staff.Create(c.Request.Context(), mw.TenantID(c), st); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		web.SetFlash(c, "成员已创建: "+st.Name)
+		web.SetFlash(c, "员工已创建: "+st.Name)
 	}
 	c.Redirect(http.StatusFound, "/app/staff")
 }
@@ -90,7 +90,7 @@ func (h *Handler) updateStaff(c *gin.Context) {
 	if err := h.staff.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "更新失败: "+err.Error())
 	} else {
-		web.SetFlash(c, "成员已更新")
+		web.SetFlash(c, "员工已更新")
 	}
 	c.Redirect(http.StatusFound, "/app/staff")
 }
@@ -100,7 +100,7 @@ func (h *Handler) deleteStaff(c *gin.Context) {
 	if err := h.staff.Delete(c.Request.Context(), mw.TenantID(c), id); err != nil {
 		web.SetFlash(c, "删除失败: "+err.Error())
 	} else {
-		web.SetFlash(c, "成员已删除")
+		web.SetFlash(c, "员工已删除")
 	}
 	c.Redirect(http.StatusFound, "/app/staff")
 }
