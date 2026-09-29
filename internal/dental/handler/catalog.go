@@ -32,7 +32,7 @@ func (h *Handler) createService(c *gin.Context) {
 	price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
 	it := &catalog.ServiceItem{
 		Name: c.PostForm("name"),
-		Category: c.PostForm("category"),
+		Category: c.PostForm("category"), Unit: c.PostForm("unit"),
 		Price: price, Status: "active",
 	}
 	if err := h.items.Create(c.Request.Context(), mw.TenantID(c), it); err != nil {
@@ -48,7 +48,7 @@ func (h *Handler) updateService(c *gin.Context) {
 	price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
 	set := bson.M{
 		"name": c.PostForm("name"), "category": c.PostForm("category"),
-		"price": price, "status": c.PostForm("status"),
+		"unit": c.PostForm("unit"), "price": price, "status": c.PostForm("status"),
 	}
 	if set["status"] != "active" && set["status"] != "disabled" {
 		set["status"] = "active"

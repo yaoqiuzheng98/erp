@@ -11,5 +11,6 @@ type ServiceItem struct {
 	Name      string  `bson:"name"`
 	Category  string  `bson:"category"`
 	Price     float64 `bson:"price"`
+	Unit      string  `bson:"unit"`
 	Status    string  `bson:"status"` // active / disabled
 }
