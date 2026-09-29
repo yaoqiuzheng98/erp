@@ -13,7 +13,7 @@
       <div class="card mb-3"><div class="card-body">
         <form method="post" action="{{.Data.Path}}" class="row g-2 align-items-md-end">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          {{if eq .Data.Title "客户"}}
+          {{if and (eq .Data.Title "客户") (not .Data.Dental)}}
           <div class="col-12 col-md-auto"><label class="form-label">类型</label><br>
             <div class="form-check form-check-inline">
               <input class="form-check-input" type="radio" name="kind" value="individual" checked onchange="toggleKind(this)">
@@ -40,12 +40,12 @@
       }
       </script>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr>{{if eq .Data.Title "客户"}}<th>类型</th>{{end}}<th>名称</th><th>联系人</th><th>电话</th><th>创建时间</th></tr></thead>
+        <thead><tr>{{if and (eq .Data.Title "客户") (not .Data.Dental)}}<th>类型</th>{{end}}<th>名称</th><th>联系人</th><th>电话</th><th>创建时间</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
-        <tr>{{if eq $.Data.Title "客户"}}<td>{{if eq .Kind "company"}}企业{{else if eq .Kind "individual"}}个人{{else}}—{{end}}</td>{{end}}<td>{{.Name}}</td><td>{{.Contact}}</td><td>{{.Phone}}</td><td>{{date .CreatedAt}}</td></tr>
+        <tr>{{if and (eq $.Data.Title "客户") (not $.Data.Dental)}}<td>{{if eq .Kind "company"}}企业{{else if eq .Kind "individual"}}个人{{else}}—{{end}}</td>{{end}}<td>{{.Name}}</td><td>{{.Contact}}</td><td>{{.Phone}}</td><td>{{date .CreatedAt}}</td></tr>
         {{else}}
-        <tr><td colspan="{{if eq $.Data.Title "客户"}}5{{else}}4{{end}}" class="text-muted">暂无数据</td></tr>
+        <tr><td colspan="{{if and (eq $.Data.Title "客户") (not $.Data.Dental)}}5{{else}}4{{end}}" class="text-muted">暂无数据</td></tr>
         {{end}}
         </tbody>
       </table></div>

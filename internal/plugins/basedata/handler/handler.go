@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -14,6 +15,22 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
+
+// isDentalTenant 口腔租户判定（同 web 菜单过滤口径）：行业祖先链含 8425/8415。
+func isDentalTenant(ctx context.Context, e *env.Env, industry string) bool {
+	if industry == "" {
+		return false
+	}
+	if n, ok := e.Industries.Get(ctx, industry); ok {
+		for _, c := range n.Path {
+			if c == "8425" || c == "8415" {
+				return true
+			}
+		}
+		return false
+	}
+	return industry == "8425" || industry == "8415"
+}
 
 type Handler struct {
 	e   *env.Env
@@ -126,6 +143,8 @@ func (h *Handler) customers(c *gin.Context) {
 	list, _ := h.svc.ListCustomers(c.Request.Context(), mw.TenantID(c))
 	web.Render(c, h.e, "basedata/partners", gin.H{
 		"Title": "客户", "Rows": list, "Path": "/app/basedata/customers",
+		// 门诊租户不做企业客户：隐藏类型切换与类型列
+		"Dental": isDentalTenant(c.Request.Context(), h.e, mw.Tenant(c).Industry),
 	})
 }
 
@@ -134,6 +153,9 @@ func (h *Handler) createCustomer(c *gin.Context) {
 		Kind: c.PostForm("kind"),
 		Name: c.PostForm("name"),
 		Contact: c.PostForm("contact"), Phone: c.PostForm("phone"),
+	}
+	if isDentalTenant(c.Request.Context(), h.e, mw.Tenant(c).Industry) {
+		in.Kind = "individual" // 门诊只有个人，后端兜底防伪造提交
 	}
 	if _, err := h.svc.CreateCustomer(c.Request.Context(), mw.TenantID(c), in); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
