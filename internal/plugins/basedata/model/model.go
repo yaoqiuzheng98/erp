@@ -21,9 +21,11 @@ type Warehouse struct {
 	Address   string `bson:"address"`
 }
 
-// Customer 客户。
+// Customer 客户。Kind 区分个人/企业：个人只有姓名+电话（联系人自动同姓名），
+// 企业才有独立联系人。存量空值展示为"—"。
 type Customer struct {
 	model.Doc `bson:",inline"`
+	Kind      string `bson:"kind"` // individual 个人 / company 企业
 	Name      string `bson:"name"`
 	Contact   string `bson:"contact"`
 	Phone     string `bson:"phone"`

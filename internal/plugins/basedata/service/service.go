@@ -89,7 +89,15 @@ func (s *Service) CreateCustomer(ctx context.Context, tenantID bson.ObjectID, in
 	if in.Name == "" {
 		return nil, errors.New("名称必填")
 	}
-	cu := &model.Customer{Name: in.Name, Contact: in.Contact, Phone: in.Phone}
+	if in.Kind == "" {
+		in.Kind = "individual"
+	}
+	// 个人客户无独立联系人，自动同姓名，免得前台问"联系人填谁"
+	contact := in.Contact
+	if in.Kind == "individual" && contact == "" {
+		contact = in.Name
+	}
+	cu := &model.Customer{Kind: in.Kind, Name: in.Name, Contact: contact, Phone: in.Phone}
 	cu.TenantID, cu.CreatedAt = tenantID, time.Now()
 	id, err := s.customers.Insert(ctx, tenantID, cu)
 	if err != nil {

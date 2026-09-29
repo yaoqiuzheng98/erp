@@ -15,7 +15,7 @@
           <div class="row g-2 mb-3">
             <div class="col-md-4"><label class="form-label">客户</label>
               <select class="form-select form-select-sm" name="customer_id" required>
-                {{range .Data.Customers}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
+                {{range .Data.Customers}}<option value="{{hex .ID}}">{{.Name}} {{.Phone}}</option>{{end}}
               </select></div>
             <div class="col-md-4"><label class="form-label">发货仓库</label>
               <select class="form-select form-select-sm" name="warehouse_id" required>

@@ -31,6 +31,7 @@ type PartnerRef struct {
 
 // CustomerUpsert 创建客户的入参（跨插件写主数据的唯一通道）。
 type CustomerUpsert struct {
+	Kind    string `json:"kind"` // individual / company，空=individual
 	Name    string `json:"name"`
 	Contact string `json:"contact"`
 	Phone   string `json:"phone"`

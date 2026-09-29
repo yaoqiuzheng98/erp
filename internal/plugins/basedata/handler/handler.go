@@ -131,6 +131,7 @@ func (h *Handler) customers(c *gin.Context) {
 
 func (h *Handler) createCustomer(c *gin.Context) {
 	in := contract.CustomerUpsert{
+		Kind: c.PostForm("kind"),
 		Name: c.PostForm("name"),
 		Contact: c.PostForm("contact"), Phone: c.PostForm("phone"),
 	}

@@ -120,7 +120,7 @@ func (s *Service) CreatePatient(ctx context.Context, tenantID bson.ObjectID, p *
 			return errors.New("姓名必填")
 		}
 		cust, err := master.CreateCustomer(ctx, tenantID, contract.CustomerUpsert{
-			Name: name, Phone: phone,
+			Kind: "individual", Name: name, Phone: phone,
 		})
 		if err != nil {
 			return err
