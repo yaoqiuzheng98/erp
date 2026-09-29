@@ -134,16 +134,6 @@ func Render(c *gin.Context, e *env.Env, name string, data any) {
 	c.HTML(http.StatusOK, name, buildPage(c, e, data))
 }
 
-// RenderFrag 渲染 HTMX 片段（仅内容块）。
-func RenderFrag(c *gin.Context, e *env.Env, name string, data any) {
-	c.HTML(http.StatusOK, name, buildPage(c, e, data))
-}
-
-// IsHTMX 判断当前请求是否为 HTMX 局部请求。
-func IsHTMX(c *gin.Context) bool {
-	return c.GetHeader("HX-Request") != ""
-}
-
 // Pager 简单分页器。
 type Pager struct {
 	Page  int

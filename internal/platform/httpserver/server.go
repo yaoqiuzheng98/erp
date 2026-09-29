@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"erp/internal/billing"
-	"erp/internal/dental"
+	dental "erp/internal/dental/handler"
 	"erp/internal/platform/admin"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
@@ -18,7 +18,7 @@ import (
 )
 
 type Services struct {
-	Dental  *dental.Service
+	Dental  *dental.Handler
 	Billing *billing.Service
 }
 
@@ -65,7 +65,7 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 	app.POST("/notifications/:id/read", notificationRead(e))
 	app.POST("/attach", attachUpload(e))
 	app.GET("/attach/:id", attachDownload(e))
-	dental.NewHandler(e, svc.Dental).Register(app)
+	svc.Dental.Register(app)
 	billing.NewHandler(e, svc.Billing).Register(app.Group("/billing"))
 
 	// ---------- 租户管理区 /admin ----------

@@ -57,7 +57,11 @@
         </form>
       </div></div>
       <form method="get" class="d-flex gap-2 mb-2">
-        <input class="form-control form-control-sm flex-grow-1" name="date" type="date" value="{{.Data.Date}}">
+        <input class="form-control form-control-sm" name="date" type="date" value="{{.Data.Date}}" style="max-width:11em">
+        <select class="form-select form-select-sm flex-grow-1" name="doctor_id">
+          <option value="">全部医生</option>
+          {{range .Data.Doctors}}<option value="{{hex .ID}}" {{if eq (hex .ID) $.Data.DoctorID}}selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
         <button class="btn btn-sm btn-outline-secondary flex-shrink-0">筛选</button>
         <a class="btn btn-sm btn-outline-secondary flex-shrink-0" href="/app/appointments">全部</a>
       </form>

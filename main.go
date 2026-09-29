@@ -7,7 +7,11 @@ import (
 	"os"
 
 	"erp/internal/billing"
-	"erp/internal/dental"
+	"erp/internal/dental/appointment"
+	"erp/internal/dental/catalog"
+	"erp/internal/dental/handler"
+	"erp/internal/dental/patient"
+	"erp/internal/dental/staff"
 	"erp/internal/platform/attach"
 	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
@@ -59,7 +63,11 @@ func main() {
 	}
 	// 业务服务直连装配
 	billingSvc := billing.New(d.Database, e.Seq)
-	dentalSvc := dental.New(d.Database, e.Seq, billingSvc)
+	patSvc := patient.New(d.Database)
+	catalogSvc := catalog.New(d.Database)
+	staffSvc := staff.New(d.Database)
+	apptSvc := appointment.New(d.Database, e.Seq, billingSvc, patSvc, catalogSvc, staffSvc)
+	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, staffSvc)
 
 	// 唯一索引（幂等）
 	for _, ix := range []struct {
@@ -80,6 +88,10 @@ func main() {
 		slog.Error("ensure billing indexes", "err", err)
 		os.Exit(1)
 	}
+	if err := staffSvc.EnsureIndexes(ctx); err != nil {
+		slog.Error("ensure staff indexes", "err", err)
+		os.Exit(1)
+	}
 
 	tpl, err := web.Build()
 	if err != nil {
@@ -88,12 +100,12 @@ func main() {
 	}
 
 	if cfg.Seed.Enabled {
-		if err := seed(ctx, e, dentalSvc, cfg); err != nil {
+		if err := seed(ctx, e, catalogSvc, cfg); err != nil {
 			slog.Error("seed", "err", err)
 		}
 	}
 
-	r := httpserver.Build(e, httpserver.Services{Dental: dentalSvc, Billing: billingSvc}, tpl)
+	r := httpserver.Build(e, httpserver.Services{Dental: dentalHandler, Billing: billingSvc}, tpl)
 	slog.Info("dental listening", "addr", cfg.Server.Addr)
 	if err := r.Run(cfg.Server.Addr); err != nil {
 		slog.Error("server", "err", err)
@@ -102,7 +114,7 @@ func main() {
 }
 
 // seed 初始化系统超管与演示门诊（幂等：已存在则跳过）。
-func seed(ctx context.Context, e *env.Env, dentalSvc *dental.Service, cfg *config.Config) error {
+func seed(ctx context.Context, e *env.Env, catalogSvc *catalog.Service, cfg *config.Config) error {
 	if n, _ := e.DB.C("sys_admins").EstimatedDocumentCount(ctx); n == 0 {
 		hash, err := auth.HashPassword(cfg.Seed.SysadminPass)
 		if err != nil {
@@ -143,7 +155,7 @@ func seed(ctx context.Context, e *env.Env, dentalSvc *dental.Service, cfg *confi
 	if err != nil {
 		return err
 	}
-	if err := dentalSvc.EnsureSeed(ctx, t.ID); err != nil {
+	if err := catalogSvc.EnsureSeed(ctx, t.ID); err != nil {
 		return err
 	}
 	slog.Info("seeded demo clinic", "admin", cfg.Seed.DemoAdminUser)

@@ -40,7 +40,7 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 
 func (h *Handler) summary(c *gin.Context) {
 	openAR, received, expense := h.svc.Summary(c.Request.Context(), mw.TenantID(c))
-	web.Render(c, h.e, "finance/summary", gin.H{
+	web.Render(c, h.e, "billing/summary", gin.H{
 		"OpenAR": openAR, "Received": received, "Expense": expense,
 	})
 }
@@ -53,7 +53,7 @@ func (h *Handler) receivables(c *gin.Context) {
 		return
 	}
 	pager.Total = total
-	web.Render(c, h.e, "finance/bills", gin.H{"Bills": list, "Pager": pager})
+	web.Render(c, h.e, "billing/bills", gin.H{"Bills": list, "Pager": pager})
 }
 
 func (h *Handler) pay(c *gin.Context) {
@@ -75,7 +75,7 @@ func (h *Handler) payments(c *gin.Context) {
 		return
 	}
 	pager.Total = total
-	web.Render(c, h.e, "finance/payments", gin.H{"Rows": list, "Pager": pager})
+	web.Render(c, h.e, "billing/payments", gin.H{"Rows": list, "Pager": pager})
 }
 
 func (h *Handler) expenses(c *gin.Context) {
@@ -86,7 +86,7 @@ func (h *Handler) expenses(c *gin.Context) {
 		return
 	}
 	pager.Total = total
-	web.Render(c, h.e, "finance/expenses", gin.H{"List": list, "Pager": pager})
+	web.Render(c, h.e, "billing/expenses", gin.H{"List": list, "Pager": pager})
 }
 
 func (h *Handler) createExpense(c *gin.Context) {

@@ -1,4 +1,4 @@
-package dental
+package appointment
 
 import (
 	"strconv"
@@ -10,79 +10,12 @@ import (
 
 // 预约状态机：booked → arrived → done；分支 noshow / cancel
 const (
-	ApptBooked  = "booked"
-	ApptArrived = "arrived"
-	ApptDone    = "done"
-	ApptNoShow  = "noshow"
-	ApptCancel  = "cancel"
+	Booked  = "booked"
+	Arrived = "arrived"
+	Done    = "done"
+	NoShow  = "noshow"
+	Cancel  = "cancel"
 )
-
-// 牙位状态（FDI 编号）；缺省视为健康。
-const (
-	ToothCaries  = "caries"
-	ToothMissing = "missing"
-	ToothTreated = "treated"
-	ToothImplant = "implant"
-	ToothCrown   = "crown"
-)
-
-// ToothStatuses 状态 → 显示名（牙位图图例）。
-var ToothStatuses = map[string]string{
-	ToothCaries:  "龋坏",
-	ToothMissing: "缺失",
-	ToothTreated: "已治",
-	ToothImplant: "种植",
-	ToothCrown:   "修复",
-}
-
-// 员工角色。
-const (
-	StaffDoctor  = "doctor"
-	StaffNurse   = "nurse"
-	StaffFront   = "front"
-	StaffAssistant = "assistant"
-)
-
-// StaffRoles 角色 → 显示名。
-var StaffRoles = map[string]string{
-	StaffDoctor:    "医生",
-	StaffNurse:     "护士",
-	StaffFront:     "前台",
-	StaffAssistant: "助理",
-}
-
-// Patient 患者档案：姓名+电话直接标识，无客户中间层。
-type Patient struct {
-	model.Doc  `bson:",inline"`
-	Name       string            `bson:"name"`
-	Phone      string            `bson:"phone"`
-	Gender     string            `bson:"gender"`
-	Birth      string            `bson:"birth"`
-	Allergy    string            `bson:"allergy"`
-	History    string            `bson:"history"`
-	Note       string            `bson:"note"`
-	Teeth      map[string]string `bson:"teeth"`
-}
-
-// ServiceItem 诊疗价目：门诊主数据。药品少量直接建 Category=药品 的条目，
-// 按次收费不走库存。以名称标识，租户内唯一。
-type ServiceItem struct {
-	model.Doc `bson:",inline"`
-	Name      string  `bson:"name"`
-	Category  string  `bson:"category"`
-	Price     float64 `bson:"price"`
-	Unit      string  `bson:"unit"`
-	Status    string  `bson:"status"` // active / disabled
-}
-
-// Staff 医护花名册：医生/护士/前台/助理。预约选医生时只列在职医生。
-type Staff struct {
-	model.Doc `bson:",inline"`
-	Name      string `bson:"name"`   // 租户内唯一
-	Role      string `bson:"role"`   // doctor / nurse / front / assistant
-	Phone     string `bson:"phone"`
-	Status    string `bson:"status"` // active / disabled
-}
 
 // ApptItem 预约/结算明细行：下单时快照 Name/Price，防价目改价影响历史单。
 type ApptItem struct {
@@ -148,15 +81,15 @@ func (a Appointment) Total() float64 {
 // StatusName 状态中文名（模板调用）。
 func (a Appointment) StatusName() string {
 	switch a.Status {
-	case ApptBooked:
+	case Booked:
 		return "已预约"
-	case ApptArrived:
+	case Arrived:
 		return "已到诊"
-	case ApptDone:
+	case Done:
 		return "已完成"
-	case ApptNoShow:
+	case NoShow:
 		return "爽约"
-	case ApptCancel:
+	case Cancel:
 		return "已取消"
 	}
 	return a.Status
@@ -165,15 +98,15 @@ func (a Appointment) StatusName() string {
 // Badge Bootstrap 颜色类（模板调用）。
 func (a Appointment) Badge() string {
 	switch a.Status {
-	case ApptBooked:
+	case Booked:
 		return "bg-primary"
-	case ApptArrived:
+	case Arrived:
 		return "bg-info text-dark"
-	case ApptDone:
+	case Done:
 		return "bg-success"
-	case ApptNoShow:
+	case NoShow:
 		return "bg-warning text-dark"
-	case ApptCancel:
+	case Cancel:
 		return "bg-secondary"
 	}
 	return "bg-secondary"
