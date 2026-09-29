@@ -9,26 +9,35 @@
     {{template "partial/apptop" .}}
     <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
-      <h4 class="mb-3">患者</h4>
-      <div class="card mb-3"><div class="card-body">
-        <h6 class="text-muted mb-2">新建建档</h6>
-        <form method="post" action="/app/dental/patients" class="row g-2 align-items-md-end">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0">患者</h4>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#patModal">＋ 新建建档</button>
+      </div>
+      <div class="modal fade" id="patModal" tabindex="-1"><div class="modal-dialog">
+        <form method="post" action="/app/dental/patients" class="modal-content">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-12 col-md-auto"><label class="form-label">姓名</label>
-            <input class="form-control form-control-sm" name="name" required></div>
-          <div class="col-12 col-md-auto"><label class="form-label">电话</label>
-            <input class="form-control form-control-sm" name="phone" inputmode="tel"></div>
-          <div class="col-12 col-md-auto"><label class="form-label">性别</label>
-            <select class="form-select form-select-sm" name="gender">
-              <option value="">-</option><option>男</option><option>女</option>
-            </select></div>
-          <div class="col-12 col-md-auto"><label class="form-label">出生日期</label>
-            <input class="form-control form-control-sm" name="birth" type="date"></div>
-          <div class="col-12 col-md-auto"><label class="form-label">过敏史</label>
-            <input class="form-control form-control-sm" name="allergy"></div>
-          <div class="col-12 col-md-auto"><label class="form-label">既往史</label>
-            <input class="form-control form-control-sm" name="history"></div>
-          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">建档</button></div>
+          <div class="modal-header"><h5 class="modal-title">新建建档</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="mb-2"><label class="form-label">姓名</label>
+              <input class="form-control form-control-sm" name="name" required></div>
+            <div class="mb-2"><label class="form-label">电话</label>
+              <input class="form-control form-control-sm" name="phone" inputmode="tel"></div>
+            <div class="row g-2">
+              <div class="col-6"><label class="form-label">性别</label>
+                <select class="form-select form-select-sm" name="gender">
+                  <option value="">-</option><option>男</option><option>女</option>
+                </select></div>
+              <div class="col-6"><label class="form-label">出生日期</label>
+                <input class="form-control form-control-sm" name="birth" type="date"></div>
+            </div>
+            <div class="mb-2 mt-2"><label class="form-label">过敏史</label>
+              <input class="form-control form-control-sm" name="allergy"></div>
+            <div class="mb-2"><label class="form-label">既往史</label>
+              <input class="form-control form-control-sm" name="history"></div>
+            <div class="small text-muted">提交后按电话自动认领老客户，没有才新建。</div>
+          </div>
+          <div class="modal-footer"><button class="btn btn-sm btn-primary">建档</button></div>
         </form>
       </div></div>
       <h6 class="text-muted mb-2">患者列表（下框输入只做筛选，不建档）</h6>
