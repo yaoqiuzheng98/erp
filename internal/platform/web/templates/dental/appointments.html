@@ -63,7 +63,10 @@
         </form>
       </div></div>
       <form method="get" class="d-flex gap-2 mb-2">
-        <input class="form-control form-control-sm" name="date" type="date" value="{{.Data.Date}}" style="max-width:11em">
+        <div class="input-group input-group-sm flex-shrink-0" style="max-width:13em">
+          <span class="input-group-text">📅</span>
+          <input class="form-control form-control-sm" name="date" type="date" value="{{.Data.Date}}" title="按日期筛选">
+        </div>
         <select class="form-select form-select-sm flex-grow-1" name="doctor_id">
           <option value="">全部医生</option>
           {{range .Data.Doctors}}<option value="{{hex .ID}}" {{if eq (hex .ID) $.Data.DoctorID}}selected{{end}}>{{.Name}}</option>{{end}}
