@@ -13,6 +13,7 @@ import (
 
 func (h *Handler) registerStaff(g *gin.RouterGroup) {
 	g.GET("/staff", mw.RequirePerm("staff.read"), h.staffPage)
+	g.GET("/staff/roles", mw.RequirePerm("staff.read"), h.staffRolesPage)
 	g.POST("/staff", mw.RequirePerm("staff.write"), h.createStaff)
 	g.POST("/staff/:id", mw.RequirePerm("staff.write"), h.updateStaff)
 	g.POST("/staff/:id/delete", mw.RequirePerm("staff.write"), h.deleteStaff)
@@ -32,6 +33,15 @@ func (h *Handler) staffPage(c *gin.Context) {
 	web.Render(c, h.e, "dental/staff", gin.H{"Rows": list, "Roles": roles})
 }
 
+func (h *Handler) staffRolesPage(c *gin.Context) {
+	roles, err := h.staff.ListRoles(c.Request.Context(), mw.TenantID(c))
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	web.Render(c, h.e, "dental/staff_roles", gin.H{"Roles": roles})
+}
+
 func (h *Handler) createRole(c *gin.Context) {
 	err := h.staff.CreateRole(c.Request.Context(), mw.TenantID(c),
 		c.PostForm("name"), c.PostForm("can_practice") == "on")
@@ -40,7 +50,7 @@ func (h *Handler) createRole(c *gin.Context) {
 	} else {
 		web.SetFlash(c, "角色已创建")
 	}
-	c.Redirect(http.StatusFound, "/app/staff")
+	c.Redirect(http.StatusFound, "/app/staff/roles")
 }
 
 func (h *Handler) updateRole(c *gin.Context) {
@@ -52,7 +62,7 @@ func (h *Handler) updateRole(c *gin.Context) {
 	} else {
 		web.SetFlash(c, "角色已更新")
 	}
-	c.Redirect(http.StatusFound, "/app/staff")
+	c.Redirect(http.StatusFound, "/app/staff/roles")
 }
 
 func (h *Handler) deleteRole(c *gin.Context) {
@@ -62,7 +72,7 @@ func (h *Handler) deleteRole(c *gin.Context) {
 	} else {
 		web.SetFlash(c, "角色已删除")
 	}
-	c.Redirect(http.StatusFound, "/app/staff")
+	c.Redirect(http.StatusFound, "/app/staff/roles")
 }
 
 func (h *Handler) createStaff(c *gin.Context) {

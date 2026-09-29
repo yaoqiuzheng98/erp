@@ -49,6 +49,7 @@ var appMenu = []menu.Item{
 	}},
 	{ID: "staff", Title: "员工", Icon: "👥", Children: []menu.Item{
 		{ID: "staff.list", Title: "员工管理", Path: "/app/staff", Perm: "staff.read"},
+		{ID: "staff.roles", Title: "角色维护", Path: "/app/staff/roles", Perm: "staff.read"},
 	}},
 	{ID: "finance", Title: "财务", Icon: "￥", Children: []menu.Item{
 		{ID: "finance.summary", Title: "账簿汇总", Path: "/app/billing", Perm: "billing.read"},

@@ -56,44 +56,6 @@
         {{end}}
         </tbody>
       </table></div>
-      <div class="card mt-3"><div class="card-body">
-        <h6>角色维护 <span class="text-muted small">可接诊的角色才能排诊；停用后新增员工不可选；有人在用删不掉</span></h6>
-        <form method="post" action="/app/staff/roles" class="row g-2 align-items-md-end mb-2">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-12 col-md-auto"><label class="form-label">角色名</label>
-            <input class="form-control form-control-sm" name="name" required placeholder="如 正畸医生"></div>
-          <div class="col-12 col-md-auto"><div class="form-check mt-md-4">
-            <input class="form-check-input" type="checkbox" name="can_practice" value="on">
-            <label class="form-check-label">可接诊</label></div></div>
-          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">新增角色</button></div>
-        </form>
-        <div class="table-responsive"><table class="table table-sm bg-white align-middle mb-0">
-          <thead><tr><th>角色</th><th>可接诊</th><th>状态</th><th>操作</th></tr></thead>
-          <tbody>
-          {{range .Data.Roles}}
-          <tr>
-            <form method="post" action="/app/staff/roles/{{hex .ID}}">
-              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <td>{{.Name}}</td>
-              <td><input class="form-check-input" type="checkbox" name="can_practice" value="on" {{if .CanPractice}}checked{{end}}></td>
-              <td><select class="form-select form-select-sm" name="status">
-                <option value="active" {{if eq .Status "active"}}selected{{end}}>启用</option>
-                <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>停用</option>
-              </select></td>
-              <td class="text-nowrap">
-                <button class="btn btn-sm btn-outline-primary">保存</button>
-            </form>
-            <form method="post" action="/app/staff/roles/{{hex .ID}}/delete" class="d-inline m-0"
-                  onsubmit="return confirm('删除角色 {{.Name}}？')">
-              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <button class="btn btn-sm btn-outline-danger">删除</button>
-            </form>
-              </td>
-          </tr>
-          {{end}}
-          </tbody>
-        </table></div>
-      </div></div>
     </main>
   </div>
 </div>
