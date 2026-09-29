@@ -12,22 +12,22 @@
       <h4 class="mb-1">诊疗价目表</h4>
       <p class="text-muted small">服务型门诊的主数据（替代商品）。药品少量直接建分类=药品的条目，按次收费不走库存；项目名称租户内唯一。</p>
       <div class="card mb-3"><div class="card-body">
-        <form method="post" action="/app/dental/services" class="row g-2 align-items-end">
+        <form method="post" action="/app/dental/services" class="row g-2 align-items-md-end">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-auto"><label class="form-label">项目名称</label>
+          <div class="col-12 col-md-auto"><label class="form-label">项目名称</label>
             <input class="form-control form-control-sm" name="name" required placeholder="如 超声洁治"></div>
-          <div class="col-auto"><label class="form-label">分类</label>
+          <div class="col-12 col-md-auto"><label class="form-label">分类</label>
             <input class="form-control form-control-sm" name="category" list="svcCats" placeholder="洁治/充填/根管…">
             <datalist id="svcCats">
               <option value="检查"></option><option value="洁治"></option><option value="充填"></option>
               <option value="根管"></option><option value="拔牙"></option><option value="正畸"></option>
               <option value="修复"></option><option value="种植"></option><option value="药品"></option>
             </datalist></div>
-          <div class="col-auto"><label class="form-label">单价</label>
+          <div class="col-12 col-md-auto"><label class="form-label">单价</label>
             <input class="form-control form-control-sm" name="price" type="number" step="0.01" min="0" value="0" style="width:7em" required></div>
-          <div class="col-auto"><label class="form-label">单位</label>
+          <div class="col-12 col-md-auto"><label class="form-label">单位</label>
             <input class="form-control form-control-sm" name="unit" value="次" style="width:5em"></div>
-          <div class="col-auto"><button class="btn btn-sm btn-primary">新增项目</button></div>
+          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">新增项目</button></div>
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white align-middle">

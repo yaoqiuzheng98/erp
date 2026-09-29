@@ -11,20 +11,20 @@
       {{template "partial/flash" .}}
       <h4 class="mb-3">预约</h4>
       <div class="card mb-3"><div class="card-body">
-        <form method="post" action="/app/dental/appointments" class="row g-2 align-items-end">
+        <form method="post" action="/app/dental/appointments" class="row g-2 align-items-md-end">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-auto"><label class="form-label">患者</label>
+          <div class="col-12 col-md-auto"><label class="form-label">患者</label>
             <select class="form-select form-select-sm" name="patient_id" required>
               <option value="">选择患者</option>
               {{range .Data.Patients}}<option value="{{hex .ID}}">{{.Name}} {{.Phone}}</option>{{end}}
             </select></div>
-          <div class="col-auto"><label class="form-label">日期</label>
+          <div class="col-12 col-md-auto"><label class="form-label">日期</label>
             <input class="form-control form-control-sm" name="date" type="date" required></div>
-          <div class="col-auto"><label class="form-label">时间</label>
+          <div class="col-12 col-md-auto"><label class="form-label">时间</label>
             <input class="form-control form-control-sm" name="slot" type="time" required></div>
-          <div class="col-auto"><label class="form-label">椅位</label>
+          <div class="col-12 col-md-auto"><label class="form-label">椅位</label>
             <input class="form-control form-control-sm" name="chair" style="width:5em" placeholder="1"></div>
-          <div class="col-auto"><label class="form-label">医生</label>
+          <div class="col-12 col-md-auto"><label class="form-label">医生</label>
             <input class="form-control form-control-sm" name="doctor"></div>
           <div class="col-12"><label class="form-label">诊疗项目（价目表勾选，不选则填下行备注）</label>
             <div class="border rounded p-2 d-flex flex-wrap gap-2" style="max-height:9em;overflow:auto">
@@ -39,14 +39,14 @@
               <span class="text-muted small">价目表为空，先去<a href="/app/dental/services">价目表</a>维护</span>
               {{end}}
             </div></div>
-          <div class="col-auto"><label class="form-label">备注/临时项目</label>
+          <div class="col-12 col-md-auto"><label class="form-label">备注/临时项目</label>
             <input class="form-control form-control-sm" name="item" placeholder="无价目时填"></div>
-          <div class="col-auto"><button class="btn btn-sm btn-primary">预约</button></div>
+          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">预约</button></div>
         </form>
       </div></div>
       <form method="get" class="row g-2 mb-2">
-        <div class="col-auto"><input class="form-control form-control-sm" name="date" type="date" value="{{.Data.Date}}"></div>
-        <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">筛选</button>
+        <div class="col-12 col-md-auto"><input class="form-control form-control-sm" name="date" type="date" value="{{.Data.Date}}"></div>
+        <div class="col-12 col-md-auto"><button class="btn btn-sm btn-outline-secondary">筛选</button>
           <a class="btn btn-sm btn-outline-secondary" href="/app/dental/appointments">全部</a></div>
       </form>
       <div class="table-responsive"><table class="table table-sm bg-white">

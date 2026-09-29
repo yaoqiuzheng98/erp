@@ -13,10 +13,10 @@
       <div class="card mb-4"><div class="card-body">
         <form method="post" action="/admin/roles">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="row g-2 align-items-end mb-2">
-            <div class="col-auto"><label class="form-label">名称</label>
+          <div class="row g-2 align-items-md-end mb-2">
+            <div class="col-12 col-md-auto"><label class="form-label">名称</label>
               <input class="form-control form-control-sm" name="name" required></div>
-            <div class="col-auto"><label class="form-label">数据范围</label>
+            <div class="col-12 col-md-auto"><label class="form-label">数据范围</label>
               <select class="form-select form-select-sm" name="data_scope">
                 <option value="self">本人</option>
                 <option value="dept">本部门</option>

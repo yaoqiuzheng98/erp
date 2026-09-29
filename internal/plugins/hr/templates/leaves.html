@@ -11,23 +11,23 @@
       {{template "partial/flash" .}}
       <h4 class="mb-3">请假</h4>
       <div class="card mb-3"><div class="card-body">
-        <form method="post" action="/app/hr/leaves" class="row g-2 align-items-end">
+        <form method="post" action="/app/hr/leaves" class="row g-2 align-items-md-end">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-auto"><label class="form-label">员工</label>
+          <div class="col-12 col-md-auto"><label class="form-label">员工</label>
             <select class="form-select form-select-sm" name="employee_id" required>
               {{range .Data.Emps}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
             </select></div>
-          <div class="col-auto"><label class="form-label">类型</label>
+          <div class="col-12 col-md-auto"><label class="form-label">类型</label>
             <select class="form-select form-select-sm" name="type">
               <option value="annual">年假</option><option value="sick">病假</option><option value="personal">事假</option>
             </select></div>
-          <div class="col-auto"><label class="form-label">从</label>
+          <div class="col-12 col-md-auto"><label class="form-label">从</label>
             <input class="form-control form-control-sm" name="from" type="date" required></div>
-          <div class="col-auto"><label class="form-label">到</label>
+          <div class="col-12 col-md-auto"><label class="form-label">到</label>
             <input class="form-control form-control-sm" name="to" type="date" required></div>
-          <div class="col-auto"><label class="form-label">事由</label>
+          <div class="col-12 col-md-auto"><label class="form-label">事由</label>
             <input class="form-control form-control-sm" name="reason"></div>
-          <div class="col-auto"><button class="btn btn-sm btn-primary">新建请假单</button></div>
+          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">新建请假单</button></div>
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">

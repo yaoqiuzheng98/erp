@@ -11,20 +11,20 @@
       {{template "partial/flash" .}}
       <h4 class="mb-3">考勤</h4>
       <div class="card mb-3"><div class="card-body">
-        <form method="post" action="/app/hr/attends" class="row g-2 align-items-end">
+        <form method="post" action="/app/hr/attends" class="row g-2 align-items-md-end">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-auto"><label class="form-label">员工</label>
+          <div class="col-12 col-md-auto"><label class="form-label">员工</label>
             <select class="form-select form-select-sm" name="employee_id" required>
               {{range .Data.Emps}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
             </select></div>
-          <div class="col-auto"><label class="form-label">日期</label>
+          <div class="col-12 col-md-auto"><label class="form-label">日期</label>
             <input class="form-control form-control-sm" name="date" type="date" required></div>
-          <div class="col-auto"><label class="form-label">类型</label>
+          <div class="col-12 col-md-auto"><label class="form-label">类型</label>
             <select class="form-select form-select-sm" name="type">
               <option value="normal">正常</option><option value="late">迟到</option>
               <option value="absent">缺勤</option><option value="leave">请假</option>
             </select></div>
-          <div class="col-auto"><button class="btn btn-sm btn-primary">打卡/登记</button></div>
+          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">打卡/登记</button></div>
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
