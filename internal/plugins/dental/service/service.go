@@ -108,35 +108,38 @@ func (s *Service) PatientView(ctx context.Context, tenantID, id bson.ObjectID) (
 	return v, nil
 }
 
-// CreatePatient 建档。customerID 非零 = 挂接已有客户（不新建）；否则以
-// name/phone 建 basedata 客户。
-func (s *Service) CreatePatient(ctx context.Context, tenantID bson.ObjectID, p *model.Patient, name, phone string, customerID bson.ObjectID) error {
+// CreatePatient 建档：只收姓名电话，不选客户。按电话自动认领已有客户
+// （有档案则报错防重，无则挂接），认领不到才新建客户。一客一档案。
+func (s *Service) CreatePatient(ctx context.Context, tenantID bson.ObjectID, p *model.Patient, name, phone string) error {
 	master, err := s.master()
 	if err != nil {
 		return err
 	}
-	if customerID.IsZero() {
-		if name == "" {
-			return errors.New("姓名必填")
-		}
-		cust, err := master.CreateCustomer(ctx, tenantID, contract.CustomerUpsert{
-			Kind: "individual", Name: name, Phone: phone,
-		})
-		if err != nil {
-			return err
-		}
-		p.CustomerID = cust.ID
-	} else {
-		cust, err := master.Customer(ctx, tenantID, customerID)
-		if err != nil {
-			return errors.New("客户不存在")
-		}
-		// 一客户一档案
-		if n, _ := s.pats.Count(ctx, tenantID, bson.M{"customer_id": cust.ID}); n > 0 {
-			return errors.New("该客户已有患者档案")
-		}
-		p.CustomerID = cust.ID
+	if name == "" {
+		return errors.New("姓名必填")
 	}
+	if phone != "" {
+		if custs, err := master.Customers(ctx, tenantID); err == nil {
+			for _, c := range custs {
+				if c.Phone != "" && c.Phone == phone {
+					if n, _ := s.pats.Count(ctx, tenantID, bson.M{"customer_id": c.ID}); n > 0 {
+						return errors.New("该电话已建过患者档案")
+					}
+					p.CustomerID = c.ID
+					p.TenantID, p.CreatedAt = tenantID, time.Now()
+					p.ID, err = s.pats.Insert(ctx, tenantID, p)
+					return err
+				}
+			}
+		}
+	}
+	cust, err := master.CreateCustomer(ctx, tenantID, contract.CustomerUpsert{
+		Kind: "individual", Name: name, Phone: phone,
+	})
+	if err != nil {
+		return err
+	}
+	p.CustomerID = cust.ID
 	p.TenantID, p.CreatedAt = tenantID, time.Now()
 	p.ID, err = s.pats.Insert(ctx, tenantID, p)
 	return err

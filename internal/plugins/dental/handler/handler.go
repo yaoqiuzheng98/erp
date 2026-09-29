@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"erp/internal/platform/contract"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/web"
@@ -58,14 +57,7 @@ func (h *Handler) patients(c *gin.Context) {
 		return
 	}
 	pager.Total = total
-	data := gin.H{"Rows": list, "Pager": pager, "Q": q}
-	// 已有客户列表供"挂接已有客户"选择
-	if master, err := contract.Master(h.e); err == nil {
-		if custs, err := master.Customers(c.Request.Context(), tenantID); err == nil {
-			data["Customers"] = custs
-		}
-	}
-	web.Render(c, h.e, "dental/patients", data)
+	web.Render(c, h.e, "dental/patients", gin.H{"Rows": list, "Pager": pager, "Q": q})
 }
 
 func (h *Handler) createPatient(c *gin.Context) {
@@ -73,9 +65,8 @@ func (h *Handler) createPatient(c *gin.Context) {
 		Gender: c.PostForm("gender"), Birth: c.PostForm("birth"),
 		Allergy: c.PostForm("allergy"), History: c.PostForm("history"),
 	}
-	custID, _ := bson.ObjectIDFromHex(c.PostForm("customer_id"))
 	if err := h.svc.CreatePatient(c.Request.Context(), mw.TenantID(c), p,
-		c.PostForm("name"), c.PostForm("phone"), custID); err != nil {
+		c.PostForm("name"), c.PostForm("phone")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "患者已建档")
