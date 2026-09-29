@@ -1,13 +1,3 @@
-erp.dokodemo.top {
-	reverse_proxy erp:8080
-	encode gzip
-
-	# 上传体积上限按需调整
-	request_body {
-		max_size 64MB
-	}
-}
-
 erp.test.dokodemo.top {
 	reverse_proxy erp-test:8080
 	encode gzip

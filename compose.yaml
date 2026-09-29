@@ -16,19 +16,7 @@ services:
       timeout: 5s
       retries: 12
 
-  erp:
-    image: erp-app:latest
-    container_name: erp-app
-    restart: always
-    depends_on:
-      mongo:
-        condition: service_healthy
-    volumes:
-      - ./config.prod.toml:/opt/erp/config.toml:ro
-      - erp_uploads:/opt/erp/data/uploads
-      - ./backups:/opt/erp/backups
-
-  # 测试环境：复用 mongo/caddy，仅多一个 app 容器（省内存，不另起 mongo）。
+  # 测试环境（唯一运行环境）：复用 mongo/caddy，单 app 容器。
   # 镜像 erp-app:test，库 erp_test，域名 erp.test.dokodemo.top。
   erp-test:
     image: erp-app:test
@@ -54,7 +42,6 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - erp
       - erp-test
 
 volumes:
