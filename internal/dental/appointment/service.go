@@ -69,8 +69,8 @@ func (s *Service) doctorName(ctx context.Context, tenantID, doctorID bson.Object
 	if err != nil {
 		return "", errors.New("医生不存在")
 	}
-	if d.Status != "active" || d.Role != staff.Doctor {
-		return "", errors.New("医生不在职")
+	if d.Status != "active" || !s.staff.CanPractice(ctx, tenantID, d.Role) {
+		return "", errors.New("医生不在职或不可接诊")
 	}
 	return d.Name, nil
 }

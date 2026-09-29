@@ -88,10 +88,6 @@ func main() {
 		slog.Error("ensure billing indexes", "err", err)
 		os.Exit(1)
 	}
-	if err := staffSvc.EnsureIndexes(ctx); err != nil {
-		slog.Error("ensure staff indexes", "err", err)
-		os.Exit(1)
-	}
 
 	tpl, err := web.Build()
 	if err != nil {
