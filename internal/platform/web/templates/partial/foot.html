@@ -30,5 +30,19 @@
       f.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
     });
   });
+  // datalist：有值时点开也展开全量选项（聚焦暂存清空，未选则恢复）
+  document.querySelectorAll('input[list]').forEach(function (el) {
+    if (el.dataset.dlInit) return;
+    el.dataset.dlInit = '1';
+    el.addEventListener('focus', function () {
+      el.dataset.saved = el.value;
+      el.dataset.picked = '';
+      el.value = '';
+    });
+    el.addEventListener('input', function () { el.dataset.picked = '1'; });
+    el.addEventListener('blur', function () {
+      if (!el.dataset.picked && el.value === '') el.value = el.dataset.saved || '';
+    });
+  });
 </script>
 {{end}}
