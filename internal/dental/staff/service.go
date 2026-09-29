@@ -10,6 +10,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type Service struct {
@@ -55,26 +56,57 @@ func (s *Service) EnsureSeed(ctx context.Context, tenantID bson.ObjectID) error 
 			bson.M{"tenant_id": tenantID, "role": old},
 			bson.M{"$set": bson.M{"role": name}})
 	}
+	// 历史双份残留去重（每名只留最早一条），每次都跑，顺手修复老数据。
+	if err := s.dedupeRoles(ctx, tenantID); err != nil {
+		return err
+	}
 	n, err := s.roles.Count(ctx, tenantID, bson.M{})
 	if err != nil || n > 0 {
 		return err
 	}
-	now := time.Now()
-	docs := []any{}
+	// 逐角色 upsert：并发首访也不会种出双份（唯一索引兜底）。
 	for _, r := range []RoleDef{
 		{Name: "医生", CanPractice: true, Status: "active"},
 		{Name: "护士", Status: "active"},
 		{Name: "前台", Status: "active"},
 		{Name: "助理", Status: "active"},
 	} {
-		r.TenantID, r.CreatedAt = tenantID, now
-		docs = append(docs, r)
+		_, err := s.roles.Col.UpdateOne(ctx,
+			bson.M{"tenant_id": tenantID, "name": r.Name},
+			bson.M{"$setOnInsert": bson.M{
+				"tenant_id": tenantID, "name": r.Name,
+				"can_practice": r.CanPractice, "status": r.Status,
+				"created_at": time.Now(),
+			}},
+			options.UpdateOne().SetUpsert(true))
+		if err != nil && !mongo.IsDuplicateKeyError(err) {
+			return err
+		}
 	}
-	_, err = s.roles.Col.InsertMany(ctx, docs)
-	if err != nil && mongo.IsDuplicateKeyError(err) {
-		return nil // 并发首访重复种子，唯一索引保证下幂等
+	return nil
+}
+
+// dedupeRoles 同名角色只留最早一条。
+func (s *Service) dedupeRoles(ctx context.Context, tenantID bson.ObjectID) error {
+	cur, err := s.roles.Col.Find(ctx, bson.M{"tenant_id": tenantID})
+	if err != nil {
+		return err
 	}
-	return err
+	var all []RoleDef
+	if err := cur.All(ctx, &all); err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for _, r := range all {
+		if seen[r.Name] {
+			if _, err := s.roles.Col.DeleteOne(ctx, bson.M{"_id": r.ID}); err != nil {
+				return err
+			}
+		} else {
+			seen[r.Name] = true
+		}
+	}
+	return nil
 }
 
 // ---------- 角色 ----------

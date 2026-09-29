@@ -29,21 +29,22 @@
         <tbody>
         {{range .Data.Rows}}
         {{$row := .}}
+        {{$fid := print "stf-" (hex .ID)}}
         <tr>
-          <form method="post" action="/app/staff/{{hex .ID}}">
-            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-            <td><input class="form-control form-control-sm" name="name" value="{{.Name}}" style="min-width:7em" required></td>
-            <td><select class="form-select form-select-sm" name="role">
+            <td><input class="form-control form-control-sm" form="{{$fid}}" name="name" value="{{.Name}}" style="min-width:7em" required></td>
+            <td><select class="form-select form-select-sm" form="{{$fid}}" name="role">
               {{range $.Data.Roles}}{{if eq .Status "active"}}<option value="{{.Name}}" {{if eq .Name $row.Role}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
             </select></td>
-            <td><input class="form-control form-control-sm" name="phone" value="{{.Phone}}" style="min-width:8em"></td>
-            <td><select class="form-select form-select-sm" name="status">
+            <td><input class="form-control form-control-sm" form="{{$fid}}" name="phone" value="{{.Phone}}" style="min-width:8em"></td>
+            <td><select class="form-select form-select-sm" form="{{$fid}}" name="status">
               <option value="active" {{if eq .Status "active"}}selected{{end}}>在职</option>
               <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>离职</option>
             </select></td>
             <td class="text-nowrap">
-              <button class="btn btn-sm btn-outline-primary">保存</button>
-          </form>
+              <form method="post" action="/app/staff/{{hex .ID}}" id="{{$fid}}" class="d-inline m-0">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button class="btn btn-sm btn-outline-primary">保存</button>
+              </form>
           <form method="post" action="/app/staff/{{hex .ID}}/delete" class="d-inline m-0"
                 onsubmit="return confirm('删除员工 {{.Name}}？历史预约不受影响。')">
             <input type="hidden" name="_csrf" value="{{$.CSRF}}">

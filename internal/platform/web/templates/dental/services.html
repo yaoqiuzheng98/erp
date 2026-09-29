@@ -34,20 +34,21 @@
         <thead><tr><th>名称</th><th>分类</th><th>单价</th><th>单位</th><th>状态</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
+        {{$fid := print "svc-" (hex .ID)}}
         <tr>
-          <form method="post" action="/app/services/{{hex .ID}}">
-            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-            <td><input class="form-control form-control-sm" name="name" value="{{.Name}}" required></td>
-            <td><input class="form-control form-control-sm" name="category" value="{{.Category}}" style="width:7em"></td>
-            <td><input class="form-control form-control-sm" name="price" type="number" step="0.01" min="0" value="{{printf "%.2f" .Price}}" style="width:7em" required></td>
-            <td><input class="form-control form-control-sm" name="unit" value="{{.Unit}}" style="width:5em"></td>
-            <td><select class="form-select form-select-sm" name="status">
+            <td><input class="form-control form-control-sm" form="{{$fid}}" name="name" value="{{.Name}}" required></td>
+            <td><input class="form-control form-control-sm" form="{{$fid}}" name="category" value="{{.Category}}" style="width:7em"></td>
+            <td><input class="form-control form-control-sm" form="{{$fid}}" name="price" type="number" step="0.01" min="0" value="{{printf "%.2f" .Price}}" style="width:7em" required></td>
+            <td><input class="form-control form-control-sm" form="{{$fid}}" name="unit" value="{{.Unit}}" style="width:5em"></td>
+            <td><select class="form-select form-select-sm" form="{{$fid}}" name="status">
               <option value="active" {{if eq .Status "active"}}selected{{end}}>启用</option>
               <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>停用</option>
             </select></td>
             <td class="text-nowrap">
-              <button class="btn btn-sm btn-outline-primary">保存</button>
-          </form>
+              <form method="post" action="/app/services/{{hex .ID}}" id="{{$fid}}" class="d-inline m-0">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button class="btn btn-sm btn-outline-primary">保存</button>
+              </form>
           <form method="post" action="/app/services/{{hex .ID}}/delete" class="d-inline m-0"
                 onsubmit="return confirm('删除价目 {{.Name}}？历史单据不受影响。')">
             <input type="hidden" name="_csrf" value="{{$.CSRF}}">
