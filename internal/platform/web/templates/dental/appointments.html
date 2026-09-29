@@ -76,7 +76,7 @@
           <a class="btn btn-sm btn-outline-secondary" href="/app/appointments">全部</a>
         </div>
       </form>
-      <div class="table-responsive"><table class="table table-sm bg-white">
+      <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white">
         <thead><tr><th>日期</th><th>时间</th><th>患者</th><th>椅位</th><th>医生</th><th>项目</th><th>状态</th><th>收费</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
@@ -135,6 +135,42 @@
         {{end}}
         </tbody>
       </table></div>
+      <div class="d-md-none">
+        {{range .Data.Rows}}
+        {{$a := .}}
+        <div class="card mb-2"><div class="card-body py-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <b>{{.Date}} {{.Slot}}</b>
+            <span class="badge {{.Badge}}">{{.StatusName}}</span>
+          </div>
+          <div class="small mt-1"><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>
+            <span class="text-muted">{{.Chair}}椅 · {{.Doctor}} · {{.DisplayItem}}</span></div>
+          {{if .Charge}}<div class="small">收费 ¥{{printf "%.2f" .Charge}} <span class="text-muted">{{.ChargeNo}}</span></div>{{end}}
+          <div class="d-flex flex-wrap gap-1 mt-2">
+            {{if eq .Status "booked"}}
+            <form method="post" action="/app/appointments/{{hex .ID}}/arrive" class="m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-primary">到诊</button></form>
+            <form method="post" action="/app/appointments/{{hex .ID}}/noshow" class="m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-warning">爽约</button></form>
+            <form method="post" action="/app/appointments/{{hex .ID}}/cancel" class="m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">取消</button></form>
+            {{end}}
+          </div>
+          {{if or (eq .Status "booked") (eq .Status "arrived")}}
+          <form method="post" action="/app/appointments/{{hex .ID}}/done" class="d-flex gap-1 mt-2"
+                onsubmit="return confirm('按明细/金额完成就诊？')">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <input class="form-control form-control-sm flex-grow-1" name="charge" type="number" step="0.01" min="0" placeholder="收费金额">
+            <button class="btn btn-sm btn-outline-success flex-shrink-0">完成</button></form>
+          {{end}}
+        </div></div>
+        {{else}}
+        <div class="text-muted">暂无预约</div>
+        {{end}}
+      </div>
       {{template "partial/pager" .}}
     </main>
   </div>
