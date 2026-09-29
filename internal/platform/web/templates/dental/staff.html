@@ -24,7 +24,7 @@
           <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">新增员工</button></div>
         </form>
       </div></div>
-      <div class="table-responsive"><table class="table table-sm bg-white align-middle">
+      <div class="table-responsive"><table class="table table-sm bg-white align-middle text-nowrap">
         <thead><tr><th>姓名</th><th>角色</th><th>电话</th><th>状态</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
@@ -32,11 +32,11 @@
         <tr>
           <form method="post" action="/app/staff/{{hex .ID}}">
             <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-            <td><input class="form-control form-control-sm" name="name" value="{{.Name}}" required></td>
+            <td><input class="form-control form-control-sm" name="name" value="{{.Name}}" style="min-width:7em" required></td>
             <td><select class="form-select form-select-sm" name="role">
               {{range $.Data.Roles}}{{if eq .Status "active"}}<option value="{{.Name}}" {{if eq .Name $row.Role}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
             </select></td>
-            <td><input class="form-control form-control-sm" name="phone" value="{{.Phone}}"></td>
+            <td><input class="form-control form-control-sm" name="phone" value="{{.Phone}}" style="min-width:8em"></td>
             <td><select class="form-select form-select-sm" name="status">
               <option value="active" {{if eq .Status "active"}}selected{{end}}>在职</option>
               <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>离职</option>
