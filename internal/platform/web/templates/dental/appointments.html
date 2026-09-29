@@ -26,9 +26,15 @@
               </select></div>
             <div class="row g-2">
               <div class="col-6"><label class="form-label">日期</label>
-                <input class="form-control form-control-sm" name="date" type="date" required></div>
-              <div class="col-6"><label class="form-label">时间</label>
-                <input class="form-control form-control-sm" name="slot" type="time" required></div>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">📅</span>
+                  <input class="form-control form-control-sm" name="date" type="date" required title="选择预约日期">
+                </div></div>
+              <div class="col-6"><label class="form-label">到诊时间</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">🕐</span>
+                  <input class="form-control form-control-sm" name="slot" type="time" required title="点击选择到诊时间">
+                </div></div>
               <div class="col-6"><label class="form-label">椅位</label>
                 <input class="form-control form-control-sm" name="chair" placeholder="1"></div>
               <div class="col-6"><label class="form-label">接诊医生</label>
