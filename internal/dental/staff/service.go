@@ -190,7 +190,7 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, st *Staff)
 		return err
 	}
 	if n, _ := s.staff.Count(ctx, tenantID, bson.M{"name": st.Name}); n > 0 {
-		return errors.New("同名员工已存在")
+		return errors.New("同名成员已存在")
 	}
 	st.TenantID, st.CreatedAt = tenantID, time.Now()
 	if st.Status == "" {
