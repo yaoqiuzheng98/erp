@@ -20,6 +20,15 @@
     .btn { white-space: nowrap; }
     .flash-toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 1090; max-width: min(400px, calc(100vw - 32px)); background: rgba(33,37,41,.92); color: #fff; border: 0; box-shadow: 0 .5rem 1rem rgba(0,0,0,.2); }
     .d-flex > .flex-grow-1 { min-width: 0; }
+    /* combo 输入框+下拉箭头：列表浮层 */
+    .combo { position: relative; }
+    .combo-list { position: absolute; z-index: 1060; left: 0; right: 0; top: 100%;
+      max-height: 12em; overflow-y: auto; background: #fff;
+      border: 1px solid rgba(0,0,0,.15); border-radius: .375rem;
+      box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); }
+    .combo-item { display: block; width: 100%; text-align: left; border: 0;
+      background: #fff; padding: .35rem .75rem; font-size: .875rem; }
+    .combo-item:hover { background: #e9ecef; }
     @media (max-width: 767.98px) {
       .topbar .topbar-user { max-width: 7em; }
       .table-responsive .table th, .table-responsive .table td { white-space: nowrap; }

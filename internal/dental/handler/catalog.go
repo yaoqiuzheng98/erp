@@ -25,7 +25,10 @@ func (h *Handler) services(c *gin.Context) {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	web.Render(c, h.e, "dental/services", gin.H{"Rows": list})
+	web.Render(c, h.e, "dental/services", gin.H{
+		"Rows": list,
+		"Units": catalog.UnitOptions, "Categories": catalog.CategoryOptions,
+	})
 }
 
 func (h *Handler) createService(c *gin.Context) {

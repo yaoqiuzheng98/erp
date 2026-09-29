@@ -11,6 +11,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// UnitOptions 单位预设（框里可直接打字，不限于此）。
+var UnitOptions = []string{"次", "颗", "小时", "盒", "瓶", "袋", "支", "包"}
+
+// CategoryOptions 分类预设（框里可直接打字，不限于此）。
+var CategoryOptions = []string{"检查", "洁治", "充填", "根管", "拔牙", "正畸", "修复", "种植", "药品"}
+
 type Service struct {
 	db    *mongo.Database
 	items *repo.TenantRepo[ServiceItem]

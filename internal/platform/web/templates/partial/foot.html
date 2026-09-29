@@ -30,5 +30,39 @@
       f.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
     });
   });
+  // combo：输入框自由输入，下拉箭头永远展开全量选项
+  document.querySelectorAll('.combo').forEach(function (box) {
+    if (box.dataset.comboInit) return;
+    box.dataset.comboInit = '1';
+    var input = box.querySelector('.combo-input');
+    var list = box.querySelector('.combo-list');
+    var items = Array.prototype.slice.call(list.querySelectorAll('.combo-item'));
+    function show(all) {
+      var q = all ? '' : input.value.trim();
+      var shown = 0;
+      items.forEach(function (it) {
+        var hit = !q || it.dataset.value.indexOf(q) !== -1;
+        it.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      list.hidden = shown === 0;
+    }
+    box.querySelector('.combo-toggle').addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (list.hidden) show(true); else list.hidden = true;
+    });
+    input.addEventListener('input', function () { show(false); });
+    input.addEventListener('focus', function () { show(false); });
+    list.addEventListener('mousedown', function (e) {
+      var it = e.target.closest('.combo-item');
+      if (it) { input.value = it.dataset.value; list.hidden = true; }
+    });
+    document.addEventListener('click', function (e) {
+      if (!box.contains(e.target)) list.hidden = true;
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') list.hidden = true;
+    });
+  });
 </script>
 {{end}}

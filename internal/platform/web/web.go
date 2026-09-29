@@ -83,6 +83,15 @@ func funcMap() template.FuncMap {
 		},
 		"mul": func(a, b float64) string { return fmt.Sprintf("%.2f", a*b) },
 		"f2":  func(a float64) string { return fmt.Sprintf("%.2f", a) },
+		"dict": func(vals ...any) map[string]any {
+			m := map[string]any{}
+			for i := 0; i+1 < len(vals); i += 2 {
+				if k, ok := vals[i].(string); ok {
+					m[k] = vals[i+1]
+				}
+			}
+			return m
+		},
 	}
 }
 
