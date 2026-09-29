@@ -30,14 +30,19 @@
       f.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
     });
   });
-  // datalist：有值时点开也展开全量选项（聚焦暂存清空，未选则恢复）
+  // datalist：有值时点开也展开全量选项（聚焦暂存清空，未选则恢复；
+  // 已聚焦时再点没有 focus 事件，用 mousedown 补）
   document.querySelectorAll('input[list]').forEach(function (el) {
     if (el.dataset.dlInit) return;
     el.dataset.dlInit = '1';
-    el.addEventListener('focus', function () {
+    function clearForList() {
       el.dataset.saved = el.value;
       el.dataset.picked = '';
       el.value = '';
+    }
+    el.addEventListener('focus', clearForList);
+    el.addEventListener('mousedown', function () {
+      if (document.activeElement === el) clearForList();
     });
     el.addEventListener('input', function () { el.dataset.picked = '1'; });
     el.addEventListener('blur', function () {
