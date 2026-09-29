@@ -32,11 +32,11 @@
         {{$fid := print "stf-" (hex .ID)}}
         <tr>
             <td><input class="form-control form-control-sm" form="{{$fid}}" name="name" value="{{.Name}}" style="min-width:7em" required></td>
-            <td><select class="form-select form-select-sm" form="{{$fid}}" name="role">
+            <td><select class="form-select form-select-sm" form="{{$fid}}" name="role" style="min-width:6.5em">
               {{range $.Data.Roles}}{{if eq .Status "active"}}<option value="{{.Name}}" {{if eq .Name $row.Role}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
             </select></td>
             <td><input class="form-control form-control-sm" form="{{$fid}}" name="phone" value="{{.Phone}}" style="min-width:8em"></td>
-            <td><select class="form-select form-select-sm" form="{{$fid}}" name="status">
+            <td><select class="form-select form-select-sm" form="{{$fid}}" name="status" style="min-width:5.5em">
               <option value="active" {{if eq .Status "active"}}selected{{end}}>在职</option>
               <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>离职</option>
             </select></td>

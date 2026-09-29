@@ -29,7 +29,7 @@
         <tr>
             <td>{{.Name}}</td>
             <td><input class="form-check-input" form="{{$fid}}" type="checkbox" name="can_practice" value="on" {{if .CanPractice}}checked{{end}}></td>
-            <td><select class="form-select form-select-sm" form="{{$fid}}" name="status">
+              <td><select class="form-select form-select-sm" form="{{$fid}}" name="status" style="min-width:5.5em">
               <option value="active" {{if eq .Status "active"}}selected{{end}}>启用</option>
               <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>停用</option>
             </select></td>

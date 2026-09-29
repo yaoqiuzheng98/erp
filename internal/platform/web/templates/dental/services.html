@@ -40,7 +40,7 @@
             <td><input class="form-control form-control-sm" form="{{$fid}}" name="category" value="{{.Category}}" style="width:7em"></td>
             <td><input class="form-control form-control-sm" form="{{$fid}}" name="price" type="number" step="0.01" min="0" value="{{printf "%.2f" .Price}}" style="width:7em" required></td>
             <td><input class="form-control form-control-sm" form="{{$fid}}" name="unit" value="{{.Unit}}" style="width:5em"></td>
-            <td><select class="form-select form-select-sm" form="{{$fid}}" name="status">
+            <td><select class="form-select form-select-sm" form="{{$fid}}" name="status" style="min-width:5.5em">
               <option value="active" {{if eq .Status "active"}}selected{{end}}>启用</option>
               <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>停用</option>
             </select></td>
