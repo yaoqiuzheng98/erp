@@ -76,12 +76,16 @@ func (s *Service) doctorName(ctx context.Context, tenantID, doctorID bson.Object
 	return d.Name, nil
 }
 
-// EnsureIndexes 排号稀疏唯一（同租户同医生同天不重号；未签到无号不冲突）。
+// EnsureIndexes 排号部分唯一：只有已取号（queue_no>0）的单据参与唯一约束。
+// 注意不能用 sparse——复合稀疏索引会把缺字段当 null，同医生同天第二单就撞键。
 func (s *Service) EnsureIndexes(ctx context.Context) error {
+	// 删掉历史错误版本（同名不同选项会报 IndexOptionsConflict）。
+	_ = s.appts.Col.Indexes().DropOne(ctx, "tenant_id_1_doctor_id_1_date_1_queue_no_1")
 	_, err := s.appts.Col.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "doctor_id", Value: 1},
 			{Key: "date", Value: 1}, {Key: "queue_no", Value: 1}},
-		Options: options.Index().SetUnique(true).SetSparse(true),
+		Options: options.Index().SetUnique(true).
+			SetPartialFilterExpression(bson.M{"queue_no": bson.M{"$gt": 0}}),
 	})
 	return err
 }
