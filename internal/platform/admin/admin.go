@@ -1,8 +1,9 @@
-// Package admin 租户管理区 handler：用户/角色/审计。
+// Package admin 租户管理区 handler：用户/角色/门诊设置/审计。
 package admin
 
 import (
 	"net/http"
+	"strconv"
 
 	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
@@ -33,6 +34,9 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 	g.GET("/roles", mw.RequirePerm("admin.roles"), h.rolesPage)
 	g.POST("/roles", mw.RequirePerm("admin.roles"), h.createRole)
 	g.POST("/roles/:id/delete", mw.RequirePerm("admin.roles"), h.deleteRole)
+
+	g.GET("/settings", mw.RequirePerm("admin.settings"), h.settingsPage)
+	g.POST("/settings", mw.RequirePerm("admin.settings"), h.saveSettings)
 
 	g.GET("/audit", mw.RequirePerm("admin.audit"), h.auditPage)
 }
@@ -155,6 +159,24 @@ func (h *Handler) deleteRole(c *gin.Context) {
 		h.audit(c, "role.delete", id.Hex(), "")
 	}
 	c.Redirect(http.StatusFound, "/admin/roles")
+}
+
+// ---------- 门诊设置 ----------
+
+func (h *Handler) settingsPage(c *gin.Context) {
+	t := mw.Tenant(c)
+	web.Render(c, h.e, "admin/settings", gin.H{"Tenant": t})
+}
+
+func (h *Handler) saveSettings(c *gin.Context) {
+	fee, _ := strconv.ParseFloat(c.PostForm("reg_fee"), 64)
+	if err := h.e.Tenants.SetFee(c.Request.Context(), mw.TenantID(c), fee); err != nil {
+		web.SetFlash(c, "保存失败: "+err.Error())
+	} else {
+		h.audit(c, "tenant.settings", "reg_fee", c.PostForm("reg_fee"))
+		web.SetFlash(c, "门诊设置已保存")
+	}
+	c.Redirect(http.StatusFound, "/admin/settings")
 }
 
 // ---------- 审计 ----------

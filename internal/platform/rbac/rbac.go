@@ -36,6 +36,7 @@ func Catalog() []PermissionDef {
 		{Code: "billing.write", Desc: "财务操作"},
 		{Code: "admin.users", Desc: "用户管理"},
 		{Code: "admin.roles", Desc: "角色管理"},
+		{Code: "admin.settings", Desc: "门诊设置"},
 		{Code: "admin.audit", Desc: "审计查看"},
 	}
 }

@@ -1,0 +1,31 @@
+{{define "admin/settings"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-2 p-md-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">门诊设置</h4>
+      <div class="card mb-3" style="max-width:560px"><div class="card-body">
+        <form method="post" action="/admin/settings">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="mb-2"><label class="form-label">门诊名称</label>
+            <input class="form-control form-control-sm" value="{{.Data.Tenant.Name}}" disabled></div>
+          <div class="mb-2"><label class="form-label">挂号费</label>
+            <input class="form-control form-control-sm" name="reg_fee" type="number" step="0.01" min="0"
+                   value="{{printf "%.2f" .Data.Tenant.RegFee}}">
+            <div class="form-text">患者自助预约时收取，填 0 为不收；改价只影响之后的新预约。</div></div>
+          <button class="btn btn-sm btn-primary">保存</button>
+        </form>
+      </div></div>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}
