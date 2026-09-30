@@ -8,10 +8,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-// 预约状态机：booked → arrived → done；分支 noshow / cancel
+// 预约状态机：booked → arrived(候诊) → serving(就诊中) → done；分支 noshow / cancel。
+// 签到分配医生+排号；完成时自动叫同医生下一位。
 const (
 	Booked  = "booked"
 	Arrived = "arrived"
+	Serving = "serving"
 	Done    = "done"
 	NoShow  = "noshow"
 	Cancel  = "cancel"
@@ -31,13 +33,14 @@ type Appointment struct {
 	model.Doc   `bson:",inline"`
 	PatientID   bson.ObjectID `bson:"patient_id"`
 	PatientName string        `bson:"patient_name"` // 快照，免 join
-	DoctorID    bson.ObjectID `bson:"doctor_id"`
-	Doctor      string        `bson:"doctor"` // 接诊医生快照
+	DoctorID    bson.ObjectID `bson:"doctor_id,omitempty"`
+	Doctor      string        `bson:"doctor"` // 接诊医生快照（签到时最终确定）
 	Chair       string        `bson:"chair"`
 	Date        string        `bson:"date"` // YYYY-MM-DD
 	Slot        string        `bson:"slot"` // HH:MM
 	Item        string        `bson:"item"` // 自由文本兜底（无价目时填）
 	Items       []ApptItem    `bson:"items,omitempty"`
+	QueueNo     int           `bson:"queue_no,omitempty"` // 当天当医生排号（签到分配）
 	Status      string        `bson:"status"`
 	Charge      float64       `bson:"charge"` // 完成时收费总额
 	ChargeNo    string        `bson:"charge_no"`
@@ -84,7 +87,9 @@ func (a Appointment) StatusName() string {
 	case Booked:
 		return "已预约"
 	case Arrived:
-		return "已到诊"
+		return "候诊中"
+	case Serving:
+		return "就诊中"
 	case Done:
 		return "已完成"
 	case NoShow:
@@ -102,8 +107,10 @@ func (a Appointment) Badge() string {
 		return "bg-primary"
 	case Arrived:
 		return "bg-info text-dark"
-	case Done:
+	case Serving:
 		return "bg-success"
+	case Done:
+		return "bg-secondary"
 	case NoShow:
 		return "bg-warning text-dark"
 	case Cancel:

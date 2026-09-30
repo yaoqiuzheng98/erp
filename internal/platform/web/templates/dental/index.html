@@ -18,7 +18,7 @@
           <td>{{.Slot}}</td>
           <td><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a></td>
           <td>{{.Chair}}</td><td>{{.Doctor}}</td><td>{{.DisplayItem}}</td>
-          <td><span class="badge {{.Badge}}">{{.StatusName}}</span></td>
+          <td><span class="badge {{.Badge}}">{{.StatusName}}</span>{{if .QueueNo}} <small class="text-muted">排{{.QueueNo}}号</small>{{end}}</td>
         </tr>
         {{else}}
         <tr><td colspan="6" class="text-muted">今日暂无预约</td></tr>

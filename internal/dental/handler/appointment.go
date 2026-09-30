@@ -16,7 +16,8 @@ func (h *Handler) registerAppointment(g *gin.RouterGroup) {
 	g.GET("", mw.RequirePerm("appt.read"), h.today)
 	g.GET("/appointments", mw.RequirePerm("appt.read"), h.appointments)
 	g.POST("/appointments", mw.RequirePerm("appt.write"), h.createAppt)
-	g.POST("/appointments/:id/arrive", mw.RequirePerm("appt.write"), h.arrive)
+	g.POST("/appointments/:id/checkin", mw.RequirePerm("appt.write"), h.checkin)
+	g.POST("/appointments/:id/call", mw.RequirePerm("appt.write"), h.call)
 	g.POST("/appointments/:id/done", mw.RequirePerm("appt.write"), h.done)
 	g.POST("/appointments/:id/noshow", mw.RequirePerm("appt.write"), h.noshow)
 	g.POST("/appointments/:id/cancel", mw.RequirePerm("appt.write"), h.cancel)
@@ -32,7 +33,7 @@ func (h *Handler) appointments(c *gin.Context) {
 	skip, limit, pager := web.ParsePager(c, 30)
 	date := c.Query("date")
 	doctorID, _ := bson.ObjectIDFromHex(c.Query("doctor_id"))
-	list, total, err := h.appts.List(c.Request.Context(), mw.TenantID(c), date, doctorID, skip, limit)
+	list, total, err := h.appts.List(c.Request.Context(), mw.TenantID(c), date, doctorID, c.Query("phone"), skip, limit)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
@@ -42,7 +43,7 @@ func (h *Handler) appointments(c *gin.Context) {
 	items, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
 	doctors, _ := h.staff.ListDoctors(c.Request.Context(), mw.TenantID(c))
 	web.Render(c, h.e, "dental/appointments", gin.H{
-		"Rows": list, "Pager": pager, "Date": date, "DoctorID": doctorID.Hex(),
+		"Rows": list, "Pager": pager, "Date": date, "DoctorID": doctorID.Hex(), "Phone": c.Query("phone"),
 		"Patients": pats, "Services": items, "Doctors": doctors,
 	})
 }
@@ -94,10 +95,32 @@ func (h *Handler) createAppt(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
-func (h *Handler) arrive(c *gin.Context) {
+// checkin 前台签到：报手机号找到单 → 分配医生 + 排号。
+func (h *Handler) checkin(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	if err := h.appts.Arrive(c.Request.Context(), mw.TenantID(c), id); err != nil {
+	doc, no, err := h.appts.CheckIn(c.Request.Context(), mw.TenantID(c), id)
+	if err != nil {
+		web.SetFlash(c, "签到失败: "+err.Error())
+	} else {
+		web.SetFlash(c, "签到成功 → "+doc+" "+queueNo(no))
+	}
+	c.Redirect(http.StatusFound, "/app/appointments")
+}
+
+func queueNo(no int) string {
+	if no <= 0 {
+		return ""
+	}
+	return strconv.Itoa(no) + "号"
+}
+
+// call 手动叫号（自动叫号的补充）。
+func (h *Handler) call(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	if err := h.appts.CallNow(c.Request.Context(), mw.TenantID(c), id); err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
+	} else {
+		web.SetFlash(c, "已叫号")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
@@ -106,8 +129,11 @@ func (h *Handler) done(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	charge, _ := strconv.ParseFloat(c.PostForm("charge"), 64)
 	items := parseApptItems(c)
-	if err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge, mw.User(c).Username); err != nil {
+	next, err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge, mw.User(c).Username)
+	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
+	} else if next != "" {
+		web.SetFlash(c, "已完成就诊，下一位："+next)
 	} else {
 		web.SetFlash(c, "已完成就诊")
 	}

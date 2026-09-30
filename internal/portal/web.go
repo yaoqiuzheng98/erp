@@ -171,14 +171,19 @@ func (h *Web) cancel(c *gin.Context) {
 
 func (h *Web) my(c *gin.Context) {
 	p := Patient(c)
-	appts, _ := h.appts.OfPatient(c.Request.Context(), p.TenantID, p.ID)
-	bills, _ := h.bill.Mine(c.Request.Context(), p.TenantID, p.ID)
+	ctx := c.Request.Context()
+	appts, _ := h.appts.OfPatient(ctx, p.TenantID, p.ID)
+	bills, _ := h.bill.Mine(ctx, p.TenantID, p.ID)
 	var unpaid float64
 	for _, b := range bills {
 		unpaid += b.Amount - b.PaidAmount
 	}
+	pos := map[string]int{}
+	for _, a := range appts {
+		pos[a.ID.Hex()] = h.appts.Position(ctx, p.TenantID, a.ID)
+	}
 	web.Render(c, h.e, "portal/my", gin.H{
 		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "my", "Name": p.Name,
-		"Appts": appts, "Bills": bills, "Unpaid": unpaid,
+		"Appts": appts, "Bills": bills, "Unpaid": unpaid, "Pos": pos,
 	})
 }
