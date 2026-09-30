@@ -21,11 +21,12 @@
     .flash-toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 1090; max-width: min(400px, calc(100vw - 32px)); background: rgba(33,37,41,.92); color: #fff; border: 0; box-shadow: 0 .5rem 1rem rgba(0,0,0,.2); }
     .d-flex > .flex-grow-1 { min-width: 0; }
     /* 患者端：App 感 */
-    body.portal { background: #eef4f3; }
-    body.portal main { padding-bottom: 84px; }
+    body.portal { background: #eef4f3; min-height: 100vh; min-height: 100dvh;
+      display: flex; flex-direction: column; }
+    body.portal main { flex: 1 0 auto; padding-bottom: 24px; }
     .portal-hero { background: linear-gradient(135deg, #0d9488, #0f766e); color: #fff;
       border-radius: 1rem; }
-    .portal-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030;
+    .portal-tabbar { position: sticky; bottom: 0; z-index: 1030;
       background: #fff; border-top: 1px solid #dee2e6;
       display: flex; padding: .4rem 0 calc(.4rem + env(safe-area-inset-bottom)); }
     .portal-tabbar a { flex: 1; text-align: center; text-decoration: none;
