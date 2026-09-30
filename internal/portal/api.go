@@ -48,6 +48,7 @@ func (h *API) Register(g *gin.RouterGroup) {
 	g.GET("/appointments", h.requirePatient, h.myAppointments)
 	g.POST("/appointments", h.requirePatient, h.createAppointment)
 	g.POST("/appointments/:id/cancel", h.requirePatient, h.cancelAppointment)
+	g.POST("/appointments/:id/pay", h.requirePatient, h.payAppointment)
 	g.GET("/bills", h.requirePatient, h.myBills)
 }
 
@@ -165,6 +166,9 @@ func (h *API) createAppointment(c *gin.Context) {
 		PatientID: p.ID, DoctorID: docID,
 		Date: in.Date, Slot: in.Slot, Item: in.Item,
 	}
+	if t := mw.Tenant(c); t != nil {
+		a.RegFee = t.RegFee
+	}
 	for _, l := range in.Lines {
 		sid, err := bson.ObjectIDFromHex(l.ServiceID)
 		if err != nil {
@@ -192,6 +196,21 @@ func (h *API) cancelAppointment(c *gin.Context) {
 		return
 	}
 	ok(c, nil)
+}
+
+func (h *API) payAppointment(c *gin.Context) {
+	p := Patient(c)
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	a, err := h.appts.ByID(c.Request.Context(), p.TenantID, id)
+	if err != nil || a.PatientID != p.ID {
+		fail(c, http.StatusNotFound, "预约不存在")
+		return
+	}
+	if err := h.appts.PayReg(c.Request.Context(), p.TenantID, id, p.Name); err != nil {
+		fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	ok(c, gin.H{"reg_paid": true})
 }
 
 func (h *API) myBills(c *gin.Context) {

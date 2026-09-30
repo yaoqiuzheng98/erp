@@ -3,6 +3,7 @@ package sysadmin
 
 import (
 	"net/http"
+	"strconv"
 
 	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
@@ -23,6 +24,7 @@ func Register(g *gin.RouterGroup, e *env.Env) {
 	g.GET("/tenants", h.tenants)
 	g.POST("/tenants", h.createTenant)
 	g.POST("/tenants/:id/toggle", h.toggleTenant)
+	g.POST("/tenants/:id/fee", h.setFee)
 	g.GET("/audit", h.auditLog)
 }
 
@@ -95,6 +97,21 @@ func (h *Handler) toggleTenant(c *gin.Context) {
 		Username: "sysadmin", Action: "tenant.toggle", Target: t.Name, Detail: status,
 		IP: c.ClientIP(),
 	})
+	c.Redirect(http.StatusFound, "/sysadmin/tenants")
+}
+
+func (h *Handler) setFee(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	fee, _ := strconv.ParseFloat(c.PostForm("fee"), 64)
+	if err := h.e.Tenants.SetFee(c.Request.Context(), id, fee); err != nil {
+		web.SetFlash(c, "设置失败: "+err.Error())
+	} else {
+		h.e.Audit.Log(c.Request.Context(), audit.Entry{
+			Username: "sysadmin", Action: "tenant.fee", Target: id.Hex(),
+			Detail: c.PostForm("fee"), IP: c.ClientIP(),
+		})
+		web.SetFlash(c, "挂号费已更新")
+	}
 	c.Redirect(http.StatusFound, "/sysadmin/tenants")
 }
 

@@ -95,8 +95,11 @@ func (h *Handler) createAppt(c *gin.Context) {
 		PatientID: patID, DoctorID: docID,
 		Chair: c.PostForm("chair"),
 		Date:  c.PostForm("date"), Slot: c.PostForm("slot"),
-		Item:  c.PostForm("item"),
+		Item: c.PostForm("item"), // 老单自由文本兜底；新单以明细为准
 		Items: parseApptItems(c),
+	}
+	if t := mw.Tenant(c); t != nil {
+		a.RegFee = t.RegFee
 	}
 	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a); err != nil {
 		slog.Error("backoffice appt failed", "tenant", mw.TenantID(c).Hex(),

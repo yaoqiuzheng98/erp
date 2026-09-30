@@ -43,6 +43,8 @@ func (h *Web) Register(g *gin.RouterGroup) {
 	g.GET("/services", h.services)
 	g.GET("/book", h.requirePatient, h.bookPage)
 	g.POST("/book", h.requirePatient, h.book)
+	g.GET("/pay/:id", h.requirePatient, h.payPage)
+	g.POST("/pay/:id", h.requirePatient, h.pay)
 	g.GET("/my", h.requirePatient, h.my)
 	g.POST("/appointments/:id/cancel", h.requirePatient, h.cancel)
 }
@@ -121,6 +123,9 @@ func (h *Web) book(c *gin.Context) {
 		Date: c.PostForm("date"), Slot: c.PostForm("slot"), Item: c.PostForm("item"),
 		Items: parseItems(c),
 	}
+	if t := mw.Tenant(c); t != nil {
+		a.RegFee = t.RegFee
+	}
 	if err := h.appts.Create(c.Request.Context(), p.TenantID, a); err != nil {
 		slog.Error("portal book failed", "tenant", p.TenantID.Hex(), "patient", p.ID.Hex(),
 			"doctor", a.DoctorID.Hex(), "date", a.Date, "slot", a.Slot,
@@ -129,7 +134,40 @@ func (h *Web) book(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/book")
 		return
 	}
+	if a.RegFee > 0 {
+		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/pay/"+a.ID.Hex())
+		return
+	}
 	web.SetFlash(c, "预约成功，请按时到诊")
+	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+}
+
+func (h *Web) payPage(c *gin.Context) {
+	p := Patient(c)
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	a, err := h.appts.ByID(c.Request.Context(), p.TenantID, id)
+	if err != nil || a.PatientID != p.ID {
+		c.String(http.StatusNotFound, "单据不存在")
+		return
+	}
+	web.Render(c, h.e, "portal/pay", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "", "A": a})
+}
+
+func (h *Web) pay(c *gin.Context) {
+	p := Patient(c)
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	a, err := h.appts.ByID(c.Request.Context(), p.TenantID, id)
+	if err != nil || a.PatientID != p.ID {
+		web.SetFlash(c, "单据不存在")
+		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+		return
+	}
+	if err := h.appts.PayReg(c.Request.Context(), p.TenantID, id, p.Name); err != nil {
+		web.SetFlash(c, "支付失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/pay/"+id.Hex())
+		return
+	}
+	web.SetFlash(c, "支付成功，请按时到诊")
 	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
 }
 

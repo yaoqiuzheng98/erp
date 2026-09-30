@@ -9,10 +9,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// Tenant 门诊租户（一家门诊）。
+// Tenant 门诊租户（一家门诊）。RegFee 挂号费（患者自助预约时收），0=不收。
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
+	RegFee    float64       `bson:"reg_fee"`
 	Status    string        `bson:"status"` // active / suspended
 	CreatedAt time.Time     `bson:"created_at"`
 }
@@ -52,6 +53,14 @@ func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {
 	}
 	t.ID = res.InsertedID.(bson.ObjectID)
 	return t, nil
+}
+
+func (s *Service) SetFee(ctx context.Context, id bson.ObjectID, fee float64) error {
+	if fee < 0 {
+		fee = 0
+	}
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"reg_fee": fee}})
+	return err
 }
 
 func (s *Service) SetStatus(ctx context.Context, id bson.ObjectID, status string) error {

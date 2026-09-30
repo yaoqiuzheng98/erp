@@ -287,6 +287,43 @@ func (s *Service) nextInLine(ctx context.Context, tenantID, doctorID bson.Object
 	return &best, nil
 }
 
+// PayReg 挂号费模拟支付：建应收并即时全额核销（method=mock），成功置 RegPaid。
+// 仅 booked/arrived 可缴；费用为0或已缴直接返回 nil。
+func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, by string) error {
+	a, err := s.appts.FindByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	if a.Status != Booked && a.Status != Arrived {
+		return ErrBadStatus
+	}
+	if a.RegFee <= 0 || a.RegPaid {
+		return nil
+	}
+	no, err := s.seq.Next(ctx, tenantID, "RG")
+	if err != nil {
+		return err
+	}
+	if err := s.billing.CreateAR(ctx, tenantID, billing.AR{
+		PatientID: a.PatientID, PatientName: a.PatientName,
+		DocNo: no, Amount: a.RegFee, RefID: id.Hex(), By: by,
+		Lines: []billing.BillLine{{Name: "挂号费", Qty: 1, Price: a.RegFee, Amount: a.RegFee}},
+	}); err != nil {
+		return err
+	}
+	b, err := s.billing.ByDocNo(ctx, tenantID, no)
+	if err != nil || b == nil {
+		if err == nil {
+			err = errors.New("收费单生成异常")
+		}
+		return err
+	}
+	if err := s.billing.Pay(ctx, tenantID, b.ID, a.RegFee, "mock", by); err != nil {
+		return err
+	}
+	return s.appts.Update(ctx, tenantID, id, bson.M{"reg_paid": true})
+}
+
 // Position 排位：serving=0（正在就诊），候诊=前面人数+1，其他状态=-1。
 func (s *Service) Position(ctx context.Context, tenantID, id bson.ObjectID) int {
 	a, err := s.appts.FindByID(ctx, tenantID, id)

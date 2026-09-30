@@ -43,6 +43,8 @@ type Appointment struct {
 	Item        string        `bson:"item"` // 自由文本兜底（无价目时填）
 	Items       []ApptItem    `bson:"items,omitempty"`
 	QueueNo     int           `bson:"queue_no,omitempty"` // 当天当医生排号（签到分配）
+	RegFee      float64       `bson:"reg_fee,omitempty"`    // 挂号费快照（预约时）
+	RegPaid     bool          `bson:"reg_paid,omitempty"`   // 挂号费已缴
 	Status      string        `bson:"status"`
 	Charge      float64       `bson:"charge"` // 完成时收费总额
 	ChargeNo    string        `bson:"charge_no"`

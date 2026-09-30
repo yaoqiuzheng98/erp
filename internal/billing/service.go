@@ -71,6 +71,11 @@ func (s *Service) BillByRef(ctx context.Context, tenantID bson.ObjectID, refID s
 	return b, nil
 }
 
+// ByDocNo 按流水号查单。
+func (s *Service) ByDocNo(ctx context.Context, tenantID bson.ObjectID, docNo string) (*Bill, error) {
+	return s.bills.FindOne(ctx, tenantID, bson.M{"doc_no": docNo})
+}
+
 func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, skip, limit int64) ([]Bill, int64, error) {
 	total, err := s.bills.Count(ctx, tenantID, bson.M{})
 	if err != nil {

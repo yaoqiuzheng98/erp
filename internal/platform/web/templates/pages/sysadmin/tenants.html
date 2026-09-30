@@ -23,12 +23,19 @@
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>名称</th><th>患者端链接</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
+        <thead><tr><th>名称</th><th>患者端链接</th><th>挂号费</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Tenants}}
         <tr>
           <td>{{.Name}}</td>
           <td class="small text-muted">/p/{{hex .ID}}</td>
+          <td>
+            <form method="post" action="/sysadmin/tenants/{{hex .ID}}/fee" class="d-flex gap-1 m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <input class="form-control form-control-sm" name="fee" type="number" step="0.01" min="0" value="{{printf "%.2f" .RegFee}}" style="width:6em">
+              <button class="btn btn-sm btn-outline-secondary">改费</button>
+            </form>
+          </td>
           <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
           <td>{{date .CreatedAt}}</td>
           <td>
