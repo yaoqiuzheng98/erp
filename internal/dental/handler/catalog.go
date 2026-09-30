@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"erp/internal/dental/catalog"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/web"
-	"erp/internal/dental/catalog"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -26,7 +26,7 @@ func (h *Handler) services(c *gin.Context) {
 		return
 	}
 	web.Render(c, h.e, "dental/services", gin.H{
-		"Rows": list,
+		"Rows":  list,
 		"Units": catalog.UnitOptions, "Categories": catalog.CategoryOptions,
 	})
 }
@@ -34,7 +34,7 @@ func (h *Handler) services(c *gin.Context) {
 func (h *Handler) createService(c *gin.Context) {
 	price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
 	it := &catalog.ServiceItem{
-		Name: c.PostForm("name"),
+		Name:     c.PostForm("name"),
 		Category: c.PostForm("category"), Unit: c.PostForm("unit"),
 		Price: price, Status: "active",
 	}

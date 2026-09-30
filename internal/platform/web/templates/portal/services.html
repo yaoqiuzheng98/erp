@@ -1,0 +1,26 @@
+{{define "portal/services"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="topbar d-flex justify-content-between align-items-center px-3 py-2">
+  <a class="text-decoration-none" href="/p/{{.Data.Code}}/{{if .Data.Authed}}{{else}}login{{end}}">‹ 返回</a>
+  <span class="fw-bold">价目表</span>
+  <span style="width:3em"></span>
+</div>
+<main class="p-2">
+  <div class="table-responsive"><table class="table table-sm bg-white text-nowrap">
+    <thead><tr><th>项目</th><th>分类</th><th>单价</th></tr></thead>
+    <tbody>
+    {{range .Data.Rows}}
+    <tr><td>{{.Name}}</td><td>{{.Category}}</td><td>¥{{printf "%.2f" .Price}}{{if .Unit}}/{{.Unit}}{{end}}</td></tr>
+    {{else}}
+    <tr><td colspan="3" class="text-muted">暂无价目</td></tr>
+    {{end}}
+    </tbody>
+  </table></div>
+</main>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

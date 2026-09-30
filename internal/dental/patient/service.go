@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"erp/internal/platform/auth"
 	"erp/internal/platform/repo"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -38,6 +39,27 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, q string, sk
 
 func (s *Service) ByID(ctx context.Context, tenantID, id bson.ObjectID) (*Patient, error) {
 	return s.pats.FindByID(ctx, tenantID, id)
+}
+
+// SetPassword 门诊后台配置患者端登录密码。
+func (s *Service) SetPassword(ctx context.Context, tenantID, id bson.ObjectID, plain string) error {
+	if len(plain) < 6 {
+		return errors.New("密码至少6位")
+	}
+	hash, err := auth.HashPassword(plain)
+	if err != nil {
+		return err
+	}
+	return s.pats.Update(ctx, tenantID, id, bson.M{"password_hash": hash})
+}
+
+// Login 患者端登录：电话定位 + 密码校验。未配密码拒绝。
+func (s *Service) Login(ctx context.Context, tenantID bson.ObjectID, phone, password string) (*Patient, error) {
+	p, err := s.pats.FindOne(ctx, tenantID, bson.M{"phone": phone})
+	if err != nil || p.PasswordHash == "" || !auth.CheckPassword(p.PasswordHash, password) {
+		return nil, errors.New("手机号或密码错误")
+	}
+	return p, nil
 }
 
 // Create 建档：按电话自动认领已有患者（有则报错防重），认领不到才新建。

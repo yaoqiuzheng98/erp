@@ -51,13 +51,13 @@
 
 ### 两类后台
 
-| | 系统管理后台 `/sysadmin/` | 门诊后台 `/admin/` + `/app/` |
-|---|---|---|
-| 使用者 | 平台运维超管（`sys_admins`） | 门诊员工与管理员（`users`） |
-| 登录 | `/sysadmin/login`，独立会话 cookie | `/login`（门诊名+账号+密码） |
-| 功能 | 门诊 CRUD/停用、全局审计 | `/app/*` 业务页 + `/admin/` 用户/角色/审计 |
-| 菜单 | 固定（概览/门诊管理/全局审计） | 固定（门诊/财务/系统管理三组） |
-| 数据范围 | 跨租户 | 强制 `tenant_id` 隔离 |
+| | 系统管理后台 `/sysadmin/` | 门诊后台 `/admin/` + `/app/` | 患者端 `/p/{短码}` |
+|---|---|---|---|
+| 使用者 | 平台运维超管（`sys_admins`） | 门诊员工与管理员（`users`） | 患者（凭手机号+密码，门诊后台配置） |
+| 登录 | `/sysadmin/login`，独立会话 cookie | `/login`（门诊名+账号+密码） | `/p/{短码}/login`，独立患者会话 |
+| 功能 | 门诊 CRUD/停用/短码、全局审计 | `/app/*` 业务页 + `/admin/` 用户/角色/审计 | 价目表（公开）、预约挂号、我的预约/账单 |
+| 菜单 | 固定（概览/门诊管理/全局审计） | 固定（门诊/团队/财务/系统管理） | 无侧边栏，手机优先单列页 |
+| 数据范围 | 跨租户 | 强制 `tenant_id` 隔离 | 强制隔离，只能看自己的单 |
 
 ## 3. 业务流程
 
@@ -70,22 +70,27 @@
 - 患者建档只收姓名电话，按电话自动认领老档案（有则报错防重），无则新建。
 - 价目是门诊主数据（名称租户内唯一，药品建分类=药品的条目，不走库存）。
 - 预约必须选在职医生；医生离职不影响历史单（快照名）。
+- 同医生同时段防重（已约/已到诊占位），前台与患者自助走同一入口。
+- 患者端（`/p/{短码}` H5 + `/api/p/{短码}` JSON，小程序预留同一批接口）：
+  手机号+密码登录（门诊后台给患者配密），会话与员工体系隔离
+  （`patient` kind 会话；H5 走 cookie，小程序走 Bearer），公开接口限流。
+- 租户短码全局唯一（`tenants.code` 稀疏唯一索引），老租户在系统后台补码。
 
 ## 4. 数据模型（MongoDB 集合）
 
 ```
-tenants      { _id, name, status, created_at }
+tenants      { _id, name, code, status, created_at }
 users        { _id, tenant_id, username, password_hash, name,
                role_ids[], status, is_tenant_admin, last_login_at }
 sys_admins   { _id, username, password_hash }          // 系统级，无 tenant_id
 roles        { _id, tenant_id, name, perm_codes[] }
-sessions     { _id(token), user_id, tenant_id, expires_at, data }
+sessions     { _id(token), kind[tenant/sys/patient], user_id, tenant_id, expires_at, data }
 sequences    { _id: "tenantID:rule", prefix, date_part, value }
 audit_logs   { _id, tenant_id, user_id, action, target, detail, ip, at }
 attachments  { _id, tenant_id, owner_type, owner_id, filename,
                path, size, mime, uploaded_by }
 notifications{ _id, tenant_id, user_id, type, title, link, read_at }
-patients     { _id, tenant_id, name, phone, gender, birth,
+patients     { _id, tenant_id, name, phone, password_hash, gender, birth,
                allergy, history, note, teeth{} }
 appointments { _id, tenant_id, patient_id, patient_name, doctor_id, doctor,
                chair, date, slot, item, items[], status, charge, charge_no }

@@ -228,7 +228,8 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, st *Staff)
 	if st.Status == "" {
 		st.Status = "active"
 	}
-	_, err := s.staff.Insert(ctx, tenantID, st)
+	st.ID, _ = s.staff.Insert(ctx, tenantID, st)
+	_, err := s.staff.FindByID(ctx, tenantID, st.ID)
 	return err
 }
 

@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 
+	"erp/internal/dental/staff"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/web"
-	"erp/internal/dental/staff"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"

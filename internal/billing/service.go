@@ -68,6 +68,11 @@ func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, skip, l
 	return list, total, err
 }
 
+// Mine 某患者的全部账单（患者端）。
+func (s *Service) Mine(ctx context.Context, tenantID, patientID bson.ObjectID) ([]Bill, error) {
+	return s.bills.FindMany(ctx, tenantID, bson.M{"patient_id": patientID})
+}
+
 // Pay 核销：生成收款单并累加已核销额，足额标记 paid。
 func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amount float64, method string, by string) error {
 	b, err := s.bills.FindByID(ctx, tenantID, billID)

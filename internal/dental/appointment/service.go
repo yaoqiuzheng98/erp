@@ -86,6 +86,13 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		return err
 	}
 	a.Doctor = name
+	// 同医生同时段防重（自助约诊必需；前台走同一入口同样受检）。
+	if n, _ := s.appts.Count(ctx, tenantID, bson.M{
+		"doctor_id": a.DoctorID, "date": a.Date, "slot": a.Slot,
+		"status": bson.M{"$in": []string{Booked, Arrived}},
+	}); n > 0 {
+		return errors.New("该医生该时段已约满，换个时间试试")
+	}
 	if len(a.Items) > 0 {
 		items, summary, _, err := s.fillItems(ctx, tenantID, a.Items)
 		if err != nil {
@@ -94,7 +101,8 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		a.Items, a.Item = items, summary
 	}
 	a.TenantID, a.Status, a.CreatedAt = tenantID, Booked, time.Now()
-	_, err = s.appts.Insert(ctx, tenantID, a)
+	a.ID, _ = s.appts.Insert(ctx, tenantID, a)
+	_, err = s.appts.FindByID(ctx, tenantID, a.ID)
 	return err
 }
 

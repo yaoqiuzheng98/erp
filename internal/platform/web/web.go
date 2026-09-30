@@ -127,7 +127,9 @@ func buildPage(c *gin.Context, e *env.Env, data any) *Page {
 		p.Menu = menu.Filter(items, func(code string) bool {
 			return p.Perms["*"] || p.Perms[code]
 		})
-		p.NotifCount = e.Notify.UnreadCount(c.Request.Context(), t.ID, p.User.ID)
+		if p.User != nil {
+			p.NotifCount = e.Notify.UnreadCount(c.Request.Context(), t.ID, p.User.ID)
+		}
 	}
 	return p
 }

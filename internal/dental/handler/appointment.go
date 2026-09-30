@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"erp/internal/dental/appointment"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/web"
-	"erp/internal/dental/appointment"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"

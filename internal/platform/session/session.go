@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	KindTenant = "tenant"
-	KindSys    = "sys"
+	KindTenant  = "tenant"
+	KindSys     = "sys"
+	KindPatient = "patient"
 )
 
 // Session 会话文档，kind 区分租户会话与系统后台会话。

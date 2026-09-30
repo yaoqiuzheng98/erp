@@ -7,19 +7,28 @@ import (
 	"net/http"
 
 	"erp/internal/billing"
+	"erp/internal/dental/appointment"
+	"erp/internal/dental/catalog"
 	dental "erp/internal/dental/handler"
+	"erp/internal/dental/patient"
+	"erp/internal/dental/staff"
 	"erp/internal/platform/admin"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/sysadmin"
 	"erp/internal/platform/web"
+	"erp/internal/portal"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Services struct {
-	Dental  *dental.Handler
-	Billing *billing.Service
+	Dental   *dental.Handler
+	Billing  *billing.Service
+	Patients *patient.Service
+	Appts    *appointment.Service
+	Catalog  *catalog.Service
+	Staff    *staff.Service
 }
 
 func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
@@ -77,6 +86,17 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 	sys := r.Group("/sysadmin",
 		mw.SysSession(e), mw.CSRF(), mw.SysAuth())
 	sysadmin.Register(sys, e)
+
+	// ---------- 患者端 H5 /p/:code（公开 + 患者会话） ----------
+	guard := portal.NewGuard(e, svc.Patients)
+	portal.NewWeb(e, svc.Patients, svc.Appts, svc.Catalog, svc.Staff, svc.Billing).Register(
+		r.Group("/p/:code", portal.TenantByCode(e), guard.RateLimit(300), guard.PatientAuth(), mw.CSRF()),
+	)
+
+	// ---------- 患者端 JSON API /api/p/:code（小程序预留，Bearer token） ----------
+	portal.NewAPI(e, guard, svc.Patients, svc.Appts, svc.Catalog, svc.Staff, svc.Billing).Register(
+		r.Group("/api/p/:code", portal.TenantByCode(e), guard.RateLimit(300), guard.PatientAuth()),
+	)
 
 	return r
 }

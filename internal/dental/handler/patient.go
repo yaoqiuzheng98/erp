@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 
+	"erp/internal/dental/patient"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/web"
-	"erp/internal/dental/patient"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -17,6 +17,7 @@ func (h *Handler) registerPatient(g *gin.RouterGroup) {
 	g.GET("/patients/:id", mw.RequirePerm("patient.read"), h.patient)
 	g.POST("/patients/:id/tooth", mw.RequirePerm("patient.write"), h.setTooth)
 	g.POST("/patients/:id/attach", mw.RequirePerm("patient.write"), h.uploadAttach)
+	g.POST("/patients/:id/password", mw.RequirePerm("patient.write"), h.setPassword)
 }
 
 func (h *Handler) patients(c *gin.Context) {
@@ -91,6 +92,17 @@ func (h *Handler) setTooth(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// setPassword 配置患者端登录密码。
+func (h *Handler) setPassword(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	if err := h.pats.SetPassword(c.Request.Context(), mw.TenantID(c), id, c.PostForm("password")); err != nil {
+		web.SetFlash(c, "设置失败: "+err.Error())
+	} else {
+		web.SetFlash(c, "患者端密码已设置")
+	}
+	c.Redirect(http.StatusFound, "/app/patients/"+id.Hex())
 }
 
 // uploadAttach 患者档案附件（牙片/口内照）：multipart file 字段。

@@ -71,14 +71,20 @@ func main() {
 
 	// 唯一索引（幂等）
 	for _, ix := range []struct {
-		col  string
-		keys bson.D
+		col    string
+		keys   bson.D
+		sparse bool
 	}{
-		{"tenants", bson.D{{Key: "name", Value: 1}}},
-		{"users", bson.D{{Key: "tenant_id", Value: 1}, {Key: "username", Value: 1}}},
+		{"tenants", bson.D{{Key: "name", Value: 1}}, false},
+		{"tenants", bson.D{{Key: "code", Value: 1}}, true}, // 短码唯一，老数据无码不冲突
+		{"users", bson.D{{Key: "tenant_id", Value: 1}, {Key: "username", Value: 1}}, false},
 	} {
+		opt := options.Index().SetUnique(true)
+		if ix.sparse {
+			opt = opt.SetSparse(true)
+		}
 		if _, err := d.Database.Collection(ix.col).Indexes().CreateOne(ctx, mongo.IndexModel{
-			Keys: ix.keys, Options: options.Index().SetUnique(true),
+			Keys: ix.keys, Options: opt,
 		}); err != nil {
 			slog.Error("ensure index", "col", ix.col, "err", err)
 			os.Exit(1)
@@ -101,7 +107,10 @@ func main() {
 		}
 	}
 
-	r := httpserver.Build(e, httpserver.Services{Dental: dentalHandler, Billing: billingSvc}, tpl)
+	r := httpserver.Build(e, httpserver.Services{
+		Dental: dentalHandler, Billing: billingSvc,
+		Patients: patSvc, Appts: apptSvc, Catalog: catalogSvc, Staff: staffSvc,
+	}, tpl)
 	slog.Info("dental listening", "addr", cfg.Server.Addr)
 	if err := r.Run(cfg.Server.Addr); err != nil {
 		slog.Error("server", "err", err)
@@ -136,7 +145,7 @@ func seed(ctx context.Context, e *env.Env, catalogSvc *catalog.Service, cfg *con
 	if err != mongo.ErrNoDocuments {
 		return err
 	}
-	t, err := e.Tenants.Create(ctx, "演示门诊")
+	t, err := e.Tenants.Create(ctx, "演示门诊", "demo")
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,46 @@
+{{define "portal/my"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="topbar d-flex justify-content-between align-items-center px-3 py-2">
+  <a class="text-decoration-none" href="/p/{{.Data.Code}}/">‹ 返回</a>
+  <span class="fw-bold">我的预约与账单</span>
+  <span style="width:3em"></span>
+</div>
+<main class="p-2">
+  {{template "partial/flash" .}}
+  <h6 class="text-muted px-1">我的预约</h6>
+  {{range .Data.Appts}}
+  <div class="card mb-2"><div class="card-body py-2">
+    <div class="d-flex justify-content-between align-items-center">
+      <b>{{.Date}} {{.Slot}}</b>
+      <span class="badge {{.Badge}}">{{.StatusName}}</span>
+    </div>
+    <div class="small text-muted">{{.Doctor}} · {{.DisplayItem}}</div>
+    {{if eq .Status "booked"}}
+    <form method="post" action="/p/{{$.Data.Code}}/appointments/{{hex .ID}}/cancel" class="mt-1">
+      <button class="btn btn-sm btn-outline-danger">取消预约</button>
+    </form>
+    {{end}}
+  </div></div>
+  {{else}}
+  <div class="text-muted px-1 mb-2">暂无预约</div>
+  {{end}}
+  <h6 class="text-muted px-1 mt-3">我的账单{{if gt .Data.Unpaid 0}}（待付 ¥{{printf "%.2f" .Data.Unpaid}}，请到店支付）{{end}}</h6>
+  <div class="table-responsive"><table class="table table-sm bg-white text-nowrap">
+    <thead><tr><th>单号</th><th>金额</th><th>已付</th><th>状态</th></tr></thead>
+    <tbody>
+    {{range .Data.Bills}}
+    <tr><td>{{.DocNo}}</td><td>{{f2 .Amount}}</td><td>{{f2 .PaidAmount}}</td>
+      <td><span class="badge {{if eq .Status "paid"}}bg-success{{else}}bg-warning text-dark{{end}}">{{.Status}}</span></td></tr>
+    {{else}}
+    <tr><td colspan="4" class="text-muted">暂无账单</td></tr>
+    {{end}}
+    </tbody>
+  </table></div>
+</main>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}
