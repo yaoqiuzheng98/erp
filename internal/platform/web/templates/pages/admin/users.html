@@ -9,54 +9,113 @@
     {{template "partial/apptop" .}}
     <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
-      <h4 class="mb-3">用户管理</h4>
-      <div class="card mb-4"><div class="card-body">
-        <form method="post" action="/admin/users" class="row g-2 align-items-md-end">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <h4 class="m-0">员工</h4>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#empModal">＋ 新增员工</button>
+      </div>
+      <p class="text-muted small">员工用手机号+密码登录；勾选「可接诊」才会出现在预约的医生列表里。</p>
+
+      <div class="modal fade" id="empModal" tabindex="-1"><div class="modal-dialog modal-lg">
+        <form method="post" action="/admin/users" class="modal-content">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="col-12 col-md-auto"><label class="form-label">用户名</label>
-            <input class="form-control form-control-sm" name="username" required></div>
-          <div class="col-12 col-md-auto"><label class="form-label">姓名</label>
-            <input class="form-control form-control-sm" name="name" required></div>
-          <div class="col-12 col-md-auto"><label class="form-label">密码</label>
-            <input class="form-control form-control-sm" type="password" name="password" required></div>
-          <div class="col-auto">
-            {{range .Data.Roles}}
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="role_ids" value="{{hex .ID}}">
-              <label class="form-check-label">{{.Name}}</label>
+          <div class="modal-header"><h5 class="modal-title">新增员工</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="row g-2 mb-2">
+              <div class="col-12 col-md-4"><label class="form-label">姓名</label>
+                <input class="form-control form-control-sm" name="name" required></div>
+              <div class="col-12 col-md-4"><label class="form-label">手机号（登录名）</label>
+                <input class="form-control form-control-sm" name="phone" inputmode="tel" required
+                       pattern="1[3-9][0-9]{9}" title="11 位大陆手机号"></div>
+              <div class="col-12 col-md-4"><label class="form-label">初始密码</label>
+                <input class="form-control form-control-sm" type="password" name="password" required minlength="6"></div>
             </div>
-            {{end}}
+            <div class="mb-2"><label class="form-label">角色</label>
+              <div>
+                {{range .Data.Roles}}
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" name="role_ids" value="{{hex .ID}}" id="new-r-{{hex .ID}}">
+                  <label class="form-check-label small" for="new-r-{{hex .ID}}">{{.Name}}</label>
+                </div>
+                {{end}}
+              </div>
+              <div class="form-text">角色决定能看哪些页/做哪些操作，可在「系统管理 → 权限角色」里定义。</div>
+            </div>
+            <div class="d-flex align-items-center gap-4">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="can_practice" id="new-can-practice">
+                <label class="form-check-label" for="new-can-practice">可接诊（医生）</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="is_admin" id="new-is-admin">
+                <label class="form-check-label" for="new-is-admin">租户管理员（拥有全部权限）</label>
+              </div>
+            </div>
           </div>
-          <div class="col-auto form-check">
-            <input class="form-check-input" type="checkbox" name="is_admin">
-            <label class="form-check-label">租户管理员</label>
-          </div>
-          <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">新增用户</button></div>
+          <div class="modal-footer"><button class="btn btn-sm btn-primary">新增员工</button></div>
         </form>
       </div></div>
-      <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>用户名</th><th>姓名</th><th>角色</th><th>管理员</th><th>状态</th><th>最近登录</th><th></th></tr></thead>
+
+      <div class="modal fade" id="pwdModal" tabindex="-1"><div class="modal-dialog">
+        <form method="post" action="" id="pwdForm" class="modal-content">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="modal-header"><h5 class="modal-title">重置密码</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <p class="mb-2">为 <b id="pwdName"></b> 设置新密码：</p>
+            <input class="form-control form-control-sm" type="password" name="password" required minlength="6">
+          </div>
+          <div class="modal-footer"><button class="btn btn-sm btn-primary">重置密码</button></div>
+        </form>
+      </div></div>
+
+      <div class="table-responsive"><table class="table table-sm bg-white align-middle">
+        <thead><tr><th>姓名</th><th>手机号</th><th>角色</th><th>可接诊</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Users}}
+        {{$row := .}}
+        {{$fid := print "emp-" (hex .ID)}}
         <tr>
-          <td>{{.Username}}</td>
-          <td>{{.Name}}</td>
-          <td>{{range .RoleIDs}}{{index $.Data.RoleName (hex .)}} {{end}}</td>
-          <td>{{if .IsTenantAdm}}是{{else}}否{{end}}</td>
-          <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
-          <td>{{date .LastLoginAt}}</td>
-          <td>
-            <form method="post" action="/admin/users/{{hex .ID}}/toggle" class="m-0">
+          <td><input class="form-control form-control-sm" form="{{$fid}}" name="name" value="{{.Name}}" style="min-width:6em" required>
+            {{if .IsTenantAdm}}<span class="badge bg-info text-dark mt-1">管理员</span>{{end}}</td>
+          <td><input class="form-control form-control-sm" form="{{$fid}}" name="phone" value="{{.Phone}}"
+                     inputmode="tel" pattern="1[3-9][0-9]{9}" title="11 位大陆手机号" style="min-width:9em" required></td>
+          <td>{{range $.Data.Roles}}
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" form="{{$fid}}" type="checkbox" name="role_ids" value="{{hex .ID}}"
+                     id="{{$fid}}-r-{{hex .ID}}" {{if hasID $row.RoleIDs .ID}}checked{{end}}>
+              <label class="form-check-label small" for="{{$fid}}-r-{{hex .ID}}">{{.Name}}</label>
+            </div>
+            {{end}}</td>
+          <td><div class="form-check form-switch">
+            <input class="form-check-input" form="{{$fid}}" type="checkbox" name="can_practice" {{if .CanPractice}}checked{{end}}></div></td>
+          <td><select class="form-select form-select-sm" form="{{$fid}}" name="status" style="min-width:5.5em">
+            <option value="active" {{if eq .Status "active"}}selected{{end}}>在职</option>
+            <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>离职</option>
+          </select></td>
+          <td class="text-muted small">{{date .LastLoginAt}}</td>
+          <td class="text-nowrap">
+            <form method="post" action="/admin/users/{{hex .ID}}" id="{{$fid}}" class="d-inline m-0">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <button class="btn btn-sm btn-outline-{{if eq .Status "active"}}danger{{else}}success{{end}}">
-                {{if eq .Status "active"}}禁用{{else}}启用{{end}}
-              </button>
+              <button class="btn btn-sm btn-outline-primary">保存</button>
             </form>
+            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#pwdModal"
+                    onclick="pwdFor('{{.Name}}', '/admin/users/{{hex .ID}}/password')">改密</button>
           </td>
         </tr>
+        {{else}}
+        <tr><td colspan="7" class="text-muted">暂无员工，先新增（设置医生勾选可接诊）</td></tr>
         {{end}}
         </tbody>
       </table></div>
+      <script>
+        function pwdFor(name, action) {
+          document.getElementById('pwdName').textContent = name;
+          var f = document.getElementById('pwdForm');
+          f.action = action;
+          f.reset();
+        }
+      </script>
     </main>
   </div>
 </div>

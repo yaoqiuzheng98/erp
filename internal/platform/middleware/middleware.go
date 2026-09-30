@@ -32,7 +32,7 @@ func Session(e *env.Env) gin.HandlerFunc {
 			if s, err := e.Sessions.Get(c.Request.Context(), token, session.KindTenant); err == nil {
 				c.Set(CtxSession, s)
 				c.Set(CtxCSRF, s.CSRF)
-				if u, err := e.Auth.UserByID(c.Request.Context(), s.UserID); err == nil && u.Status == "active" {
+				if u, err := e.Auth.UserByID(c.Request.Context(), s.TenantID, s.UserID); err == nil && u.Status == "active" {
 					c.Set(CtxUser, u)
 				}
 			}
@@ -74,8 +74,7 @@ func TenantResolver(e *env.Env) gin.HandlerFunc {
 			return
 		}
 		c.Set(CtxTenant, t)
-		perms := e.RBAC.PermSetOf(c.Request.Context(), user.RoleIDs, user.IsTenantAdm,
-			rbac.Catalog())
+		perms := e.RBAC.PermSetOf(c.Request.Context(), user.TenantID, user.RoleIDs, user.IsTenantAdm)
 		c.Set(CtxPerms, perms)
 		c.Next()
 	}

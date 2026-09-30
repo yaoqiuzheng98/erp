@@ -8,7 +8,6 @@ import (
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
-	"erp/internal/dental/staff"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/session"
@@ -24,13 +23,12 @@ type API struct {
 	pats  *patient.Service
 	appts *appointment.Service
 	items *catalog.Service
-	staff *staff.Service
 	bill  *billing.Service
 }
 
 func NewAPI(e *env.Env, guard *Guard, pats *patient.Service, appts *appointment.Service,
-	items *catalog.Service, staff *staff.Service, bill *billing.Service) *API {
-	return &API{e: e, guard: guard, pats: pats, appts: appts, items: items, staff: staff, bill: bill}
+	items *catalog.Service, bill *billing.Service) *API {
+	return &API{e: e, guard: guard, pats: pats, appts: appts, items: items, bill: bill}
 }
 
 func ok(c *gin.Context, data any) {

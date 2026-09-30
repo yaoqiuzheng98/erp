@@ -9,7 +9,6 @@ import (
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
-	"erp/internal/dental/staff"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/session"
@@ -25,13 +24,12 @@ type Web struct {
 	pats  *patient.Service
 	appts *appointment.Service
 	items *catalog.Service
-	staff *staff.Service
 	bill  *billing.Service
 }
 
 func NewWeb(e *env.Env, pats *patient.Service, appts *appointment.Service,
-	items *catalog.Service, staff *staff.Service, bill *billing.Service) *Web {
-	return &Web{e: e, pats: pats, appts: appts, items: items, staff: staff, bill: bill}
+	items *catalog.Service, bill *billing.Service) *Web {
+	return &Web{e: e, pats: pats, appts: appts, items: items, bill: bill}
 }
 
 func (h *Web) Register(g *gin.RouterGroup) {
@@ -111,7 +109,7 @@ func (h *Web) services(c *gin.Context) {
 }
 
 func (h *Web) bookPage(c *gin.Context) {
-	doctors, _ := h.staff.ListDoctors(c.Request.Context(), mw.TenantID(c))
+	doctors, _ := h.e.Auth.ListPractitioners(c.Request.Context(), mw.TenantID(c))
 	web.Render(c, h.e, "portal/book", gin.H{
 		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "book", "Doctors": doctors,
 	})

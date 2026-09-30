@@ -11,7 +11,6 @@ import (
 	"erp/internal/dental/catalog"
 	dental "erp/internal/dental/handler"
 	"erp/internal/dental/patient"
-	"erp/internal/dental/staff"
 	"erp/internal/platform/admin"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
@@ -28,7 +27,6 @@ type Services struct {
 	Patients *patient.Service
 	Appts    *appointment.Service
 	Catalog  *catalog.Service
-	Staff    *staff.Service
 }
 
 func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
@@ -72,6 +70,8 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 		mw.Session(e), mw.TenantResolver(e), mw.CSRF(), mw.Auth())
 	app.GET("/notifications", notifications(e))
 	app.POST("/notifications/:id/read", notificationRead(e))
+	app.GET("/password", passwordPage(e))
+	app.POST("/password", passwordChange(e))
 	app.POST("/attach", attachUpload(e))
 	app.GET("/attach/:id", attachDownload(e))
 	svc.Dental.Register(app)
@@ -89,12 +89,12 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 
 	// ---------- 患者端 H5 /p/:tid（公开 + 患者会话） ----------
 	guard := portal.NewGuard(e, svc.Patients)
-	portal.NewWeb(e, svc.Patients, svc.Appts, svc.Catalog, svc.Staff, svc.Billing).Register(
+	portal.NewWeb(e, svc.Patients, svc.Appts, svc.Catalog, svc.Billing).Register(
 		r.Group("/p/:tid", portal.TenantByID(e), guard.RateLimit(300), guard.PatientAuth(), mw.CSRF()),
 	)
 
 	// ---------- 患者端 JSON API /api/p/:tid（小程序预留，Bearer token） ----------
-	portal.NewAPI(e, guard, svc.Patients, svc.Appts, svc.Catalog, svc.Staff, svc.Billing).Register(
+	portal.NewAPI(e, guard, svc.Patients, svc.Appts, svc.Catalog, svc.Billing).Register(
 		r.Group("/api/p/:tid", portal.TenantByID(e), guard.RateLimit(300), guard.PatientAuth()),
 	)
 

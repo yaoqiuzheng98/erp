@@ -47,10 +47,6 @@ var appMenu = []menu.Item{
 		{ID: "dental.appts", Title: "预约", Path: "/app/appointments", Perm: "appt.read"},
 		{ID: "dental.services", Title: "价目表", Path: "/app/services", Perm: "catalog.read"},
 	}},
-	{ID: "staff", Title: "员工", Icon: "👥", Children: []menu.Item{
-		{ID: "staff.list", Title: "员工管理", Path: "/app/staff", Perm: "staff.read"},
-		{ID: "staff.roles", Title: "角色维护", Path: "/app/staff/roles", Perm: "staff.read"},
-	}},
 	{ID: "finance", Title: "财务", Icon: "￥", Children: []menu.Item{
 		{ID: "finance.summary", Title: "账簿汇总", Path: "/app/billing", Perm: "billing.read"},
 		{ID: "finance.ar", Title: "应收", Path: "/app/billing/receivables", Perm: "billing.read"},
@@ -61,8 +57,8 @@ var appMenu = []menu.Item{
 
 var adminMenu = []menu.Item{
 	{ID: "admin", Title: "系统管理", Icon: "⚙", Children: []menu.Item{
-		{ID: "admin.users", Title: "用户", Path: "/admin/users", Perm: "admin.users"},
-		{ID: "admin.roles", Title: "角色", Path: "/admin/roles", Perm: "admin.roles"},
+		{ID: "admin.users", Title: "员工", Path: "/admin/users", Perm: "admin.users"},
+		{ID: "admin.roles", Title: "权限角色", Path: "/admin/roles", Perm: "admin.roles"},
 		{ID: "admin.settings", Title: "门诊设置", Path: "/admin/settings", Perm: "admin.settings"},
 		{ID: "admin.audit", Title: "审计日志", Path: "/admin/audit", Perm: "admin.audit"},
 	}},
@@ -81,6 +77,15 @@ func funcMap() template.FuncMap {
 				return oid.Hex()
 			}
 			return fmt.Sprintf("%v", id)
+		},
+		// hasID 列表里是否含某 ObjectId（角色勾选回显用）。
+		"hasID": func(ids []bson.ObjectID, id bson.ObjectID) bool {
+			for _, x := range ids {
+				if x == id {
+					return true
+				}
+			}
+			return false
 		},
 		"mul": func(a, b float64) string { return fmt.Sprintf("%.2f", a*b) },
 		"f2":  func(a float64) string { return fmt.Sprintf("%.2f", a) },

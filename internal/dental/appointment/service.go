@@ -9,7 +9,7 @@ import (
 	"erp/internal/billing"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
-	"erp/internal/dental/staff"
+	"erp/internal/platform/auth"
 	"erp/internal/platform/repo"
 	"erp/internal/platform/seqno"
 
@@ -27,14 +27,15 @@ type Service struct {
 	appts   *repo.TenantRepo[Appointment]
 	pats    *patient.Service
 	items   *catalog.Service
-	staff   *staff.Service
+	users   *auth.Service
 }
 
+// New 装配预约服务；医生即"可接诊的在职员工"（用户）。
 func New(db *mongo.Database, seq *seqno.Generator, b *billing.Service,
-	pats *patient.Service, items *catalog.Service, staff *staff.Service) *Service {
+	pats *patient.Service, items *catalog.Service, users *auth.Service) *Service {
 	return &Service{
 		db: db, seq: seq, billing: b, appts: repo.NewTenantRepo[Appointment](db, "appointments"),
-		pats: pats, items: items, staff: staff,
+		pats: pats, items: items, users: users,
 	}
 }
 
@@ -66,11 +67,11 @@ func (s *Service) fillItems(ctx context.Context, tenantID bson.ObjectID, in []Ap
 }
 
 func (s *Service) doctorName(ctx context.Context, tenantID, doctorID bson.ObjectID) (string, error) {
-	d, err := s.staff.ByID(ctx, tenantID, doctorID)
+	d, err := s.users.UserByID(ctx, tenantID, doctorID)
 	if err != nil {
 		return "", errors.New("医生不存在")
 	}
-	if d.Status != "active" || !s.staff.CanPractice(ctx, tenantID, d.Role) {
+	if d.Status != "active" || !d.CanPractice {
 		return "", errors.New("医生不在职或不可接诊")
 	}
 	return d.Name, nil
@@ -198,7 +199,7 @@ func (s *Service) activeLoad(ctx context.Context, tenantID, doctorID bson.Object
 // pickDoctor 签到分配：有空闲医生（当天手上没活）用第一个；
 // 都没有则取当天负载最小的医生。无可接诊医生时报错。
 func (s *Service) pickDoctor(ctx context.Context, tenantID bson.ObjectID, date string) (bson.ObjectID, string, error) {
-	docs, err := s.staff.ListDoctors(ctx, tenantID)
+	docs, err := s.users.ListPractitioners(ctx, tenantID)
 	if err != nil || len(docs) == 0 {
 		return bson.NilObjectID, "", errors.New("暂无可接诊医生")
 	}

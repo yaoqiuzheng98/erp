@@ -59,7 +59,7 @@ func (h *Handler) receivables(c *gin.Context) {
 func (h *Handler) pay(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	amount, _ := strconv.ParseFloat(c.PostForm("amount"), 64)
-	if err := h.svc.Pay(c.Request.Context(), mw.TenantID(c), id, amount, c.PostForm("method"), mw.User(c).Username); err != nil {
+	if err := h.svc.Pay(c.Request.Context(), mw.TenantID(c), id, amount, c.PostForm("method"), mw.User(c).Name); err != nil {
 		web.SetFlash(c, "核销失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "已核销")
@@ -96,7 +96,7 @@ func (h *Handler) createExpense(c *gin.Context) {
 		Title: c.PostForm("title"), Amount: amount,
 		Category: c.PostForm("category"), At: at,
 	}
-	if err := h.svc.CreateExpense(c.Request.Context(), mw.TenantID(c), ex, mw.User(c).Username); err != nil {
+	if err := h.svc.CreateExpense(c.Request.Context(), mw.TenantID(c), ex, mw.User(c).Name); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "费用已记账")

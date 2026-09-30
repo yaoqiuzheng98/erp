@@ -1,4 +1,4 @@
-// Package admin 租户管理区 handler：用户/角色/门诊设置/审计。
+// Package admin 租户管理区 handler：员工/权限角色/门诊设置/审计。
 package admin
 
 import (
@@ -14,22 +14,21 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type Handler struct {
-	e     *env.Env
-	users *mongo.Collection
+	e *env.Env
 }
 
 func New(e *env.Env) *Handler {
-	return &Handler{e: e, users: e.DB.C("users")}
+	return &Handler{e: e}
 }
 
 func (h *Handler) Register(g *gin.RouterGroup) {
 	g.GET("/users", mw.RequirePerm("admin.users"), h.usersPage)
 	g.POST("/users", mw.RequirePerm("admin.users"), h.createUser)
-	g.POST("/users/:id/toggle", mw.RequirePerm("admin.users"), h.toggleUser)
+	g.POST("/users/:id", mw.RequirePerm("admin.users"), h.updateUser)
+	g.POST("/users/:id/password", mw.RequirePerm("admin.users"), h.resetPassword)
 
 	g.GET("/roles", mw.RequirePerm("admin.roles"), h.rolesPage)
 	g.POST("/roles", mw.RequirePerm("admin.roles"), h.createRole)
@@ -44,85 +43,89 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 func (h *Handler) audit(c *gin.Context, action, target, detail string) {
 	u := mw.User(c)
 	h.e.Audit.Log(c.Request.Context(), audit.Entry{
-		TenantID: mw.TenantID(c), UserID: u.ID, Username: u.Username,
+		TenantID: mw.TenantID(c), UserID: u.ID, Username: u.Phone,
 		Action: action, Target: target, Detail: detail, IP: c.ClientIP(),
 	})
 }
 
-// ---------- 用户 ----------
+func roleIDsOf(c *gin.Context) []bson.ObjectID {
+	var out []bson.ObjectID
+	for _, id := range c.PostFormArray("role_ids") {
+		if oid, err := bson.ObjectIDFromHex(id); err == nil {
+			out = append(out, oid)
+		}
+	}
+	return out
+}
+
+// ---------- 员工 ----------
 
 func (h *Handler) usersPage(c *gin.Context) {
 	ctx := c.Request.Context()
 	tid := mw.TenantID(c)
-	cur, _ := h.users.Find(ctx, bson.M{"tenant_id": tid})
-	var users []auth.User
-	_ = cur.All(ctx, &users)
+	users, _ := h.e.Auth.List(ctx, tid)
 	roles, _ := h.e.RBAC.List(ctx, tid)
-	roleName := map[string]string{}
-	for _, r := range roles {
-		roleName[r.ID.Hex()] = r.Name
-	}
-	web.Render(c, h.e, "admin/users", gin.H{
-		"Users": users, "Roles": roles, "RoleName": roleName,
-	})
+	web.Render(c, h.e, "admin/users", gin.H{"Users": users, "Roles": roles})
 }
 
 func (h *Handler) createUser(c *gin.Context) {
-	ctx := c.Request.Context()
-	hash, err := auth.HashPassword(c.PostForm("password"))
-	if err != nil {
-		web.SetFlash(c, "密码加密失败")
-		c.Redirect(http.StatusFound, "/admin/users")
-		return
+	u := &auth.User{
+		Name:        c.PostForm("name"),
+		Phone:       c.PostForm("phone"),
+		RoleIDs:     roleIDsOf(c),
+		CanPractice: c.PostForm("can_practice") == "on",
+		IsTenantAdm: c.PostForm("is_admin") == "on",
 	}
-	var roleIDs []bson.ObjectID
-	for _, id := range c.PostFormArray("role_ids") {
-		if oid, err := bson.ObjectIDFromHex(id); err == nil {
-			roleIDs = append(roleIDs, oid)
-		}
-	}
-	u := auth.User{
-		TenantID:     mw.TenantID(c),
-		Username:     c.PostForm("username"),
-		Name:         c.PostForm("name"),
-		PasswordHash: hash,
-		RoleIDs:      roleIDs,
-		Status:       "active",
-		IsTenantAdm:  c.PostForm("is_admin") == "on",
-	}
-	var dup bson.M
-	if err := h.users.FindOne(ctx, bson.M{"tenant_id": u.TenantID, "username": u.Username}).Decode(&dup); err == nil {
-		web.SetFlash(c, "用户名已存在: "+u.Username)
-		c.Redirect(http.StatusFound, "/admin/users")
-		return
-	}
-	if _, err := h.users.InsertOne(ctx, &u); err != nil {
+	if err := h.e.Auth.Create(c.Request.Context(), mw.TenantID(c), u, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		h.audit(c, "user.create", u.Username, "")
-		web.SetFlash(c, "用户已创建")
+		h.audit(c, "user.create", u.Name+" "+u.Phone, "")
+		web.SetFlash(c, "员工已创建: " + u.Name)
 	}
 	c.Redirect(http.StatusFound, "/admin/users")
 }
 
-func (h *Handler) toggleUser(c *gin.Context) {
-	ctx := c.Request.Context()
+func (h *Handler) updateUser(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	var u auth.User
-	if err := h.users.FindOne(ctx, bson.M{"_id": id, "tenant_id": mw.TenantID(c)}).Decode(&u); err != nil {
+	status := c.PostForm("status")
+	if status != "active" && status != "disabled" {
+		status = "active"
+	}
+	set := bson.M{
+		"name":         c.PostForm("name"),
+		"phone":        c.PostForm("phone"),
+		"role_ids":     roleIDsOf(c),
+		"can_practice": c.PostForm("can_practice") == "on",
+		"status":       status,
+	}
+	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
+		web.SetFlash(c, "保存失败: "+err.Error())
+	} else {
+		h.audit(c, "user.update", c.PostForm("name"), "")
+		web.SetFlash(c, "员工已保存")
+	}
+	c.Redirect(http.StatusFound, "/admin/users")
+}
+
+func (h *Handler) resetPassword(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	ctx := c.Request.Context()
+	u, err := h.e.Auth.UserByID(ctx, mw.TenantID(c), id)
+	if err != nil {
+		web.SetFlash(c, "员工不存在")
 		c.Redirect(http.StatusFound, "/admin/users")
 		return
 	}
-	status := "active"
-	if u.Status == "active" {
-		status = "disabled"
+	if err := h.e.Auth.SetPassword(ctx, mw.TenantID(c), id, c.PostForm("password")); err != nil {
+		web.SetFlash(c, "重置失败: "+err.Error())
+	} else {
+		h.audit(c, "user.reset_password", u.Name+" "+u.Phone, "")
+		web.SetFlash(c, "已重置 " + u.Name + " 的密码")
 	}
-	_, _ = h.users.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"status": status}})
-	h.audit(c, "user.toggle", u.Username, status)
 	c.Redirect(http.StatusFound, "/admin/users")
 }
 
-// ---------- 角色 ----------
+// ---------- 权限角色 ----------
 
 func (h *Handler) rolesPage(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -154,9 +157,20 @@ func (h *Handler) createRole(c *gin.Context) {
 }
 
 func (h *Handler) deleteRole(c *gin.Context) {
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	if err := h.e.RBAC.Delete(c.Request.Context(), mw.TenantID(c), id); err == nil {
+	n, _ := h.e.Auth.CountByRole(ctx, tid, id)
+	if n > 0 {
+		web.SetFlash(c, "仍有员工使用该角色，请先调整员工")
+		c.Redirect(http.StatusFound, "/admin/roles")
+		return
+	}
+	if err := h.e.RBAC.Delete(ctx, tid, id); err == nil {
 		h.audit(c, "role.delete", id.Hex(), "")
+		web.SetFlash(c, "角色已删除")
+	} else {
+		web.SetFlash(c, "删除失败: "+err.Error())
 	}
 	c.Redirect(http.StatusFound, "/admin/roles")
 }

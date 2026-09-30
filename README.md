@@ -32,11 +32,11 @@
 │       TenantResolver → CSRF → Auth → RequirePerm         │
 ├─────────────────────────────────────────────────────────┤
 │  业务层（直连装配，无插件）                                │
-│  ├─ dental  门诊：患者/预约/价目/员工/牙位                │
+│  ├─ dental  门诊：患者/预约/价目/牙位                     │
 │  └─ billing 财务：应收/收款/费用/账簿汇总                 │
 ├─────────────────────────────────────────────────────────┤
 │  平台底座 platform                                        │
-│  ├─ 租户/企业   ├─ 用户/认证   ├─ 角色权限 RBAC           │
+│  ├─ 租户/企业   ├─ 员工(用户)/认证   ├─ 角色权限 RBAC      │
 │  ├─ 单据编号器  ├─ 审计日志   ├─ 附件文件  ├─ 站内通知    │
 │  └─ Repository 层（强制 tenant_id 隔离） → MongoDB       │
 └─────────────────────────────────────────────────────────┘
@@ -53,10 +53,10 @@
 
 | | 系统管理后台 `/sysadmin/` | 门诊后台 `/admin/` + `/app/` | 患者端 `/p/{门诊ID}` |
 |---|---|---|---|
-| 使用者 | 平台运维超管（`sys_admins`） | 门诊员工与管理员（`users`） | 患者（凭手机号+密码，门诊后台配置） |
-| 登录 | `/sysadmin/login`，独立会话 cookie | `/login`（门诊名+账号+密码） | `/p/{门诊ID}/login`，独立患者会话 |
-| 功能 | 门诊 CRUD/停用、全局审计 | `/app/*` 业务页 + `/admin/` 用户/角色/审计 | 价目表（公开）、预约挂号、我的预约/账单 |
-| 菜单 | 固定（概览/门诊管理/全局审计） | 固定（门诊/团队/财务/系统管理） | 无侧边栏，手机优先单列页 |
+| 使用者 | 平台运维超管（`sys_admins`） | 门诊员工与管理员（`users`，员工即用户） | 患者（凭手机号+密码，门诊后台配置） |
+| 登录 | `/sysadmin/login`，独立会话 cookie | `/login`（门诊名+手机号+密码） | `/p/{门诊ID}/login`，独立患者会话 |
+| 功能 | 门诊 CRUD/停用、全局审计 | `/app/*` 业务页 + `/admin/` 员工/角色/审计 | 价目表（公开）、预约挂号、我的预约/账单 |
+| 菜单 | 固定（概览/门诊管理/全局审计） | 固定（门诊/财务/系统管理） | 无侧边栏，手机优先单列页 |
 | 数据范围 | 跨租户 | 强制 `tenant_id` 隔离 | 强制隔离，只能看自己的单 |
 
 ## 3. 业务流程
@@ -72,7 +72,9 @@
 
 - 患者建档只收姓名电话，按电话自动认领老档案（有则报错防重），无则新建。
 - 价目是门诊主数据（名称租户内唯一，药品建分类=药品的条目，不走库存）。
-- 预约必须选在职医生；医生离职不影响历史单（快照名）。
+- 员工=用户：手机号+密码登录，后台建员工时设初始密码，本人可在
+  `/app/password` 自助改密；入职/离职即账号启停，离职不影响历史单（快照名）。
+- 医生=勾选「可接诊」的在职员工；预约/签到只列可接诊员工。
 - 同医生同时段防重（已约/已到诊占位），前台与患者自助走同一入口。
 - 患者端（`/p/{门诊ID}` H5 + `/api/p/{门诊ID}` JSON，小程序预留同一批接口）：
   手机号+密码登录（门诊后台给患者配密），会话与员工体系隔离
@@ -85,8 +87,8 @@
 
 ```
 tenants      { _id, name, status, created_at }
-users        { _id, tenant_id, username, password_hash, name,
-               role_ids[], status, is_tenant_admin, last_login_at }
+users        { _id, tenant_id, phone, password_hash, name, role_ids[],
+               can_practice, status, is_tenant_admin, last_login_at }  // 员工即用户
 sys_admins   { _id, username, password_hash }          // 系统级，无 tenant_id
 roles        { _id, tenant_id, name, perm_codes[] }
 sessions     { _id(token), kind[tenant/sys/patient], user_id, tenant_id, expires_at, data }
@@ -100,8 +102,6 @@ patients     { _id, tenant_id, name, phone, password_hash, gender, birth,
 appointments { _id, tenant_id, patient_id, patient_name, doctor_id, doctor,
                chair, date, slot, item, items[], status, charge, charge_no }
 service_items{ _id, tenant_id, name, category, price, unit, status }
-staff        { _id, tenant_id, name, role[doctor/nurse/front/assistant],
-               phone, status }
 bills        { _id, tenant_id, patient_id, patient_name, doc_no, amount,
                lines[], paid_amount, status, ref_id }
 payments     { _id, tenant_id, doc_no, bill_id, bill_doc_no,
@@ -109,8 +109,9 @@ payments     { _id, tenant_id, doc_no, bill_id, bill_doc_no,
 expenses     { _id, tenant_id, title, amount, category, at }
 ```
 
-权限码固定目录（`rbac.Catalog`）：`patient/appointment(catalog)/staff/billing` 各 `.read/.write`，
-加 `admin.users/roles/audit`。租户管理员拥有全部权限。
+权限码固定目录（`rbac.Catalog`）：`patient/appt/catalog/billing` 各 `.read/.write`，
+加 `admin.users/roles/settings/audit`。租户管理员拥有全部权限；新门诊自动种
+默认角色（医生/护士/前台/店长），可在「系统管理→权限角色」调整。
 
 ## 5. 目录结构
 
@@ -123,7 +124,7 @@ erp/
 ├── deploy/                   // Caddyfile + config.*.example.toml
 └── internal/
     ├── dental/               // 门诊：model/service/handler
-    │                         // patient/appointment/serviceitem/staff
+    │                         // patient/appointment/catalog
     ├── billing/              // 财务：model/service/handler
     └── platform/             // 底座：config/db/model/repo/session/
                               // auth/tenant/rbac/middleware/menu/web/

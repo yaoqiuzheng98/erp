@@ -129,7 +129,7 @@ func (h *Handler) uploadAttach(c *gin.Context) {
 	defer f.Close()
 	if _, err := h.e.Attach.Save(c.Request.Context(), tid,
 		"patient", id, fh.Filename, fh.Header.Get("Content-Type"), f,
-		mw.User(c).Username); err != nil {
+		mw.User(c).Name); err != nil {
 		web.SetFlash(c, "上传失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "影像已上传")

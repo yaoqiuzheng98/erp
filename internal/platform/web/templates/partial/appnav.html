@@ -33,8 +33,9 @@
         👤 <span class="topbar-user">{{if .User}}{{.User.Name}}{{end}}</span>
       </button>
       <ul class="dropdown-menu dropdown-menu-end">
-        <li><h6 class="dropdown-header">{{if .User}}{{.User.Name}}（{{.User.Username}}）{{end}}<br><small class="text-muted">{{if .Tenant}}{{.Tenant.Name}}{{end}}</small></h6></li>
+        <li><h6 class="dropdown-header">{{if .User}}{{.User.Name}}（{{.User.Phone}}）{{end}}<br><small class="text-muted">{{if .Tenant}}{{.Tenant.Name}}{{end}}</small></h6></li>
         <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="/app/password">修改密码</a></li>
         <li><form method="post" action="/logout" class="m-0" onsubmit="return confirm('确认退出登录？')">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <button class="dropdown-item">退出登录</button>

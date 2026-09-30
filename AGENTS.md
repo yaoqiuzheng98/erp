@@ -44,7 +44,9 @@ curl -sk -b jar https://erp.test.dokodemo.top/sysadmin/tenants | grep "门诊"
 ```
 
 测试账号：系统后台 `admin` 密码见服务器 `/opt/erp/config.test.toml`
-（当前 `admin123`）。生产密码在 `config.prod.toml`，互不通用。
+（当前 `admin123`，保留账号密码登录）。门诊后台已改手机号+密码登录：
+门诊管理员在系统后台建门诊时设手机号/密码，其他员工由门诊管理员在
+门诊后台「系统管理→员工」添加，不固定。
 
 ## 3. 验证通过才提交推送
 

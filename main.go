@@ -11,7 +11,6 @@ import (
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/handler"
 	"erp/internal/dental/patient"
-	"erp/internal/dental/staff"
 	"erp/internal/platform/attach"
 	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
@@ -61,21 +60,22 @@ func main() {
 		Notify:   notify.New(d.Database),
 		Attach:   attach.New(d.Database, cfg.Storage.UploadDir),
 	}
-	// 业务服务直连装配
+	// 业务服务直连装配（员工即 e.Auth 用户）
 	billingSvc := billing.New(d.Database, e.Seq)
 	patSvc := patient.New(d.Database)
 	catalogSvc := catalog.New(d.Database)
-	staffSvc := staff.New(d.Database)
-	apptSvc := appointment.New(d.Database, e.Seq, billingSvc, patSvc, catalogSvc, staffSvc)
-	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, staffSvc, billingSvc)
+	apptSvc := appointment.New(d.Database, e.Seq, billingSvc, patSvc, catalogSvc, e.Auth)
+	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, e.Auth, billingSvc)
 
 	// 唯一索引（幂等）
+	usersCol := d.Database.Collection("users")
+	_ = usersCol.Indexes().DropOne(ctx, "tenant_id_1_username_1") // 老用户名索引（改手机号登录）
 	for _, ix := range []struct {
 		col  string
 		keys bson.D
 	}{
 		{"tenants", bson.D{{Key: "name", Value: 1}}},
-		{"users", bson.D{{Key: "tenant_id", Value: 1}, {Key: "username", Value: 1}}},
+		{"users", bson.D{{Key: "tenant_id", Value: 1}, {Key: "phone", Value: 1}}},
 	} {
 		if _, err := d.Database.Collection(ix.col).Indexes().CreateOne(ctx, mongo.IndexModel{
 			Keys: ix.keys, Options: options.Index().SetUnique(true),
@@ -107,7 +107,7 @@ func main() {
 
 	r := httpserver.Build(e, httpserver.Services{
 		Dental: dentalHandler, Billing: billingSvc,
-		Patients: patSvc, Appts: apptSvc, Catalog: catalogSvc, Staff: staffSvc,
+		Patients: patSvc, Appts: apptSvc, Catalog: catalogSvc,
 	}, tpl)
 	slog.Info("dental listening", "addr", cfg.Server.Addr)
 	if err := r.Run(cfg.Server.Addr); err != nil {

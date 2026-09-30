@@ -3,10 +3,13 @@ package auth
 import (
 	"context"
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -15,19 +18,39 @@ func HashPassword(plain string) (string, error) {
 	return string(h), err
 }
 
+// CheckPassword 校验明文密码；空哈希（未设密码）一律不通过。
 func CheckPassword(hash, plain string) bool {
+	if hash == "" || plain == "" {
+		return false
+	}
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil
 }
 
-// User 租户用户。
+var phoneRe = regexp.MustCompile(`^1[3-9]\d{9}$`)
+
+// ValidPhone 大陆手机号：11 位数字、1 开头。员工登录名与联系方式共用。
+func ValidPhone(p string) bool { return phoneRe.MatchString(p) }
+
+// MinPasswordLen 员工密码最小长度（创建/重置/自改一致）。
+const MinPasswordLen = 6
+
+var (
+	ErrBadCredential = errors.New("门诊名、手机号或密码错误")
+	ErrPhoneUsed     = errors.New("手机号已被其他员工使用")
+	ErrPhoneInvalid  = errors.New("手机号格式不正确")
+	ErrPwdTooShort   = errors.New("密码至少 6 位")
+)
+
+// User 租户用户，即员工：手机号+密码登录，角色定权限，可接诊开关定能否排诊。
 type User struct {
 	ID           bson.ObjectID   `bson:"_id,omitempty"`
 	TenantID     bson.ObjectID   `bson:"tenant_id"`
-	Username     string          `bson:"username"`
+	Phone        string          `bson:"phone"`
 	PasswordHash string          `bson:"password_hash"`
 	Name         string          `bson:"name"`
 	RoleIDs      []bson.ObjectID `bson:"role_ids"`
-	Status       string          `bson:"status"` // active / disabled
+	CanPractice  bool            `bson:"can_practice"` // 可接诊：预约候选医生
+	Status       string          `bson:"status"`       // active / disabled
 	IsTenantAdm  bool            `bson:"is_tenant_admin"`
 	LastLoginAt  time.Time       `bson:"last_login_at,omitempty"`
 }
@@ -53,11 +76,13 @@ func NewService(db *mongo.Database) *Service {
 	}
 }
 
-var ErrBadCredential = errors.New("门诊名、用户名或密码错误")
+// ---------- 登录 ----------
 
-// LoginTenant 租户登录：先按企业名定位租户，再在租户内查用户。
-// 用户名按租户隔离，不同租户可有同名用户（唯一索引在 tenant_id+username 上）。
-func (s *Service) LoginTenant(ctx context.Context, tenantName, username, password string) (*User, error) {
+// LoginTenant 租户登录：先按门诊名定位租户，再按手机号查员工。
+func (s *Service) LoginTenant(ctx context.Context, tenantName, phone, password string) (*User, error) {
+	if !ValidPhone(phone) {
+		return nil, ErrBadCredential
+	}
 	var t struct {
 		ID bson.ObjectID `bson:"_id"`
 	}
@@ -65,7 +90,7 @@ func (s *Service) LoginTenant(ctx context.Context, tenantName, username, passwor
 		return nil, ErrBadCredential
 	}
 	var u User
-	err := s.users.FindOne(ctx, bson.M{"tenant_id": t.ID, "username": username, "status": "active"}).Decode(&u)
+	err := s.users.FindOne(ctx, bson.M{"tenant_id": t.ID, "phone": phone, "status": "active"}).Decode(&u)
 	if err != nil || !CheckPassword(u.PasswordHash, password) {
 		return nil, ErrBadCredential
 	}
@@ -82,12 +107,146 @@ func (s *Service) LoginSys(ctx context.Context, username, password string) (*Sys
 	return &a, nil
 }
 
-func (s *Service) UserByID(ctx context.Context, id bson.ObjectID) (*User, error) {
+// ---------- 员工（租户用户） ----------
+
+// UserByID 按租户+ID 取员工（强制租户隔离）。
+func (s *Service) UserByID(ctx context.Context, tenantID, id bson.ObjectID) (*User, error) {
 	var u User
-	if err := s.users.FindOne(ctx, bson.M{"_id": id}).Decode(&u); err != nil {
+	if err := s.users.FindOne(ctx, bson.M{"_id": id, "tenant_id": tenantID}).Decode(&u); err != nil {
 		return nil, err
 	}
 	return &u, nil
+}
+
+// List 员工名册（含离职），按入职顺序。
+func (s *Service) List(ctx context.Context, tenantID bson.ObjectID) ([]User, error) {
+	cur, err := s.users.Find(ctx, bson.M{"tenant_id": tenantID},
+		options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var out []User
+	return out, cur.All(ctx, &out)
+}
+
+// ListPractitioners 可接诊的在职员工：预约选医生、签到自动分配用。
+func (s *Service) ListPractitioners(ctx context.Context, tenantID bson.ObjectID) ([]User, error) {
+	cur, err := s.users.Find(ctx, bson.M{
+		"tenant_id": tenantID, "status": "active", "can_practice": true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var out []User
+	return out, cur.All(ctx, &out)
+}
+
+// Create 新建员工：姓名/手机号/初始密码必填，手机号租户内唯一。
+func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, u *User, plain string) error {
+	u.Name = strings.TrimSpace(u.Name)
+	if u.Name == "" {
+		return errors.New("姓名必填")
+	}
+	if !ValidPhone(u.Phone) {
+		return ErrPhoneInvalid
+	}
+	if len(plain) < MinPasswordLen {
+		return ErrPwdTooShort
+	}
+	n, err := s.users.CountDocuments(ctx, bson.M{"tenant_id": tenantID, "phone": u.Phone})
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return ErrPhoneUsed
+	}
+	hash, err := HashPassword(plain)
+	if err != nil {
+		return err
+	}
+	u.TenantID, u.PasswordHash = tenantID, hash
+	if u.Status == "" {
+		u.Status = "active"
+	}
+	res, err := s.users.InsertOne(ctx, u)
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return ErrPhoneUsed
+		}
+		return err
+	}
+	u.ID = res.InsertedID.(bson.ObjectID)
+	return nil
+}
+
+// Update 更新员工资料（姓名/手机号/角色/可接诊/状态），不动密码。
+func (s *Service) Update(ctx context.Context, tenantID, id bson.ObjectID, set bson.M) error {
+	if p, ok := set["phone"].(string); ok {
+		if !ValidPhone(p) {
+			return ErrPhoneInvalid
+		}
+		n, err := s.users.CountDocuments(ctx, bson.M{
+			"tenant_id": tenantID, "phone": p, "_id": bson.M{"$ne": id},
+		})
+		if err != nil {
+			return err
+		}
+		if n > 0 {
+			return ErrPhoneUsed
+		}
+	}
+	if n, ok := set["name"].(string); ok && strings.TrimSpace(n) == "" {
+		return errors.New("姓名必填")
+	}
+	res, err := s.users.UpdateOne(ctx, bson.M{"_id": id, "tenant_id": tenantID}, bson.M{"$set": set})
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return ErrPhoneUsed
+		}
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return errors.New("员工不存在")
+	}
+	return nil
+}
+
+// SetPassword 管理员重置员工密码。
+func (s *Service) SetPassword(ctx context.Context, tenantID, id bson.ObjectID, plain string) error {
+	if len(plain) < MinPasswordLen {
+		return ErrPwdTooShort
+	}
+	hash, err := HashPassword(plain)
+	if err != nil {
+		return err
+	}
+	res, err := s.users.UpdateOne(ctx,
+		bson.M{"_id": id, "tenant_id": tenantID},
+		bson.M{"$set": bson.M{"password_hash": hash}})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return errors.New("员工不存在")
+	}
+	return nil
+}
+
+// ChangePassword 员工自助改密：校验原密码。
+func (s *Service) ChangePassword(ctx context.Context, tenantID, id bson.ObjectID, oldPlain, newPlain string) error {
+	u, err := s.UserByID(ctx, tenantID, id)
+	if err != nil {
+		return errors.New("员工不存在")
+	}
+	if !CheckPassword(u.PasswordHash, oldPlain) {
+		return errors.New("原密码不正确")
+	}
+	return s.SetPassword(ctx, tenantID, id, newPlain)
+}
+
+// CountByRole 引用某角色的员工数（删角色前的守卫）。
+func (s *Service) CountByRole(ctx context.Context, tenantID, roleID bson.ObjectID) (int64, error) {
+	return s.users.CountDocuments(ctx, bson.M{"tenant_id": tenantID, "role_ids": roleID})
 }
 
 func (s *Service) SysAdminByID(ctx context.Context, id bson.ObjectID) (*SysAdmin, error) {

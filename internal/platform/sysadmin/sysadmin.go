@@ -2,6 +2,7 @@
 package sysadmin
 
 import (
+	"log/slog"
 	"net/http"
 
 	"erp/internal/platform/audit"
@@ -41,12 +42,24 @@ func (h *Handler) tenants(c *gin.Context) {
 	web.Render(c, h.e, "sys/tenants", gin.H{"Tenants": list})
 }
 
-// createTenant 创建租户并初始化其管理员账号。
+// createTenant 创建租户，初始化管理员账号与默认角色。
 func (h *Handler) createTenant(c *gin.Context) {
 	ctx := c.Request.Context()
 	name := c.PostForm("name")
 	if name == "" {
 		web.SetFlash(c, "名称必填")
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	phone := c.PostForm("admin_phone")
+	if !auth.ValidPhone(phone) {
+		web.SetFlash(c, "管理员手机号格式不正确")
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	pass := c.PostForm("admin_pass")
+	if len(pass) < auth.MinPasswordLen {
+		web.SetFlash(c, "管理员密码至少 6 位")
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
 		return
 	}
@@ -62,13 +75,15 @@ func (h *Handler) createTenant(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
 		return
 	}
-	adminUser := c.PostForm("admin_user")
-	if adminUser != "" {
-		hash, _ := auth.HashPassword(c.PostForm("admin_pass"))
-		_, _ = h.e.DB.C("users").InsertOne(ctx, &auth.User{
-			TenantID: t.ID, Username: adminUser, Name: "租户管理员",
-			PasswordHash: hash, Status: "active", IsTenantAdm: true,
-		})
+	if err := h.e.Auth.Create(ctx, t.ID, &auth.User{
+		Name: "管理员", Phone: phone, IsTenantAdm: true,
+	}, pass); err != nil {
+		web.SetFlash(c, "租户已创建，但管理员创建失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	if err := h.e.RBAC.EnsureSeed(ctx, t.ID); err != nil {
+		slog.Error("seed tenant roles", "tenant", t.Name, "err", err)
 	}
 	h.e.Audit.Log(ctx, audit.Entry{
 		Username: "sysadmin", Action: "tenant.create", Target: t.Name,

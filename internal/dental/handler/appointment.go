@@ -52,7 +52,7 @@ func (h *Handler) appointments(c *gin.Context) {
 	pager.Total = total
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 500)
 	items, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
-	doctors, _ := h.staff.ListDoctors(c.Request.Context(), mw.TenantID(c))
+	doctors, _ := h.users.ListPractitioners(c.Request.Context(), mw.TenantID(c))
 	web.Render(c, h.e, "dental/appointments", gin.H{
 		"Rows": list, "Pager": pager, "Date": date, "DoctorID": doctorID.Hex(), "Phone": c.Query("phone"),
 		"Patients": pats, "Services": items, "Doctors": doctors,
@@ -161,7 +161,7 @@ func (h *Handler) done(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	charge, _ := strconv.ParseFloat(c.PostForm("charge"), 64)
 	items := parseApptItems(c)
-	next, err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge, mw.User(c).Username)
+	next, err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge, mw.User(c).Name)
 	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else if next != "" {

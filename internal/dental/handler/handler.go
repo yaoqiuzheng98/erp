@@ -5,7 +5,7 @@ import (
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
-	"erp/internal/dental/staff"
+	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
 
 	"github.com/gin-gonic/gin"
@@ -17,18 +17,17 @@ type Handler struct {
 	pats  *patient.Service
 	appts *appointment.Service
 	items *catalog.Service
-	staff *staff.Service
+	users *auth.Service
 	bill  *billing.Service
 }
 
 func New(e *env.Env, pats *patient.Service, appts *appointment.Service,
-	items *catalog.Service, staff *staff.Service, bill *billing.Service) *Handler {
-	return &Handler{e: e, pats: pats, appts: appts, items: items, staff: staff, bill: bill}
+	items *catalog.Service, users *auth.Service, bill *billing.Service) *Handler {
+	return &Handler{e: e, pats: pats, appts: appts, items: items, users: users, bill: bill}
 }
 
 func (h *Handler) Register(g *gin.RouterGroup) {
 	h.registerPatient(g)
 	h.registerAppointment(g)
 	h.registerCatalog(g)
-	h.registerStaff(g)
 }
