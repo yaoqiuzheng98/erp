@@ -23,13 +23,12 @@
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>名称</th><th>患者端链接</th><th>挂号费</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
+        <thead><tr><th>名称</th><th>患者端链接</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Tenants}}
         <tr>
           <td>{{.Name}}</td>
           <td class="small text-muted">/p/{{hex .ID}}</td>
-          <td>{{printf "%.2f" .RegFee}}</td>
           <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
           <td>{{date .CreatedAt}}</td>
           <td>
