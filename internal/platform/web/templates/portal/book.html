@@ -4,13 +4,13 @@
 {{template "partial/head" .}}
 <body>
 <div class="topbar d-flex justify-content-between align-items-center px-3 py-2">
-  <a class="text-decoration-none" href="/p/{{.Data.Code}}/">‹ 返回</a>
+  <a class="text-decoration-none" href="/p/{{.Data.Tid}}/">‹ 返回</a>
   <span class="fw-bold">预约挂号</span>
   <span style="width:3em"></span>
 </div>
 <main class="p-3">
   {{template "partial/flash" .}}
-  <form method="post" action="/p/{{.Data.Code}}/book">
+  <form method="post" action="/p/{{.Data.Tid}}/book">
     <div class="mb-2"><label class="form-label">接诊医生</label>
       <select class="form-select" name="doctor_id" required>
         <option value="">选择医生</option>

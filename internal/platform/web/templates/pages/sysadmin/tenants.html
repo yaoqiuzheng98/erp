@@ -15,8 +15,6 @@
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="col-12 col-md-auto"><label class="form-label">门诊名称</label>
             <input class="form-control form-control-sm" name="name" required></div>
-          <div class="col-12 col-md-auto"><label class="form-label">短码（患者端链接）</label>
-            <input class="form-control form-control-sm" name="code" required placeholder="如 abc"></div>
           <div class="col-12 col-md-auto"><label class="form-label">管理员账号</label>
             <input class="form-control form-control-sm" name="admin_user" required></div>
           <div class="col-12 col-md-auto"><label class="form-label">管理员密码</label>
@@ -25,18 +23,12 @@
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>名称</th><th>短码</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
+        <thead><tr><th>名称</th><th>患者端链接</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Tenants}}
         <tr>
           <td>{{.Name}}</td>
-          <td>
-            <form method="post" action="/sysadmin/tenants/{{hex .ID}}/code" class="d-flex gap-1 m-0">
-              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <input class="form-control form-control-sm" name="code" value="{{.Code}}" style="width:7em">
-              <button class="btn btn-sm btn-outline-secondary">改码</button>
-            </form>
-          </td>
+          <td class="small text-muted">/p/{{hex .ID}}</td>
           <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
           <td>{{date .CreatedAt}}</td>
           <td>

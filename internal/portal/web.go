@@ -48,32 +48,32 @@ func (h *Web) Register(g *gin.RouterGroup) {
 
 func (h *Web) requirePatient(c *gin.Context) {
 	if Patient(c) == nil {
-		c.Redirect(http.StatusFound, "/p/"+c.Param("code")+"/login")
+		c.Redirect(http.StatusFound, "/p/"+c.Param("tid")+"/login")
 		c.Abort()
 		return
 	}
 	c.Next()
 }
 
-func (h *Web) tenant(c *gin.Context) string { return c.Param("code") }
+func (h *Web) tenant(c *gin.Context) string { return c.Param("tid") }
 
 func (h *Web) loginPage(c *gin.Context) {
 	if Patient(c) != nil {
 		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/")
 		return
 	}
-	web.Render(c, h.e, "portal/login", gin.H{"Code": h.tenant(c)})
+	web.Render(c, h.e, "portal/login", gin.H{"Tid": h.tenant(c)})
 }
 
 func (h *Web) login(c *gin.Context) {
 	p, err := h.pats.Login(c.Request.Context(), mw.TenantID(c), c.PostForm("phone"), c.PostForm("password"))
 	if err != nil {
-		web.Render(c, h.e, "portal/login", gin.H{"Code": h.tenant(c), "Err": "手机号或密码错误"})
+		web.Render(c, h.e, "portal/login", gin.H{"Tid": h.tenant(c), "Err": "手机号或密码错误"})
 		return
 	}
 	s, err := h.e.Sessions.Create(c.Request.Context(), session.KindPatient, p.ID, p.TenantID)
 	if err != nil {
-		web.Render(c, h.e, "portal/login", gin.H{"Code": h.tenant(c), "Err": "会话创建失败"})
+		web.Render(c, h.e, "portal/login", gin.H{"Tid": h.tenant(c), "Err": "会话创建失败"})
 		return
 	}
 	c.SetCookie(PatCookie, s.ID, int(h.e.Cfg.Session.TTLHours)*3600, "/", "", h.e.Cfg.Session.Secure, true)
@@ -90,19 +90,19 @@ func (h *Web) logout(c *gin.Context) {
 
 func (h *Web) home(c *gin.Context) {
 	p := Patient(c)
-	web.Render(c, h.e, "portal/home", gin.H{"Code": h.tenant(c), "Name": p.Name})
+	web.Render(c, h.e, "portal/home", gin.H{"Tid": h.tenant(c), "Name": p.Name})
 }
 
 func (h *Web) services(c *gin.Context) {
 	list, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
-	web.Render(c, h.e, "portal/services", gin.H{"Code": h.tenant(c), "Rows": list, "Authed": Patient(c) != nil})
+	web.Render(c, h.e, "portal/services", gin.H{"Tid": h.tenant(c), "Rows": list, "Authed": Patient(c) != nil})
 }
 
 func (h *Web) bookPage(c *gin.Context) {
 	doctors, _ := h.staff.ListDoctors(c.Request.Context(), mw.TenantID(c))
 	items, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
 	web.Render(c, h.e, "portal/book", gin.H{
-		"Code": h.tenant(c), "Doctors": doctors, "Services": items,
+		"Tid": h.tenant(c), "Doctors": doctors, "Services": items,
 	})
 }
 
@@ -171,7 +171,7 @@ func (h *Web) my(c *gin.Context) {
 		unpaid += b.Amount - b.PaidAmount
 	}
 	web.Render(c, h.e, "portal/my", gin.H{
-		"Code": h.tenant(c), "Name": p.Name,
+		"Tid": h.tenant(c), "Name": p.Name,
 		"Appts": appts, "Bills": bills, "Unpaid": unpaid,
 	})
 }

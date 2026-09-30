@@ -5,16 +5,16 @@
 <body>
 <div class="topbar d-flex justify-content-between align-items-center px-3 py-2">
   <span class="fw-bold">{{.Data.Name}}，你好</span>
-  <form method="post" action="/p/{{.Data.Code}}/logout" class="m-0">
+  <form method="post" action="/p/{{.Data.Tid}}/logout" class="m-0">
     <button class="btn btn-sm btn-outline-secondary">退出</button>
   </form>
 </div>
 <main class="p-3">
   {{template "partial/flash" .}}
   <div class="d-grid gap-2">
-    <a class="btn btn-primary btn-lg" href="/p/{{.Data.Code}}/book">预约挂号</a>
-    <a class="btn btn-outline-primary btn-lg" href="/p/{{.Data.Code}}/my">我的预约与账单</a>
-    <a class="btn btn-outline-secondary" href="/p/{{.Data.Code}}/services">价目表</a>
+    <a class="btn btn-primary btn-lg" href="/p/{{.Data.Tid}}/book">预约挂号</a>
+    <a class="btn btn-outline-primary btn-lg" href="/p/{{.Data.Tid}}/my">我的预约与账单</a>
+    <a class="btn btn-outline-secondary" href="/p/{{.Data.Tid}}/services">价目表</a>
   </div>
 </main>
 {{template "partial/foot" .}}

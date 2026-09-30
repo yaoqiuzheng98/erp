@@ -8,7 +8,7 @@
     <h4 class="mb-1 text-center">患者登录</h4>
     <p class="text-muted small text-center">初次使用请到门诊前台设置密码</p>
     {{if .Data.Err}}<div class="alert alert-danger py-2">{{.Data.Err}}</div>{{end}}
-    <form method="post" action="/p/{{.Data.Code}}/login">
+    <form method="post" action="/p/{{.Data.Tid}}/login">
       <div class="mb-3">
         <label class="form-label">手机号</label>
         <input class="form-control" name="phone" inputmode="tel" required autofocus>

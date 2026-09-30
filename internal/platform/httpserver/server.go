@@ -87,15 +87,15 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 		mw.SysSession(e), mw.CSRF(), mw.SysAuth())
 	sysadmin.Register(sys, e)
 
-	// ---------- 患者端 H5 /p/:code（公开 + 患者会话） ----------
+	// ---------- 患者端 H5 /p/:tid（公开 + 患者会话） ----------
 	guard := portal.NewGuard(e, svc.Patients)
 	portal.NewWeb(e, svc.Patients, svc.Appts, svc.Catalog, svc.Staff, svc.Billing).Register(
-		r.Group("/p/:code", portal.TenantByCode(e), guard.RateLimit(300), guard.PatientAuth(), mw.CSRF()),
+		r.Group("/p/:tid", portal.TenantByID(e), guard.RateLimit(300), guard.PatientAuth(), mw.CSRF()),
 	)
 
-	// ---------- 患者端 JSON API /api/p/:code（小程序预留，Bearer token） ----------
+	// ---------- 患者端 JSON API /api/p/:tid（小程序预留，Bearer token） ----------
 	portal.NewAPI(e, guard, svc.Patients, svc.Appts, svc.Catalog, svc.Staff, svc.Billing).Register(
-		r.Group("/api/p/:code", portal.TenantByCode(e), guard.RateLimit(300), guard.PatientAuth()),
+		r.Group("/api/p/:tid", portal.TenantByID(e), guard.RateLimit(300), guard.PatientAuth()),
 	)
 
 	return r

@@ -12,6 +12,7 @@ import (
 	"erp/internal/platform/session"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 // PatCookie 患者端会话 cookie（H5 用；小程序走 Authorization: Bearer）。
@@ -20,11 +21,17 @@ const PatCookie = "erp_pat"
 // CtxPatient 上下文中的患者对象 key。
 const CtxPatient = "portal.patient"
 
-// TenantByCode 按短码解析租户（公开入口）：非法/停用直接 404。
-func TenantByCode(e *env.Env) gin.HandlerFunc {
+// TenantByID 按 ID 定位租户（公开入口）：非法/停用直接 404。
+func TenantByID(e *env.Env) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		t, err := e.Tenants.ByCode(c.Request.Context(), c.Param("code"))
+		id, err := bson.ObjectIDFromHex(c.Param("tid"))
 		if err != nil {
+			c.String(http.StatusNotFound, "门诊不存在")
+			c.Abort()
+			return
+		}
+		t, err := e.Tenants.ByID(c.Request.Context(), id)
+		if err != nil || t.Status != "active" {
 			c.String(http.StatusNotFound, "门诊不存在")
 			c.Abort()
 			return
