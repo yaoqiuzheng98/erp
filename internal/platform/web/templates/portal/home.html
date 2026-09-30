@@ -2,21 +2,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 {{template "partial/head" .}}
-<body>
-<div class="topbar d-flex justify-content-between align-items-center px-3 py-2">
-  <span class="fw-bold">{{.Data.Name}}，你好</span>
-  <form method="post" action="/p/{{.Data.Tid}}/logout" class="m-0">
-    <button class="btn btn-sm btn-outline-secondary">退出</button>
-  </form>
-</div>
+<body class="portal">
+{{template "portal/nav" .}}
 <main class="p-3">
   {{template "partial/flash" .}}
+  <div class="portal-hero p-3 mb-3">
+    <div class="small opacity-75">{{.Data.Clinic}}</div>
+    <h4 class="mb-0">{{.Data.Name}}，你好 🦷</h4>
+  </div>
   <div class="d-grid gap-2">
-    <a class="btn btn-primary btn-lg" href="/p/{{.Data.Tid}}/book">预约挂号</a>
-    <a class="btn btn-outline-primary btn-lg" href="/p/{{.Data.Tid}}/my">我的预约与账单</a>
-    <a class="btn btn-outline-secondary" href="/p/{{.Data.Tid}}/services">价目表</a>
+    <a class="btn btn-primary btn-lg py-3" href="/p/{{.Data.Tid}}/book">📅 预约挂号</a>
+    <div class="row g-2">
+      <div class="col-6"><a class="btn btn-outline-primary btn-lg w-100" href="/p/{{.Data.Tid}}/my">🧾 我的单据</a></div>
+      <div class="col-6"><a class="btn btn-outline-secondary btn-lg w-100" href="/p/{{.Data.Tid}}/services">💰 价目表</a></div>
+    </div>
+    <form method="post" action="/p/{{.Data.Tid}}/logout" class="m-0 mt-2">
+      <button class="btn btn-link btn-sm text-muted w-100">退出登录</button>
+    </form>
   </div>
 </main>
+{{template "portal/tabbar" .}}
 {{template "partial/foot" .}}
 </body>
 </html>

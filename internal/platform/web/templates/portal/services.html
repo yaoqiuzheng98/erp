@@ -2,14 +2,10 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 {{template "partial/head" .}}
-<body>
-<div class="topbar d-flex justify-content-between align-items-center px-3 py-2">
-  <a class="text-decoration-none" href="/p/{{.Data.Tid}}/{{if .Data.Authed}}{{else}}login{{end}}">‹ 返回</a>
-  <span class="fw-bold">价目表</span>
-  <span style="width:3em"></span>
-</div>
+<body class="portal">
+{{template "portal/nav" .}}
 <main class="p-2">
-  <div class="table-responsive"><table class="table table-sm bg-white text-nowrap">
+  <div class="table-responsive"><table class="table table-sm bg-white text-nowrap mb-0">
     <thead><tr><th>项目</th><th>分类</th><th>单价</th></tr></thead>
     <tbody>
     {{range .Data.Rows}}
@@ -20,6 +16,7 @@
     </tbody>
   </table></div>
 </main>
+{{template "portal/tabbar" .}}
 {{template "partial/foot" .}}
 </body>
 </html>
