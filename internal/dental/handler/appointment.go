@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"erp/internal/dental/appointment"
 	mw "erp/internal/platform/middleware"
@@ -32,7 +33,13 @@ func (h *Handler) today(c *gin.Context) {
 
 func (h *Handler) appointments(c *gin.Context) {
 	skip, limit, pager := web.ParsePager(c, 30)
+	// 默认看今天；全部走 ?date=all
 	date := c.Query("date")
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	} else if date == "all" {
+		date = ""
+	}
 	doctorID, _ := bson.ObjectIDFromHex(c.Query("doctor_id"))
 	list, total, err := h.appts.List(c.Request.Context(), mw.TenantID(c), date, doctorID, c.Query("phone"), skip, limit)
 	if err != nil {
