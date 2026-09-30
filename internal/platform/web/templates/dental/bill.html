@@ -24,7 +24,7 @@
         <table class="table table-sm">
           <tr><th class="w-25">患者</th><td>{{.Data.A.PatientName}}{{if .Data.P}}（{{.Data.P.Gender}} {{.Data.P.Phone}}）{{end}}</td></tr>
           <tr><th>医生 / 椅位</th><td>{{.Data.A.Doctor}} / {{.Data.A.Chair}}</td></tr>
-          <tr><th>状态</th><td>{{.Data.A.StatusName}}</td></tr>
+          {{if .Data.A.Item}}<tr><th>就诊主诉</th><td>{{.Data.A.Item}}</td></tr>{{end}}
         </table>
         <table class="table table-sm">
           <thead><tr><th>诊疗项目</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
@@ -32,7 +32,7 @@
           {{range .Data.A.Items}}
           <tr><td>{{.Name}}</td><td>{{.Qty}}</td><td>{{printf "%.2f" .Price}}</td><td>{{printf "%.2f" .Amount}}</td></tr>
           {{else}}
-          <tr><td colspan="4" class="text-muted">{{if .Data.A.Item}}{{.Data.A.Item}}{{else}}暂无明细{{end}}</td></tr>
+          <tr><td colspan="4" class="text-muted">暂无明细</td></tr>
           {{end}}
           </tbody>
         </table>
