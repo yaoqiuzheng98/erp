@@ -109,7 +109,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
-// billPage 诊疗单据页：明细 + 收费 + 结算状态，可打印后交前台收费。
+// billPage 诊疗单据页：明细 + 开单完成 + 结算状态，可打印后交前台收费。
 func (h *Handler) billPage(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	tid := mw.TenantID(c)
@@ -120,7 +120,8 @@ func (h *Handler) billPage(c *gin.Context) {
 	}
 	p, _ := h.pats.ByID(c.Request.Context(), tid, a.PatientID)
 	b, _ := h.bill.BillByRef(c.Request.Context(), tid, id.Hex())
-	web.Render(c, h.e, "dental/bill", gin.H{"A": a, "P": p, "Bill": b})
+	items, _ := h.items.List(c.Request.Context(), tid, true)
+	web.Render(c, h.e, "dental/bill", gin.H{"A": a, "P": p, "Bill": b, "Services": items})
 }
 
 // checkin 前台签到：报手机号找到单 → 分配医生 + 排号。

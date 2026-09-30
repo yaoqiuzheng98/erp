@@ -26,6 +26,9 @@
               <button class="btn btn-sm btn-outline-primary">签到</button>
             </form>
             {{end}}
+            {{if or (eq .Status "arrived") (eq .Status "serving")}}
+            <a class="btn btn-sm btn-outline-success" href="/app/appointments/{{hex .ID}}/bill">开单</a>
+            {{end}}
           </td>
         </tr>
         {{else}}
