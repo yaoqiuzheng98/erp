@@ -90,7 +90,7 @@
             {{if .Items}}<br>{{range .Items}}<small class="text-muted">{{.Name}}x{{.Qty}} ¥{{printf "%.2f" .Amount}}</small><br>{{end}}{{end}}
           </td>
           <td><span class="badge {{.Badge}}">{{.StatusName}}</span>{{if .QueueNo}}<br><small class="text-muted">排{{.QueueNo}}号</small>{{end}}</td>
-          <td>{{if .Charge}}¥{{printf "%.2f" .Charge}}{{end}}{{if .ChargeNo}}<br><small class="text-muted">{{.ChargeNo}}</small>{{end}}</td>
+          <td>{{if .Charge}}<a href="/app/appointments/{{hex .ID}}/bill">¥{{printf "%.2f" .Charge}}</a>{{end}}{{if .ChargeNo}}<br><small class="text-muted">{{.ChargeNo}}</small>{{end}}</td>
           <td>
             <div class="d-flex flex-wrap gap-1 align-items-center">
               {{if eq .Status "booked"}}

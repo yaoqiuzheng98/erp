@@ -18,6 +18,7 @@ func (h *Handler) registerAppointment(g *gin.RouterGroup) {
 	g.GET("", mw.RequirePerm("appt.read"), h.today)
 	g.GET("/appointments", mw.RequirePerm("appt.read"), h.appointments)
 	g.POST("/appointments", mw.RequirePerm("appt.write"), h.createAppt)
+	g.GET("/appointments/:id/bill", mw.RequirePerm("appt.read"), h.billPage)
 	g.POST("/appointments/:id/checkin", mw.RequirePerm("appt.write"), h.checkin)
 	// 兼容旧版缓存页面上的 /arrive 入口（行为同签到）。
 	g.POST("/appointments/:id/arrive", mw.RequirePerm("appt.write"), h.checkin)
@@ -106,6 +107,20 @@ func (h *Handler) createAppt(c *gin.Context) {
 		web.SetFlash(c, "已预约")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
+}
+
+// billPage 诊疗单据页：明细 + 收费 + 结算状态，可打印后交前台收费。
+func (h *Handler) billPage(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	tid := mw.TenantID(c)
+	a, err := h.appts.ByID(c.Request.Context(), tid, id)
+	if err != nil {
+		c.String(http.StatusNotFound, "单据不存在")
+		return
+	}
+	p, _ := h.pats.ByID(c.Request.Context(), tid, a.PatientID)
+	b, _ := h.bill.BillByRef(c.Request.Context(), tid, id.Hex())
+	web.Render(c, h.e, "dental/bill", gin.H{"A": a, "P": p, "Bill": b})
 }
 
 // checkin 前台签到：报手机号找到单 → 分配医生 + 排号。

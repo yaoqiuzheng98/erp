@@ -1,0 +1,65 @@
+{{define "dental/bill"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-2 p-md-4">
+      {{template "partial/flash" .}}
+      <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+        <h4 class="m-0">诊疗单</h4>
+        <div>
+          <button class="btn btn-sm btn-primary" onclick="window.print()">打印</button>
+          <a class="btn btn-sm btn-outline-secondary" href="/app/appointments">返回</a>
+        </div>
+      </div>
+      <div class="card"><div class="card-body">
+        <div class="text-center mb-3">
+          <h5>{{.Data.A.PatientName}} 诊疗单</h5>
+          <div class="text-muted small">{{.Data.A.Date}} {{.Data.A.Slot}} · 接诊：{{.Data.A.Doctor}}</div>
+        </div>
+        <table class="table table-sm">
+          <tr><th class="w-25">患者</th><td>{{.Data.A.PatientName}}{{if .Data.P}}（{{.Data.P.Gender}} {{.Data.P.Phone}}）{{end}}</td></tr>
+          <tr><th>医生 / 椅位</th><td>{{.Data.A.Doctor}} / {{.Data.A.Chair}}</td></tr>
+          <tr><th>状态</th><td>{{.Data.A.StatusName}}</td></tr>
+        </table>
+        <table class="table table-sm">
+          <thead><tr><th>诊疗项目</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
+          <tbody>
+          {{range .Data.A.Items}}
+          <tr><td>{{.Name}}</td><td>{{.Qty}}</td><td>{{printf "%.2f" .Price}}</td><td>{{printf "%.2f" .Amount}}</td></tr>
+          {{else}}
+          <tr><td colspan="4" class="text-muted">{{if .Data.A.Item}}{{.Data.A.Item}}{{else}}暂无明细{{end}}</td></tr>
+          {{end}}
+          </tbody>
+        </table>
+        <div class="text-end fs-5">合计：¥{{printf "%.2f" .Data.A.Total}}</div>
+        <hr>
+        {{if .Data.Bill}}
+        <table class="table table-sm">
+          <tr><th class="w-25">收费流水</th><td>{{.Data.Bill.DocNo}}</td></tr>
+          <tr><th>应收</th><td>¥{{f2 .Data.Bill.Amount}}</td></tr>
+          <tr><th>已收</th><td>¥{{f2 .Data.Bill.PaidAmount}}</td></tr>
+          <tr><th>结算</th><td>{{if eq .Data.Bill.Status "paid"}}已结清{{else}}<span class="text-danger">待缴费（请到前台）</span>{{end}}</td></tr>
+        </table>
+        {{else}}
+        <div class="text-muted">尚未结算（完成就诊后生成收费单）。</div>
+        {{end}}
+      </div></div>
+    </main>
+  </div>
+</div>
+<style>
+@media print {
+  .sidebar, .topbar, .no-print { display: none !important; }
+  body { background: #fff; }
+  .card { border: 0; box-shadow: none; }
+}
+</style>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

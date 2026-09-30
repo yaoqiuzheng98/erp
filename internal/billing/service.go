@@ -59,6 +59,18 @@ func (s *Service) CreateAR(ctx context.Context, tenantID bson.ObjectID, ar AR) e
 	return err
 }
 
+// BillByRef 按来源预约查应收（诊疗单打印用），无单返回 nil, nil。
+func (s *Service) BillByRef(ctx context.Context, tenantID bson.ObjectID, refID string) (*Bill, error) {
+	if refID == "" {
+		return nil, nil
+	}
+	b, err := s.bills.FindOne(ctx, tenantID, bson.M{"ref_id": refID})
+	if err != nil {
+		return nil, nil
+	}
+	return b, nil
+}
+
 func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, skip, limit int64) ([]Bill, int64, error) {
 	total, err := s.bills.Count(ctx, tenantID, bson.M{})
 	if err != nil {

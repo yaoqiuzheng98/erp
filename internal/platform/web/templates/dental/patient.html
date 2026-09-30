@@ -32,7 +32,7 @@
               {{range .Data.Appts}}
               <tr><td>{{.Date}} {{.Slot}}</td><td>{{.DisplayItem}}</td><td>{{.Doctor}}</td>
                 <td><span class="badge {{.Badge}}">{{.StatusName}}</span></td>
-                <td>{{if .Charge}}¥{{printf "%.2f" .Charge}}{{end}}</td></tr>
+                <td>{{if .Charge}}<a href="/app/appointments/{{hex .ID}}/bill">¥{{printf "%.2f" .Charge}}</a>{{end}}</td></tr>
               {{else}}
               <tr><td colspan="5" class="text-muted">暂无就诊记录</td></tr>
               {{end}}

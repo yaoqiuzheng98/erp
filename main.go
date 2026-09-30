@@ -67,7 +67,7 @@ func main() {
 	catalogSvc := catalog.New(d.Database)
 	staffSvc := staff.New(d.Database)
 	apptSvc := appointment.New(d.Database, e.Seq, billingSvc, patSvc, catalogSvc, staffSvc)
-	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, staffSvc)
+	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, staffSvc, billingSvc)
 
 	// 唯一索引（幂等）
 	for _, ix := range []struct {
