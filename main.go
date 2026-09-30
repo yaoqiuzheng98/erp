@@ -100,7 +100,7 @@ func main() {
 	}
 
 	if cfg.Seed.Enabled {
-		if err := seed(ctx, e, catalogSvc, cfg); err != nil {
+		if err := seed(ctx, e, cfg); err != nil {
 			slog.Error("seed", "err", err)
 		}
 	}
@@ -117,7 +117,7 @@ func main() {
 }
 
 // seed 初始化系统超管（幂等：已存在则跳过）。
-func seed(ctx context.Context, e *env.Env, catalogSvc *catalog.Service, cfg *config.Config) error {
+func seed(ctx context.Context, e *env.Env, cfg *config.Config) error {
 	if n, _ := e.DB.C("sys_admins").EstimatedDocumentCount(ctx); n == 0 {
 		hash, err := auth.HashPassword(cfg.Seed.SysadminPass)
 		if err != nil {

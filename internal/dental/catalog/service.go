@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"erp/internal/platform/repo"
@@ -18,12 +19,23 @@ var UnitOptions = []string{"次", "颗", "小时", "盒", "瓶", "袋", "支", "
 var CategoryOptions = []string{"检查", "洁治", "充填", "根管", "拔牙", "正畸", "修复", "种植", "药品"}
 
 type Service struct {
-	db    *mongo.Database
-	items *repo.TenantRepo[ServiceItem]
+	db     *mongo.Database
+	items  *repo.TenantRepo[ServiceItem]
+	seeded sync.Map // tenantID hex → true，本进程内各租户只种子一次
 }
 
 func New(db *mongo.Database) *Service {
 	return &Service{db: db, items: repo.NewTenantRepo[ServiceItem](db, "service_items")}
+}
+
+// ensure 懒种子：新门诊首次访问价目时自动建索引+默认价目。
+func (s *Service) ensure(ctx context.Context, tenantID bson.ObjectID) {
+	if _, ok := s.seeded.Load(tenantID.Hex()); ok {
+		return
+	}
+	if err := s.EnsureSeed(ctx, tenantID); err == nil {
+		s.seeded.Store(tenantID.Hex(), true)
+	}
 }
 
 // EnsureSeed 建名称唯一索引 + 空表时种子默认价目（幂等）。
@@ -60,6 +72,7 @@ func (s *Service) EnsureSeed(ctx context.Context, tenantID bson.ObjectID) error 
 }
 
 func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, activeOnly bool) ([]ServiceItem, error) {
+	s.ensure(ctx, tenantID)
 	f := bson.M{}
 	if activeOnly {
 		f["status"] = "active"
@@ -68,10 +81,12 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, activeOnly b
 }
 
 func (s *Service) ByID(ctx context.Context, tenantID, id bson.ObjectID) (*ServiceItem, error) {
+	s.ensure(ctx, tenantID)
 	return s.items.FindByID(ctx, tenantID, id)
 }
 
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, it *ServiceItem) error {
+	s.ensure(ctx, tenantID)
 	if it.Name == "" {
 		return errors.New("项目名称必填")
 	}
@@ -97,9 +112,11 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, it *Servic
 }
 
 func (s *Service) Update(ctx context.Context, tenantID, id bson.ObjectID, set bson.M) error {
+	s.ensure(ctx, tenantID)
 	return s.items.Update(ctx, tenantID, id, set)
 }
 
 func (s *Service) Delete(ctx context.Context, tenantID, id bson.ObjectID) error {
+	s.ensure(ctx, tenantID)
 	return s.items.Delete(ctx, tenantID, id)
 }
