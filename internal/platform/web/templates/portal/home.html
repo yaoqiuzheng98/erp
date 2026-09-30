@@ -17,6 +17,7 @@
       <div class="col-6"><a class="btn btn-outline-secondary btn-lg w-100" href="/p/{{.Data.Tid}}/services">💰 价目表</a></div>
     </div>
     <form method="post" action="/p/{{.Data.Tid}}/logout" class="m-0 mt-2">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <button class="btn btn-link btn-sm text-muted w-100">退出登录</button>
     </form>
   </div>

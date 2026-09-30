@@ -7,6 +7,7 @@
 <main class="p-3">
   {{template "partial/flash" .}}
   <form method="post" action="/p/{{.Data.Tid}}/book">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div class="card portal-card mb-2"><div class="card-body">
       <div class="mb-2"><label class="form-label">接诊医生</label>
         <select class="form-select form-select-lg" name="doctor_id" required>

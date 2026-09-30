@@ -22,6 +22,7 @@
     {{if eq .Status "booked"}}
     <form method="post" action="/p/{{$.Data.Tid}}/appointments/{{hex .ID}}/cancel" class="mt-1"
           onsubmit="return confirm('确认取消这次预约？')">
+      <input type="hidden" name="_csrf" value="{{$.CSRF}}">
       <button class="btn btn-sm btn-outline-danger">取消预约</button>
     </form>
     {{end}}
