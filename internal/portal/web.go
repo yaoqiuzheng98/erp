@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -122,6 +123,9 @@ func (h *Web) book(c *gin.Context) {
 		Items: parseItems(c),
 	}
 	if err := h.appts.Create(c.Request.Context(), p.TenantID, a); err != nil {
+		slog.Error("portal book failed", "tenant", p.TenantID.Hex(), "patient", p.ID.Hex(),
+			"doctor", a.DoctorID.Hex(), "date", a.Date, "slot", a.Slot,
+			"items", len(a.Items), "err", err)
 		web.SetFlash(c, "预约失败: "+err.Error())
 		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/book")
 		return

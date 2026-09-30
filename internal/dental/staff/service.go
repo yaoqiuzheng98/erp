@@ -228,9 +228,12 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, st *Staff)
 	if st.Status == "" {
 		st.Status = "active"
 	}
-	st.ID, _ = s.staff.Insert(ctx, tenantID, st)
-	_, err := s.staff.FindByID(ctx, tenantID, st.ID)
-	return err
+	id, err := s.staff.Insert(ctx, tenantID, st)
+	if err != nil {
+		return err
+	}
+	st.ID = id
+	return nil
 }
 
 func (s *Service) Update(ctx context.Context, tenantID, id bson.ObjectID, set bson.M) error {

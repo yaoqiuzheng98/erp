@@ -88,9 +88,12 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, it *Servic
 	if it.Status == "" {
 		it.Status = "active"
 	}
-	it.ID, _ = s.items.Insert(ctx, tenantID, it)
-	_, err := s.items.FindByID(ctx, tenantID, it.ID)
-	return err
+	id, err := s.items.Insert(ctx, tenantID, it)
+	if err != nil {
+		return err
+	}
+	it.ID = id
+	return nil
 }
 
 func (s *Service) Update(ctx context.Context, tenantID, id bson.ObjectID, set bson.M) error {

@@ -73,9 +73,12 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, p *Patient
 		}
 	}
 	p.TenantID, p.CreatedAt = tenantID, time.Now()
-	p.ID, _ = s.pats.Insert(ctx, tenantID, p)
-	_, err := s.pats.FindByID(ctx, tenantID, p.ID)
-	return err
+	id, err := s.pats.Insert(ctx, tenantID, p)
+	if err != nil {
+		return err
+	}
+	p.ID = id
+	return nil
 }
 
 // SetTooth 设置牙位状态；空状态 = 恢复健康（删除键）。

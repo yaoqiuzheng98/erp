@@ -115,9 +115,12 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		a.Items, a.Item = items, summary
 	}
 	a.TenantID, a.Status, a.CreatedAt = tenantID, Booked, time.Now()
-	a.ID, _ = s.appts.Insert(ctx, tenantID, a)
-	_, err = s.appts.FindByID(ctx, tenantID, a.ID)
-	return err
+	id, err := s.appts.Insert(ctx, tenantID, a)
+	if err != nil {
+		return errors.New("建单失败: " + err.Error())
+	}
+	a.ID = id
+	return nil
 }
 
 func (s *Service) ByID(ctx context.Context, tenantID, id bson.ObjectID) (*Appointment, error) {

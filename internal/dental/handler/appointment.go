@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -88,6 +89,9 @@ func (h *Handler) createAppt(c *gin.Context) {
 		Items: parseApptItems(c),
 	}
 	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a); err != nil {
+		slog.Error("backoffice appt failed", "tenant", mw.TenantID(c).Hex(),
+			"patient", a.PatientID.Hex(), "doctor", a.DoctorID.Hex(),
+			"date", a.Date, "slot", a.Slot, "err", err)
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "已预约")
