@@ -111,10 +111,22 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 	}
 	paid := b.PaidAmount + amount
 	set := bson.M{"paid_amount": paid}
-	if paid >= b.Amount-1e-9 {
+	fullyPaid := paid >= b.Amount-1e-9
+	if fullyPaid {
 		set["status"] = BillPaid
 	}
-	return s.bills.Update(ctx, tenantID, billID, set)
+	if err := s.bills.Update(ctx, tenantID, billID, set); err != nil {
+		return err
+	}
+	if fullyPaid && b.RefID != "" {
+		// 收清联动：对应预约从待缴费翻已完成（只翻待缴费态，幂等）
+		if apptID, err := bson.ObjectIDFromHex(b.RefID); err == nil {
+			_, _ = s.db.Collection("appointments").UpdateOne(ctx,
+				bson.M{"tenant_id": tenantID, "_id": apptID, "status": "unpaid"},
+				bson.M{"$set": bson.M{"status": "done", "updated_at": time.Now()}})
+		}
+	}
+	return nil
 }
 
 func (s *Service) ListPayments(ctx context.Context, tenantID bson.ObjectID, skip, limit int64) ([]Payment, int64, error) {

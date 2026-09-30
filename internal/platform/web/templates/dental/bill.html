@@ -70,7 +70,7 @@
           <tr><th>结算</th><td>{{if eq .Data.Bill.Status "paid"}}已结清{{else}}<span class="text-danger">待缴费（请到前台）</span>{{end}}</td></tr>
         </table>
         {{else}}
-        <div class="text-muted">尚未结算（完成就诊后生成收费单）。</div>
+        <div class="text-muted">尚未开单。</div>
         {{end}}
       </div></div>
     </main>

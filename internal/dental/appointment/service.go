@@ -317,9 +317,9 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id bson.ObjectID) error 
 	return err
 }
 
-// Complete 完成就诊并收费：优先按明细结算，否则沿用预约存量明细，
-// 再否则用手工 charge。直接生成财务应收（同库，无事件中转）。
-// 完成后自动叫同医生下一位，返回其姓名（无则空）。
+// Complete 开单：优先按明细结算，否则沿用预约存量明细，再否则用手工 charge。
+// 生成财务应收，预约落为待缴费（前台收清后才翻已完成）；同时自动叫同医生下一位。
+// 返回下一位患者姓名（无则空）。
 func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, items []ApptItem, charge float64, by string) (string, error) {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
@@ -347,7 +347,11 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, item
 	if total < 0 {
 		return "", errors.New("收费额不能为负")
 	}
-	set := bson.M{"status": Done, "charge": total, "items": finalItems, "item": summary}
+	set := bson.M{"status": Unpaid, "charge": total, "items": finalItems, "item": summary}
+	if total == 0 {
+		// 零收费直接完结，不走应收
+		set["status"] = Done
+	}
 	if total > 0 {
 		no, err := s.seq.Next(ctx, tenantID, "CH")
 		if err != nil {

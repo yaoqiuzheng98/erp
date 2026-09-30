@@ -112,7 +112,7 @@
             </div>
             {{if or (eq .Status "arrived") (eq .Status "serving")}}
             <form method="post" action="/app/appointments/{{hex .ID}}/done" class="d-flex flex-wrap gap-1 align-items-center mt-1"
-                  onsubmit="return confirm('按明细/金额完成就诊？')">
+                  onsubmit="return confirm('确认开单？开单后进入待缴费。')">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
               <details>
                 <summary class="btn btn-sm btn-outline-secondary">调项目</summary>
@@ -132,7 +132,7 @@
                 </div>
               </details>
               <input class="form-control form-control-sm" name="charge" type="number" step="0.01" min="0" placeholder="手工收费" style="width:6.5em">
-              <button class="btn btn-sm btn-outline-success">完成</button></form>
+              <button class="btn btn-sm btn-outline-success">开单</button></form>
             {{end}}
           </td>
         </tr>
@@ -172,10 +172,10 @@
           </div>
           {{if or (eq .Status "arrived") (eq .Status "serving")}}
           <form method="post" action="/app/appointments/{{hex .ID}}/done" class="d-flex gap-1 mt-2"
-                onsubmit="return confirm('按明细/金额完成就诊？')">
+                onsubmit="return confirm('确认开单？开单后进入待缴费。')">
             <input type="hidden" name="_csrf" value="{{$.CSRF}}">
             <input class="form-control form-control-sm flex-grow-1" name="charge" type="number" step="0.01" min="0" placeholder="收费金额">
-            <button class="btn btn-sm btn-outline-success flex-shrink-0">完成</button></form>
+            <button class="btn btn-sm btn-outline-success flex-shrink-0">开单</button></form>
           {{end}}
         </div></div>
         {{else}}

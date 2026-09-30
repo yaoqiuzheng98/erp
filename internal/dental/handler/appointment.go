@@ -162,9 +162,9 @@ func (h *Handler) done(c *gin.Context) {
 	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else if next != "" {
-		web.SetFlash(c, "已完成就诊，下一位："+next)
+		web.SetFlash(c, "已开单（待缴费），下一位："+next)
 	} else {
-		web.SetFlash(c, "已完成就诊")
+		web.SetFlash(c, "已开单（待缴费）")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }

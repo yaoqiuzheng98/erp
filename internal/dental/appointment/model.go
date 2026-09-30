@@ -8,12 +8,14 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-// 预约状态机：booked → arrived(候诊) → serving(就诊中) → done；分支 noshow / cancel。
-// 签到分配医生+排号；完成时自动叫同医生下一位。
+// 预约状态机：booked → arrived(候诊) → serving(就诊中) → unpaid(待缴费) → done；
+// 分支 noshow / cancel。签到分配医生+排号；开单（unpaid）时自动叫同医生下一位；
+// 前台收清后翻 done。
 const (
 	Booked  = "booked"
 	Arrived = "arrived"
 	Serving = "serving"
+	Unpaid  = "unpaid"
 	Done    = "done"
 	NoShow  = "noshow"
 	Cancel  = "cancel"
@@ -90,6 +92,8 @@ func (a Appointment) StatusName() string {
 		return "候诊中"
 	case Serving:
 		return "就诊中"
+	case Unpaid:
+		return "待缴费"
 	case Done:
 		return "已完成"
 	case NoShow:
@@ -109,6 +113,8 @@ func (a Appointment) Badge() string {
 		return "bg-info text-dark"
 	case Serving:
 		return "bg-success"
+	case Unpaid:
+		return "bg-warning text-dark"
 	case Done:
 		return "bg-secondary"
 	case NoShow:
