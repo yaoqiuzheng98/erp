@@ -108,9 +108,8 @@ func (h *Web) services(c *gin.Context) {
 
 func (h *Web) bookPage(c *gin.Context) {
 	doctors, _ := h.staff.ListDoctors(c.Request.Context(), mw.TenantID(c))
-	items, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
 	web.Render(c, h.e, "portal/book", gin.H{
-		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "book", "Doctors": doctors, "Services": items,
+		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "book", "Doctors": doctors,
 	})
 }
 
