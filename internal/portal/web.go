@@ -47,6 +47,8 @@ func (h *Web) Register(g *gin.RouterGroup) {
 	g.POST("/pay/:id", h.requirePatient, h.pay)
 	g.GET("/my", h.requirePatient, h.my)
 	g.POST("/appointments/:id/cancel", h.requirePatient, h.cancel)
+	g.GET("/bills/:id", h.requirePatient, h.billPage)
+	g.POST("/bills/:id/pay", h.requirePatient, h.payBill)
 }
 
 func (h *Web) requirePatient(c *gin.Context) {
@@ -207,6 +209,43 @@ func (h *Web) cancel(c *gin.Context) {
 	} else {
 		web.SetFlash(c, "预约已取消")
 	}
+	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+}
+
+func (h *Web) billPage(c *gin.Context) {
+	p := Patient(c)
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	list, _ := h.bill.Mine(c.Request.Context(), p.TenantID, p.ID)
+	for _, b := range list {
+		if b.ID == id {
+			web.Render(c, h.e, "portal/bill", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "my", "B": b})
+			return
+		}
+	}
+	c.String(http.StatusNotFound, "账单不存在")
+}
+
+func (h *Web) payBill(c *gin.Context) {
+	p := Patient(c)
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	mine, _ := h.bill.Mine(c.Request.Context(), p.TenantID, p.ID)
+	found := false
+	for _, b := range mine {
+		if b.ID == id {
+			found = true
+		}
+	}
+	if !found {
+		web.SetFlash(c, "账单不存在")
+		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+		return
+	}
+	if err := h.bill.PayMock(c.Request.Context(), p.TenantID, id, p.Name); err != nil {
+		web.SetFlash(c, "支付失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/bills/"+id.Hex())
+		return
+	}
+	web.SetFlash(c, "支付成功")
 	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
 }
 

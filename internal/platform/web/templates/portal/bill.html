@@ -1,0 +1,41 @@
+{{define "portal/bill"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body class="portal">
+{{template "portal/nav" .}}
+<main class="p-2">
+  {{template "partial/flash" .}}
+  <div class="card portal-card mb-2"><div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <span class="text-muted small">{{.Data.B.DocNo}}</span>
+      <span class="badge {{if eq .Data.B.Status "paid"}}bg-success{{else}}bg-warning text-dark{{end}}">
+        {{if eq .Data.B.Status "paid"}}已结清{{else}}待缴费{{end}}</span>
+    </div>
+    <div class="table-responsive"><table class="table table-sm mb-0">
+      <thead><tr><th>项目</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
+      <tbody>
+      {{range .Data.B.Lines}}
+      <tr><td>{{.Name}}</td><td>{{.Qty}}</td><td>{{f2 .Price}}</td><td>{{f2 .Amount}}</td></tr>
+      {{else}}
+      <tr><td colspan="4" class="text-muted">暂无明细</td></tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    <div class="d-flex justify-content-between align-items-center mt-2">
+      <span>合计 <b>¥{{f2 .Data.B.Amount}}</b> <small class="text-muted">已付¥{{f2 .Data.B.PaidAmount}}</small></span>
+    </div>
+  </div></div>
+  {{if eq .Data.B.Status "open"}}
+  <form method="post" action="/p/{{.Data.Tid}}/bills/{{hex .Data.B.ID}}/pay">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button class="btn btn-primary btn-lg w-100">模拟支付 ¥{{f2 .Data.B.Amount}}</button>
+  </form>
+  <div class="text-center text-muted small mt-2">演示环境，未接入真实支付</div>
+  {{end}}
+</main>
+{{template "portal/tabbar" .}}
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}

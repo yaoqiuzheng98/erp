@@ -76,6 +76,18 @@ func (s *Service) ByDocNo(ctx context.Context, tenantID bson.ObjectID, docNo str
 	return s.bills.FindOne(ctx, tenantID, bson.M{"doc_no": docNo})
 }
 
+// PayMock 模拟全额代收（患者端/演示用，真支付接入时换这一处）。
+func (s *Service) PayMock(ctx context.Context, tenantID, billID bson.ObjectID, by string) error {
+	b, err := s.bills.FindByID(ctx, tenantID, billID)
+	if err != nil {
+		return err
+	}
+	if b.Status == BillPaid {
+		return nil
+	}
+	return s.Pay(ctx, tenantID, billID, b.Amount-b.PaidAmount, "mock", by)
+}
+
 func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, skip, limit int64) ([]Bill, int64, error) {
 	total, err := s.bills.Count(ctx, tenantID, bson.M{})
 	if err != nil {

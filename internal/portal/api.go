@@ -50,6 +50,8 @@ func (h *API) Register(g *gin.RouterGroup) {
 	g.POST("/appointments/:id/cancel", h.requirePatient, h.cancelAppointment)
 	g.POST("/appointments/:id/pay", h.requirePatient, h.payAppointment)
 	g.GET("/bills", h.requirePatient, h.myBills)
+	g.GET("/bills/:id", h.requirePatient, h.billDetail)
+	g.POST("/bills/:id/pay", h.requirePatient, h.payBill)
 }
 
 func (h *API) requirePatient(c *gin.Context) {
@@ -211,6 +213,48 @@ func (h *API) payAppointment(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{"reg_paid": true})
+}
+
+func (h *API) ownBill(c *gin.Context) (*billing.Bill, bool) {
+	p := Patient(c)
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	list, _ := h.bill.Mine(c.Request.Context(), p.TenantID, p.ID)
+	for _, b := range list {
+		if b.ID == id {
+			return &b, true
+		}
+	}
+	return nil, false
+}
+
+func (h *API) billDetail(c *gin.Context) {
+	b, found := h.ownBill(c)
+	if !found {
+		fail(c, http.StatusNotFound, "账单不存在")
+		return
+	}
+	lines := make([]gin.H, 0, len(b.Lines))
+	for _, l := range b.Lines {
+		lines = append(lines, gin.H{"name": l.Name, "qty": l.Qty, "price": l.Price, "amount": l.Amount})
+	}
+	ok(c, gin.H{
+		"doc_no": b.DocNo, "amount": b.Amount, "paid": b.PaidAmount,
+		"status": b.Status, "lines": lines,
+	})
+}
+
+func (h *API) payBill(c *gin.Context) {
+	p := Patient(c)
+	b, found := h.ownBill(c)
+	if !found {
+		fail(c, http.StatusNotFound, "账单不存在")
+		return
+	}
+	if err := h.bill.PayMock(c.Request.Context(), p.TenantID, b.ID, p.Name); err != nil {
+		fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	ok(c, gin.H{"paid": true})
 }
 
 func (h *API) myBills(c *gin.Context) {
