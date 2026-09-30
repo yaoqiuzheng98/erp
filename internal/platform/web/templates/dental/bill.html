@@ -28,15 +28,15 @@
         </table>
         <table class="table table-sm">
           <thead><tr><th>诊疗项目</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
-          <tbody>
+          <tbody id="billItems">
           {{range .Data.A.Items}}
-          <tr><td>{{.Name}}</td><td>{{.Qty}}</td><td>{{printf "%.2f" .Price}}</td><td>{{printf "%.2f" .Amount}}</td></tr>
+          <tr data-sid="{{hex .ServiceID}}"><td>{{.Name}}</td><td>{{.Qty}}</td><td>{{printf "%.2f" .Price}}</td><td>{{printf "%.2f" .Amount}}</td></tr>
           {{else}}
-          <tr><td colspan="4" class="text-muted">暂无明细</td></tr>
+          <tr data-empty="1"><td colspan="4" class="text-muted">暂无明细</td></tr>
           {{end}}
           </tbody>
         </table>
-        <div class="text-end fs-5">合计：¥{{printf "%.2f" .Data.A.Total}}</div>
+        <div class="text-end fs-5">合计：¥<span id="billTotal">{{printf "%.2f" .Data.A.Total}}</span></div>
         {{if or (eq .Data.A.Status "arrived") (eq .Data.A.Status "serving")}}
         <hr>
         <h6>医生开单 <span class="text-muted small">添加本次诊疗项目/药品后点完成，直接生成收费单</span></h6>
@@ -45,10 +45,11 @@
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div id="pickList" class="d-flex flex-column gap-1 mb-2">
             {{range .Data.A.Items}}
-            <div class="d-flex gap-2 align-items-center border rounded px-2 py-1" data-sid="{{hex .ServiceID}}">
+            <div class="d-flex gap-2 align-items-center border rounded px-2 py-1"
+                 data-sid="{{hex .ServiceID}}" data-name="{{.Name}}" data-price="{{printf "%.2f" .Price}}">
               <input type="hidden" name="service_id" value="{{hex .ServiceID}}">
               <span class="flex-grow-1">{{.Name}} <small class="text-muted">¥{{printf "%.2f" .Price}}</small></span>
-              <input class="form-control form-control-sm" name="qty_{{hex .ServiceID}}"
+              <input class="form-control form-control-sm pick-row-qty" name="qty_{{hex .ServiceID}}"
                      type="number" min="1" step="1" value="{{.Qty}}" style="width:4.5em" title="数量">
               <button type="button" class="btn btn-sm btn-outline-danger" onclick="dropRow(this)">删</button>
             </div>
@@ -89,8 +90,71 @@
           </div>
         </div></div>
         <script>
-        function dropRow(b){ b.closest('[data-sid]').remove(); }
+        var cart = {}; // sid -> {name, price, qty}，主表与表单同源渲染
+        function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+        function money(n){ return (Math.round(n * 100) / 100).toFixed(2); }
+        function renderCart(){
+          var list = document.getElementById('pickList');
+          var sids = Object.keys(cart);
+          var html = '';
+          sids.forEach(function(sid){
+            var it = cart[sid];
+            html += '<div class="d-flex gap-2 align-items-center border rounded px-2 py-1" data-sid="' + esc(sid) + '"' +
+              ' data-name="' + esc(it.name) + '" data-price="' + it.price + '">' +
+              '<input type="hidden" name="service_id" value="' + esc(sid) + '">' +
+              '<span class="flex-grow-1">' + esc(it.name) + ' <small class="text-muted">¥' + money(it.price) + '</small></span>' +
+              '<input class="form-control form-control-sm pick-row-qty" name="qty_' + esc(sid) + '"' +
+              ' type="number" min="1" step="1" value="' + it.qty + '" style="width:4.5em" title="数量">' +
+              '<button type="button" class="btn btn-sm btn-outline-danger" onclick="dropRow(this)">删</button></div>';
+          });
+          list.innerHTML = html;
+          var tb = document.getElementById('billItems');
+          var rows = '', total = 0;
+          sids.forEach(function(sid){
+            var it = cart[sid];
+            var amt = it.qty * it.price;
+            total += amt;
+            rows += '<tr data-sid="' + esc(sid) + '"><td>' + esc(it.name) + '</td><td>' + it.qty +
+              '</td><td>' + money(it.price) + '</td><td>' + money(amt) + '</td></tr>';
+          });
+          tb.innerHTML = rows || '<tr data-empty="1"><td colspan="4" class="text-muted">暂无明细</td></tr>';
+          document.getElementById('billTotal').textContent = money(total);
+        }
+        function dropRow(b){
+          var row = b.closest('[data-sid]');
+          if (row) { delete cart[row.dataset.sid]; renderCart(); }
+        }
+        function syncQty(input){
+          var row = input.closest('[data-sid]');
+          if (!row || !cart[row.dataset.sid]) return;
+          var q = parseFloat(input.value);
+          cart[row.dataset.sid].qty = (!q || q <= 0) ? 1 : q;
+          var tb = document.getElementById('billItems');
+          var total = 0;
+          Object.keys(cart).forEach(function(sid){
+            var it = cart[sid];
+            total += it.qty * it.price;
+            var tr = tb.querySelector('tr[data-sid="' + sid + '"] td:last-child');
+            if (tr) tr.textContent = money(it.qty * it.price);
+            var qcell = tb.querySelector('tr[data-sid="' + sid + '"] td:nth-child(2)');
+            if (qcell) qcell.textContent = it.qty;
+          });
+          document.getElementById('billTotal').textContent = money(total);
+        }
         (function(){
+          document.querySelectorAll('#pickList [data-sid]').forEach(function(row){
+            var q = row.querySelector('input[name^="qty_"]');
+            cart[row.dataset.sid] = {
+              name: row.dataset.name,
+              price: parseFloat(row.dataset.price) || 0,
+              qty: parseFloat(q && q.value) || 1
+            };
+          });
+          renderCart();
+          document.getElementById('pickList').addEventListener('input', function(e){
+            if (e.target && e.target.classList.contains('pick-row-qty')) syncQty(e.target);
+          });
           var search = document.getElementById('pickSearch');
           if (search) search.addEventListener('input', function(){
             var q = search.value.trim();
@@ -102,31 +166,18 @@
           });
         })();
         function confirmPick(){
-          var list = document.getElementById('pickList');
           document.querySelectorAll('#pickOptions .pick-check:checked').forEach(function(box){
             var sid = box.value;
             var qtyInput = box.closest('label').querySelector('.pick-qty');
             var qty = parseFloat(qtyInput && qtyInput.value) || 1;
             if (qty <= 0) qty = 1;
-            var row = list.querySelector('[data-sid="' + sid + '"]');
-            if (row) {
-              var q = row.querySelector('input[name="qty_' + sid + '"]');
-              q.value = parseFloat(q.value || 0) + qty;
-            } else {
-              var div = document.createElement('div');
-              div.className = 'd-flex gap-2 align-items-center border rounded px-2 py-1';
-              div.setAttribute('data-sid', sid);
-              div.innerHTML = '<input type="hidden" name="service_id" value="' + sid + '">' +
-                '<span class="flex-grow-1">' + box.dataset.name +
-                ' <small class="text-muted">¥' + box.dataset.price + '</small></span>' +
-                '<input class="form-control form-control-sm" name="qty_' + sid + '" type="number" min="1" step="1" value="' + qty + '" style="width:4.5em">' +
-                '<button type="button" class="btn btn-sm btn-outline-danger" onclick="dropRow(this)">删</button>';
-              list.appendChild(div);
-            }
+            if (cart[sid]) cart[sid].qty += qty;
+            else cart[sid] = {name: box.dataset.name, price: parseFloat(box.dataset.price) || 0, qty: qty};
             box.checked = false;
             if (qtyInput) qtyInput.value = 1;
           });
           bootstrap.Modal.getInstance(document.getElementById('pickModal')).hide();
+          renderCart();
         }
         </script>
         {{end}}
