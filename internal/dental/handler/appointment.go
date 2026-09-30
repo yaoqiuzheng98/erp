@@ -19,6 +19,8 @@ func (h *Handler) registerAppointment(g *gin.RouterGroup) {
 	g.GET("/appointments", mw.RequirePerm("appt.read"), h.appointments)
 	g.POST("/appointments", mw.RequirePerm("appt.write"), h.createAppt)
 	g.POST("/appointments/:id/checkin", mw.RequirePerm("appt.write"), h.checkin)
+	// 兼容旧版缓存页面上的 /arrive 入口（行为同签到）。
+	g.POST("/appointments/:id/arrive", mw.RequirePerm("appt.write"), h.checkin)
 	g.POST("/appointments/:id/call", mw.RequirePerm("appt.write"), h.call)
 	g.POST("/appointments/:id/done", mw.RequirePerm("appt.write"), h.done)
 	g.POST("/appointments/:id/noshow", mw.RequirePerm("appt.write"), h.noshow)
