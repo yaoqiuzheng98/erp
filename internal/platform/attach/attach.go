@@ -88,3 +88,11 @@ func (s *Service) Get(ctx context.Context, tenantID, id bson.ObjectID) (*Attachm
 	}
 	return &a, filepath.Join(s.dir, a.Path), nil
 }
+
+// PurgeTenant 删除租户全部附件：元数据 + 磁盘目录，删门诊时调用。
+func (s *Service) PurgeTenant(ctx context.Context, tenantID bson.ObjectID) error {
+	if _, err := s.col.DeleteMany(ctx, bson.M{"tenant_id": tenantID}); err != nil {
+		return err
+	}
+	return os.RemoveAll(filepath.Join(s.dir, tenantID.Hex()))
+}

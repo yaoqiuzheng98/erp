@@ -39,12 +39,17 @@
           <td class="small text-muted">/p/{{hex .ID}}</td>
           <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
           <td>{{date .CreatedAt}}</td>
-          <td>
-            <form method="post" action="/sysadmin/tenants/{{hex .ID}}/toggle" class="m-0">
+          <td class="text-nowrap">
+            <form method="post" action="/sysadmin/tenants/{{hex .ID}}/toggle" class="d-inline m-0">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
               <button class="btn btn-sm btn-outline-{{if eq .Status "active"}}danger{{else}}success{{end}}">
                 {{if eq .Status "active"}}停用{{else}}启用{{end}}
               </button>
+            </form>
+            <form method="post" action="/sysadmin/tenants/{{hex .ID}}/delete" class="d-inline m-0"
+                  onsubmit="return confirm('删除门诊「{{.Name}}」及其全部数据（员工/患者/预约/账务等）？\n此操作不可恢复！')">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">删除</button>
             </form>
           </td>
         </tr>

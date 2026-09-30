@@ -24,6 +24,7 @@ func Register(g *gin.RouterGroup, e *env.Env) {
 	g.GET("/tenants", h.tenants)
 	g.POST("/tenants", h.createTenant)
 	g.POST("/tenants/:id/toggle", h.toggleTenant)
+	g.POST("/tenants/:id/delete", h.deleteTenant)
 	g.GET("/audit", h.auditLog)
 }
 
@@ -110,6 +111,34 @@ func (h *Handler) toggleTenant(c *gin.Context) {
 		Username: "sysadmin", Action: "tenant.toggle", Target: t.Name, Detail: status,
 		IP: c.ClientIP(),
 	})
+	c.Redirect(http.StatusFound, "/sysadmin/tenants")
+}
+
+// deleteTenant 删除门诊及其全部数据（先清附件文件与元数据，再清库），不可恢复。
+func (h *Handler) deleteTenant(c *gin.Context) {
+	ctx := c.Request.Context()
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	t, err := h.e.Tenants.ByID(ctx, id)
+	if err != nil {
+		web.SetFlash(c, "门诊不存在")
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	if err := h.e.Attach.PurgeTenant(ctx, id); err != nil {
+		web.SetFlash(c, "删除附件失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	if err := h.e.Tenants.Purge(ctx, id); err != nil {
+		web.SetFlash(c, "删除失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	h.e.Audit.Log(ctx, audit.Entry{
+		Username: "sysadmin", Action: "tenant.delete", Target: t.Name,
+		IP: c.ClientIP(),
+	})
+	web.SetFlash(c, "门诊已删除: "+t.Name)
 	c.Redirect(http.StatusFound, "/sysadmin/tenants")
 }
 
