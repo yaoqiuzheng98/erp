@@ -116,7 +116,7 @@ func main() {
 	}
 }
 
-// seed 初始化系统超管与演示门诊（幂等：已存在则跳过）。
+// seed 初始化系统超管（幂等：已存在则跳过）。
 func seed(ctx context.Context, e *env.Env, catalogSvc *catalog.Service, cfg *config.Config) error {
 	if n, _ := e.DB.C("sys_admins").EstimatedDocumentCount(ctx); n == 0 {
 		hash, err := auth.HashPassword(cfg.Seed.SysadminPass)
@@ -131,36 +131,5 @@ func seed(ctx context.Context, e *env.Env, catalogSvc *catalog.Service, cfg *con
 		}
 		slog.Info("seeded sysadmin", "user", cfg.Seed.SysadminUser)
 	}
-
-	if !cfg.Seed.DemoTenant {
-		return nil
-	}
-	var existing bson.M
-	err := e.DB.C("tenants").FindOne(ctx, bson.M{"name": "演示门诊"}).Decode(&existing)
-	if err == nil {
-		return nil
-	}
-	if err != mongo.ErrNoDocuments {
-		return err
-	}
-	t, err := e.Tenants.Create(ctx, "演示门诊")
-	if err != nil {
-		return err
-	}
-	hash, err := auth.HashPassword(cfg.Seed.DemoAdminPass)
-	if err != nil {
-		return err
-	}
-	_, err = e.DB.C("users").InsertOne(ctx, &auth.User{
-		TenantID: t.ID, Username: cfg.Seed.DemoAdminUser, Name: "管理员",
-		PasswordHash: hash, Status: "active", IsTenantAdm: true,
-	})
-	if err != nil {
-		return err
-	}
-	if err := catalogSvc.EnsureSeed(ctx, t.ID); err != nil {
-		return err
-	}
-	slog.Info("seeded demo clinic", "admin", cfg.Seed.DemoAdminUser)
 	return nil
 }

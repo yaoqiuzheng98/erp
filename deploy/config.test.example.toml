@@ -24,6 +24,6 @@ level = "info"
 enabled = true                # 测试环境保持 true，空库自动建超管
 sysadmin_user = "admin"
 sysadmin_pass = "REPLACE-ME"
-demo_tenant = true            # 测试环境建演示租户方便验证
+demo_tenant = false            # 不再创建演示租户
 demo_admin_user = "admin"
 demo_admin_pass = "admin123"

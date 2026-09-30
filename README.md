@@ -134,7 +134,7 @@ erp/
 ## 6. 配置与部署
 
 - `config.toml`：监听地址、Mongo URI/库名、会话 TTL、文件路径、密钥全集中于此。
-- 本地运行：`cp config.example.toml config.toml`，启动 MongoDB（`docker start erp-mongo`），`go run . -config config.toml`；种子开启时自动创建系统超管与演示门诊（`admin/admin123`）。
+- 本地运行：`cp config.example.toml config.toml`，启动 MongoDB（`docker start erp-mongo`），`go run . -config config.toml`；种子开启时自动创建系统超管（`admin/admin123`）。
 - 验证：`go build ./...`、`go vet ./...`、`go test ./internal/...`。
 
 ### 部署方式（唯一）：本地打镜像 + `docker load`
@@ -158,9 +158,9 @@ scp -i ~/.ssh/erp_prod_key /tmp/erp-app-test.tar.gz root@23.249.19.239:/opt/erp/
 ssh -i ~/.ssh/erp_prod_key root@23.249.19.239 \
   "cd /opt/erp && docker load < erp-app-test.tar.gz && rm -f erp-app-test.tar.gz && docker compose up -d erp-test"
 
-# ③ 验证
-curl -sk -c jar -d "tenant=演示门诊&username=admin&password=admin123" https://erp.test.dokodemo.top/login
-curl -sk -b jar https://erp.test.dokodemo.top/app/patients | head -c 200
+# ③ 验证（系统后台登录）
+curl -sk -c jar -d "username=admin&password=admin123" https://erp.test.dokodemo.top/sysadmin/login
+curl -sk -b jar https://erp.test.dokodemo.top/sysadmin/tenants | head -c 200
 ```
 
 ```

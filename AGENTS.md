@@ -39,13 +39,12 @@ scp -i ~/.ssh/erp_prod_key /tmp/erp-app-test.tar.gz root@23.249.19.239:/opt/erp/
 ssh -i ~/.ssh/erp_prod_key root@23.249.19.239 "cd /opt/erp && docker load < erp-app-test.tar.gz && rm -f erp-app-test.tar.gz && docker compose up -d erp-test"
 
 # ③ 验证：测试站登录 + 新功能页面（登录 POST 无需 CSRF）
-curl -sk -c jar -d "tenant=演示门诊&username=admin&password=admin123" https://erp.test.dokodemo.top/login
-curl -sk -b jar https://erp.test.dokodemo.top/app/patients | grep "患者"
+curl -sk -c jar -d "username=admin&password=admin123" https://erp.test.dokodemo.top/sysadmin/login
+curl -sk -b jar https://erp.test.dokodemo.top/sysadmin/tenants | grep "门诊"
 ```
 
 测试账号：系统后台 `admin` 密码见服务器 `/opt/erp/config.test.toml`
-（当前 `admin123`）；演示门诊 `admin/admin123`。生产密码在
-`config.prod.toml`，互不通用。
+（当前 `admin123`）。生产密码在 `config.prod.toml`，互不通用。
 
 ## 3. 验证通过才提交推送
 

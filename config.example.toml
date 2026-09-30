@@ -22,6 +22,6 @@ level = "info"
 enabled = true                # 首次启动时写入种子数据
 sysadmin_user = "admin"       # 系统超管账号
 sysadmin_pass = "admin123"
-demo_tenant = true            # 创建演示租户 "demo"
+demo_tenant = false            # 创建演示租户 "demo"
 demo_admin_user = "admin"     # 演示租户管理员
 demo_admin_pass = "admin123"
