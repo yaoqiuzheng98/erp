@@ -35,9 +35,7 @@
                   <span class="input-group-text">🕐</span>
                   <input class="form-control form-control-sm" name="slot" type="time" required title="点击选择到诊时间">
                 </div></div>
-              <div class="col-6"><label class="form-label">椅位</label>
-                <input class="form-control form-control-sm" name="chair" placeholder="1"></div>
-              <div class="col-6"><label class="form-label">接诊医生</label>
+              <div class="col-12"><label class="form-label">接诊医生</label>
                 <select class="form-select form-select-sm" name="doctor_id" required>
                   <option value="">选择医生</option>
                   {{range .Data.Doctors}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
@@ -78,14 +76,14 @@
         </div>
       </form>
       <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white">
-        <thead><tr><th>日期</th><th>时间</th><th>患者</th><th>椅位</th><th>医生</th><th>项目</th><th>状态</th><th>收费</th><th>操作</th></tr></thead>
+        <thead><tr><th>日期</th><th>时间</th><th>患者</th><th>医生</th><th>项目</th><th>状态</th><th>收费</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
         {{$a := .}}
         <tr>
           <td>{{.Date}}</td><td>{{.Slot}}</td>
           <td><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a></td>
-          <td>{{.Chair}}</td><td>{{.Doctor}}</td>
+          <td>{{.Doctor}}</td>
           <td>{{.DisplayItem}}
             {{if .Items}}<br>{{range .Items}}<small class="text-muted">{{.Name}}x{{.Qty}} ¥{{printf "%.2f" .Amount}}</small><br>{{end}}{{end}}
           </td>
@@ -150,7 +148,7 @@
             <span class="badge {{.Badge}}">{{.StatusName}}</span>
           </div>
           <div class="small mt-1"><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>
-            <span class="text-muted">{{.Chair}}椅 · {{.Doctor}} · {{.DisplayItem}}</span>{{if .QueueNo}} <span class="badge bg-info text-dark">排{{.QueueNo}}号</span>{{end}}</div>
+            <span class="text-muted">{{.Doctor}} · {{.DisplayItem}}</span>{{if .QueueNo}} <span class="badge bg-info text-dark">排{{.QueueNo}}号</span>{{end}}</div>
           {{if .Charge}}<div class="small">收费 ¥{{printf "%.2f" .Charge}} <span class="text-muted">{{.ChargeNo}}</span></div>{{end}}
           <div class="d-flex flex-wrap gap-1 mt-2">
             {{if eq .Status "booked"}}

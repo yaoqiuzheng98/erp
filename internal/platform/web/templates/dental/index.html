@@ -11,13 +11,13 @@
       {{template "partial/flash" .}}
       <h4 class="mb-3">今日预约</h4>
       <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>时间</th><th>患者</th><th>椅位</th><th>医生</th><th>项目</th><th>状态</th><th>操作</th></tr></thead>
+        <thead><tr><th>时间</th><th>患者</th><th>医生</th><th>项目</th><th>状态</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
         <tr>
           <td>{{.Slot}}</td>
           <td><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a></td>
-          <td>{{.Chair}}</td><td>{{.Doctor}}</td><td>{{.DisplayItem}}</td>
+          <td>{{.Doctor}}</td><td>{{.DisplayItem}}</td>
           <td><span class="badge {{.Badge}}">{{.StatusName}}</span>{{if .QueueNo}} <small class="text-muted">排{{.QueueNo}}号</small>{{end}}</td>
           <td>
             {{if eq .Status "booked"}}

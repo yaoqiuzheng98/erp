@@ -30,14 +30,13 @@ type ApptItem struct {
 	Amount    float64       `bson:"amount"` // Qty*Price
 }
 
-// Appointment 预约（按椅位/医生/时段排）。
+// Appointment 预约（按医生/时段排）。
 type Appointment struct {
 	model.Doc   `bson:",inline"`
 	PatientID   bson.ObjectID `bson:"patient_id"`
 	PatientName string        `bson:"patient_name"` // 快照，免 join
 	DoctorID    bson.ObjectID `bson:"doctor_id,omitempty"`
 	Doctor      string        `bson:"doctor"` // 接诊医生快照（签到时最终确定）
-	Chair       string        `bson:"chair"`
 	Date        string        `bson:"date"` // YYYY-MM-DD
 	Slot        string        `bson:"slot"` // HH:MM
 	Item        string        `bson:"item"` // 自由文本兜底（无价目时填）

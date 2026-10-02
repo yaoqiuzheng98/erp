@@ -93,7 +93,6 @@ func (h *Handler) createAppt(c *gin.Context) {
 	docID, _ := bson.ObjectIDFromHex(c.PostForm("doctor_id"))
 	a := &appointment.Appointment{
 		PatientID: patID, DoctorID: docID,
-		Chair: c.PostForm("chair"),
 		Date:  c.PostForm("date"), Slot: c.PostForm("slot"),
 		Item: c.PostForm("item"), // 老单自由文本兜底；新单以明细为准
 		Items: parseApptItems(c),

@@ -23,7 +23,7 @@
         </div>
         <table class="table table-sm">
           <tr><th class="w-25">患者</th><td>{{.Data.A.PatientName}}{{if .Data.P}}（{{.Data.P.Gender}} {{.Data.P.Phone}}）{{end}}</td></tr>
-          <tr><th>医生 / 椅位</th><td>{{.Data.A.Doctor}} / {{.Data.A.Chair}}</td></tr>
+          <tr><th>医生</th><td>{{.Data.A.Doctor}}</td></tr>
           {{if .Data.A.Item}}<tr><th>就诊主诉</th><td>{{.Data.A.Item}}</td></tr>{{end}}
         </table>
         <table class="table table-sm">
