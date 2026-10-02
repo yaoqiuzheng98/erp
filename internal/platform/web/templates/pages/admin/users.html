@@ -76,8 +76,8 @@
         {{$row := .}}
         {{$fid := print "emp-" (hex .ID)}}
         <tr>
-          <td><input class="form-control form-control-sm" form="{{$fid}}" name="name" value="{{.Name}}" style="min-width:6em" required>
-            {{if .IsTenantAdm}}<span class="badge bg-info text-dark mt-1">管理员</span>{{end}}</td>
+          <td><div class="d-flex align-items-center gap-1 text-nowrap"><input class="form-control form-control-sm" form="{{$fid}}" name="name" value="{{.Name}}" style="min-width:6em" required>
+            {{if .IsTenantAdm}}<span class="badge bg-info text-dark flex-shrink-0">管理员</span>{{end}}</div></td>
           <td><input class="form-control form-control-sm" form="{{$fid}}" name="phone" value="{{.Phone}}"
                      inputmode="tel" pattern="1[3-9][0-9]{9}" title="11 位大陆手机号" style="min-width:9em" required></td>
           <td>{{range $.Data.Roles}}
