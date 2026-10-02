@@ -78,11 +78,11 @@
               <input class="form-control form-control-sm mb-2" id="pickSearch" placeholder="搜索项目名">
               <div id="pickOptions" class="d-flex flex-column gap-1" style="max-height:50vh;overflow:auto">
                 {{range .Data.Services}}
-                <label class="form-check border rounded px-2 py-1 bg-light m-0">
-                  <input class="form-check-input pick-check" type="checkbox" value="{{hex .ID}}"
+                <label class="border rounded px-2 py-1 bg-light m-0 d-flex align-items-center gap-2">
+                  <input class="form-check-input pick-check m-0 flex-shrink-0" type="checkbox" value="{{hex .ID}}"
                          data-name="{{.Name}}" data-price="{{printf "%.2f" .Price}}">
-                  {{.Name}} <small class="text-muted">¥{{printf "%.2f" .Price}}</small>
-                  <input class="form-control form-control-sm d-inline ms-1 pick-qty"
+                  <span class="flex-grow-1">{{.Name}} <small class="text-muted">¥{{printf "%.2f" .Price}}</small></span>
+                  <input class="form-control form-control-sm pick-qty flex-shrink-0"
                          type="number" min="1" step="1" value="1" style="width:4em" title="数量">
                 </label>
                 {{else}}
