@@ -25,6 +25,7 @@ go build ./... && go vet ./... && go test ./internal/...
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o erp-linux .
 docker build -t erp-app:test -f - . <<'DOCKER'
 FROM alpine:3.21
+ENV TZ=Asia/Shanghai
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 erp
 WORKDIR /opt/erp
 COPY erp-linux /opt/erp/erp

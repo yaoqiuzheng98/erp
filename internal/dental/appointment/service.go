@@ -12,6 +12,7 @@ import (
 	"erp/internal/platform/auth"
 	"erp/internal/platform/repo"
 	"erp/internal/platform/seqno"
+	"erp/internal/platform/tz"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -162,7 +163,7 @@ func (s *Service) OfPatient(ctx context.Context, tenantID, patID bson.ObjectID) 
 }
 
 func (s *Service) Today(ctx context.Context, tenantID bson.ObjectID) ([]Appointment, error) {
-	return s.appts.FindMany(ctx, tenantID, bson.M{"date": time.Now().Format("2006-01-02")})
+	return s.appts.FindMany(ctx, tenantID, bson.M{"date": tz.Today()})
 }
 
 func (s *Service) setStatus(ctx context.Context, tenantID, id bson.ObjectID, from []string, to string) (*Appointment, error) {

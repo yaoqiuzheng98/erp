@@ -22,6 +22,8 @@ services:
     image: erp-app:test
     container_name: erp-test
     restart: always
+    environment:
+      - TZ=Asia/Shanghai
     depends_on:
       mongo:
         condition: service_healthy

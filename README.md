@@ -1,6 +1,6 @@
 # 口腔门诊 SaaS
 
-多门诊 SaaS，只做口腔门诊：患者档案、牙位图、预约排椅、诊疗价目、
+多门诊 SaaS，只做口腔门诊：患者档案、牙位图、预约排号、诊疗价目、
 医护花名册、完成收费直连财务应收。单垂直应用，无插件系统。
 
 ## 1. 技术栈
@@ -145,6 +145,7 @@ erp/
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o erp-linux .
 docker build -t erp-app:test -f - . <<'DOCKER'
 FROM alpine:3.21
+ENV TZ=Asia/Shanghai
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 erp
 WORKDIR /opt/erp
 COPY erp-linux /opt/erp/erp

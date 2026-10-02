@@ -4,10 +4,10 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"time"
 
 	"erp/internal/dental/appointment"
 	mw "erp/internal/platform/middleware"
+	"erp/internal/platform/tz"
 	"erp/internal/platform/web"
 
 	"github.com/gin-gonic/gin"
@@ -39,7 +39,7 @@ func (h *Handler) appointments(c *gin.Context) {
 	// 默认看今天；全部走 ?date=all
 	date := c.Query("date")
 	if date == "" {
-		date = time.Now().Format("2006-01-02")
+		date = tz.Today()
 	} else if date == "all" {
 		date = ""
 	}

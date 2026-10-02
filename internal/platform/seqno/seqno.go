@@ -3,8 +3,8 @@ package seqno
 import (
 	"context"
 	"fmt"
-	"time"
 
+	"erp/internal/platform/tz"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -20,7 +20,7 @@ func New(db *mongo.Database) *Generator {
 }
 
 func (g *Generator) Next(ctx context.Context, tenantID bson.ObjectID, rule string) (string, error) {
-	ym := time.Now().Format("200601")
+	ym := tz.MonthKey()
 	key := fmt.Sprintf("%s:%s:%s", tenantID.Hex(), rule, ym)
 	var doc struct {
 		Value int64 `bson:"value"`

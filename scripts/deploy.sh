@@ -22,6 +22,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o erp-linux .
 echo "==> [2/5] 打镜像 $IMAGE（alpine + 二进制，无需拉取 golang）"
 docker build -t "$IMAGE" -f - . <<'DOCKER'
 FROM alpine:3.21
+ENV TZ=Asia/Shanghai
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 erp
 WORKDIR /opt/erp
 COPY erp-linux /opt/erp/erp

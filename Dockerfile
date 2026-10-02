@@ -7,6 +7,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /erp .
 
 FROM alpine:3.21
+ENV TZ=Asia/Shanghai
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 erp
 WORKDIR /opt/erp
 COPY --from=build /erp /opt/erp/erp
