@@ -42,7 +42,7 @@
         {{range .Data.Rows}}
         {{$fid := print "svc-" (hex .ID)}}
         <tr>
-            <td><input class="form-control form-control-sm" form="{{$fid}}" name="name" value="{{.Name}}" required></td>
+            <td><input class="form-control form-control-sm" form="{{$fid}}" name="name" value="{{.Name}}" style="min-width:10em" required></td>
             <td><input class="form-control form-control-sm" form="{{$fid}}" name="category" value="{{.Category}}" list="svcCats" style="width:7em"></td>
             <td><input class="form-control form-control-sm" form="{{$fid}}" name="price" type="number" step="0.01" min="0" value="{{printf "%.2f" .Price}}" style="width:7em" required></td>
             <td><input class="form-control form-control-sm" form="{{$fid}}" name="unit" value="{{.Unit}}" list="svcUnits" style="width:5em"></td>
