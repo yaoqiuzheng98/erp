@@ -4,23 +4,54 @@
 {{template "partial/head" .}}
 <body class="portal">
 {{template "portal/nav" .}}
-<main class="p-3">
+<main class="p-2">
   {{template "partial/flash" .}}
-  <div class="portal-hero p-3 mb-3">
+  <div class="portal-hero p-3 mb-2">
     <div class="small opacity-75">{{.Data.Clinic}}</div>
     <h4 class="mb-0">{{.Data.Name}}，你好 🦷</h4>
   </div>
-  <div class="d-grid gap-2">
-    <a class="btn btn-primary btn-lg py-3" href="/p/{{.Data.Tid}}/book">📅 预约挂号</a>
-    <div class="row g-2">
-      <div class="col-6"><a class="btn btn-outline-primary btn-lg w-100" href="/p/{{.Data.Tid}}/my">🧾 我的单据</a></div>
-      <div class="col-6"><a class="btn btn-outline-secondary btn-lg w-100" href="/p/{{.Data.Tid}}/services">💰 价目表</a></div>
+  {{if gt .Data.Unpaid 0.0}}
+  <div class="alert alert-warning py-2">待付 ¥{{printf "%.2f" .Data.Unpaid}}，请到店支付</div>
+  {{end}}
+  <h6 class="text-muted px-1">我的预约</h6>
+  {{range .Data.Appts}}
+  {{$pos := index $.Data.Pos (hex .ID)}}
+  <div class="card portal-card mb-2"><div class="card-body py-2">
+    <div class="d-flex justify-content-between align-items-center">
+      <b>{{.Date}} {{.Slot}}</b>
+      <span class="badge {{.Badge}}">{{.StatusName}}</span>
     </div>
-    <form method="post" action="/p/{{.Data.Tid}}/logout" class="m-0 mt-2">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <button class="btn btn-link btn-sm text-muted w-100">退出登录</button>
+    <div class="small text-muted">{{.Doctor}} · {{.DisplayItem}}</div>
+    {{if gt $pos 0}}<div class="small text-info">前面还有 {{$pos}} 位，请稍候</div>{{else if eq $pos 0}}<div class="small text-success">正在就诊，请入内</div>{{end}}
+    {{if and (eq .Status "booked") (gt .RegFee 0.0) (not .RegPaid)}}
+    <div class="mt-1"><a class="btn btn-sm btn-warning" href="/p/{{$.Data.Tid}}/pay/{{hex .ID}}">去支付挂号费 ¥{{printf "%.2f" .RegFee}}</a></div>
+    {{end}}
+    {{if eq .Status "booked"}}
+    <form method="post" action="/p/{{$.Data.Tid}}/appointments/{{hex .ID}}/cancel" class="mt-1"
+          onsubmit="return confirm('确认取消这次预约？')">
+      <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+      <button class="btn btn-sm btn-outline-danger">取消预约</button>
     </form>
-  </div>
+    {{end}}
+  </div></div>
+  {{else}}
+  <div class="text-muted px-1 mb-2">暂无预约，去<a href="/p/{{.Data.Tid}}/book">挂号</a>吧</div>
+  {{end}}
+  <h6 class="text-muted px-1 mt-3">我的账单</h6>
+  {{range .Data.Bills}}
+  <a class="card portal-card mb-2 text-decoration-none text-dark" href="/p/{{$.Data.Tid}}/bills/{{hex .ID}}">
+    <div class="card-body py-2">
+      <div class="d-flex justify-content-between align-items-center">
+        <b>¥{{f2 .Amount}}</b>
+        <span class="badge {{if eq .Status "paid"}}bg-success{{else}}bg-warning text-dark{{end}}">
+          {{if eq .Status "paid"}}已结清{{else}}待缴费 ›{{end}}</span>
+      </div>
+      <div class="small text-muted">{{.DocNo}} · 已付¥{{f2 .PaidAmount}}</div>
+    </div>
+  </a>
+  {{else}}
+  <div class="text-muted px-1">暂无账单</div>
+  {{end}}
 </main>
 {{template "portal/tabbar" .}}
 {{template "partial/foot" .}}

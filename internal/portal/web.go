@@ -100,7 +100,21 @@ func (h *Web) logout(c *gin.Context) {
 
 func (h *Web) home(c *gin.Context) {
 	p := Patient(c)
-	web.Render(c, h.e, "portal/home", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name})
+	ctx := c.Request.Context()
+	appts, _ := h.appts.OfPatient(ctx, p.TenantID, p.ID)
+	bills, _ := h.bill.Mine(ctx, p.TenantID, p.ID)
+	var unpaid float64
+	for _, b := range bills {
+		unpaid += b.Amount - b.PaidAmount
+	}
+	pos := map[string]int{}
+	for _, a := range appts {
+		pos[a.ID.Hex()] = h.appts.Position(ctx, p.TenantID, a.ID)
+	}
+	web.Render(c, h.e, "portal/home", gin.H{
+		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name,
+		"Appts": appts, "Bills": bills, "Unpaid": unpaid, "Pos": pos,
+	})
 }
 
 func (h *Web) services(c *gin.Context) {
@@ -139,7 +153,7 @@ func (h *Web) book(c *gin.Context) {
 		return
 	}
 	web.SetFlash(c, "预约成功，请按时到诊")
-	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/")
 }
 
 func (h *Web) payPage(c *gin.Context) {
@@ -159,7 +173,7 @@ func (h *Web) pay(c *gin.Context) {
 	a, err := h.appts.ByID(c.Request.Context(), p.TenantID, id)
 	if err != nil || a.PatientID != p.ID {
 		web.SetFlash(c, "单据不存在")
-		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/")
 		return
 	}
 	if err := h.appts.PayReg(c.Request.Context(), p.TenantID, id, p.Name); err != nil {
@@ -168,7 +182,7 @@ func (h *Web) pay(c *gin.Context) {
 		return
 	}
 	web.SetFlash(c, "支付成功，请按时到诊")
-	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/")
 }
 
 // parseItems 解析 service_id[] + qty_<hex>（与门诊后台同款）。
@@ -199,7 +213,7 @@ func (h *Web) cancel(c *gin.Context) {
 	a, err := h.appts.ByID(c.Request.Context(), p.TenantID, id)
 	if err != nil || a.PatientID != p.ID {
 		web.SetFlash(c, "预约不存在")
-		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/")
 		return
 	}
 	if err := h.appts.Cancel(c.Request.Context(), p.TenantID, id); err != nil {
@@ -207,7 +221,7 @@ func (h *Web) cancel(c *gin.Context) {
 	} else {
 		web.SetFlash(c, "预约已取消")
 	}
-	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/")
 }
 
 func (h *Web) billPage(c *gin.Context) {
@@ -216,7 +230,7 @@ func (h *Web) billPage(c *gin.Context) {
 	list, _ := h.bill.Mine(c.Request.Context(), p.TenantID, p.ID)
 	for _, b := range list {
 		if b.ID == id {
-			web.Render(c, h.e, "portal/bill", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "my", "B": b})
+			web.Render(c, h.e, "portal/bill", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "B": b})
 			return
 		}
 	}
@@ -235,7 +249,7 @@ func (h *Web) payBill(c *gin.Context) {
 	}
 	if !found {
 		web.SetFlash(c, "账单不存在")
-		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/")
 		return
 	}
 	if err := h.bill.PayMock(c.Request.Context(), p.TenantID, id, p.Name); err != nil {
@@ -244,24 +258,12 @@ func (h *Web) payBill(c *gin.Context) {
 		return
 	}
 	web.SetFlash(c, "支付成功")
-	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/my")
+	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/")
 }
 
 func (h *Web) my(c *gin.Context) {
 	p := Patient(c)
-	ctx := c.Request.Context()
-	appts, _ := h.appts.OfPatient(ctx, p.TenantID, p.ID)
-	bills, _ := h.bill.Mine(ctx, p.TenantID, p.ID)
-	var unpaid float64
-	for _, b := range bills {
-		unpaid += b.Amount - b.PaidAmount
-	}
-	pos := map[string]int{}
-	for _, a := range appts {
-		pos[a.ID.Hex()] = h.appts.Position(ctx, p.TenantID, a.ID)
-	}
 	web.Render(c, h.e, "portal/my", gin.H{
-		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "my", "Name": p.Name,
-		"Appts": appts, "Bills": bills, "Unpaid": unpaid, "Pos": pos,
+		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "my", "Name": p.Name, "Phone": p.Phone,
 	})
 }
