@@ -26,7 +26,13 @@
               <button class="btn btn-sm btn-outline-primary">签到</button>
             </form>
             {{end}}
-            {{if or (eq .Status "arrived") (eq .Status "serving")}}
+            {{if eq .Status "arrived"}}
+            <form method="post" action="/app/appointments/{{hex .ID}}/call" class="m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-info">叫号</button>
+            </form>
+            {{end}}
+            {{if eq .Status "serving"}}
             <a class="btn btn-sm btn-outline-success" href="/app/appointments/{{hex .ID}}/bill">开单</a>
             {{end}}
           </td>

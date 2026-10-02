@@ -356,7 +356,8 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id bson.ObjectID) error 
 	return err
 }
 
-// Complete 开单：优先按明细结算，否则沿用预约存量明细，再否则用手工 charge。
+// Complete 开单：仅就诊中（serving）可开单，不许跳过叫号。
+// 优先按明细结算，否则沿用预约存量明细，再否则用手工 charge。
 // 生成财务应收，预约落为待缴费（前台收清后才翻已完成）；同时自动叫同医生下一位。
 // 返回下一位患者姓名（无则空）。
 func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, items []ApptItem, charge float64, by string) (string, error) {
@@ -364,7 +365,7 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, item
 	if err != nil {
 		return "", err
 	}
-	if a.Status != Booked && a.Status != Arrived && a.Status != Serving {
+	if a.Status != Serving {
 		return "", ErrBadStatus
 	}
 	finalItems := a.Items

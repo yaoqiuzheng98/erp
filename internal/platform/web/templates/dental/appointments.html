@@ -108,7 +108,7 @@
                 <button class="btn btn-sm btn-outline-info">叫号</button></form>
               {{end}}
             </div>
-            {{if or (eq .Status "arrived") (eq .Status "serving")}}
+            {{if eq .Status "serving"}}
             <form method="post" action="/app/appointments/{{hex .ID}}/done" class="d-flex flex-wrap gap-1 align-items-center mt-1"
                   onsubmit="return confirm('确认开单？开单后进入待缴费。')">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
@@ -168,7 +168,7 @@
               <button class="btn btn-sm btn-outline-info">叫号</button></form>
             {{end}}
           </div>
-          {{if or (eq .Status "arrived") (eq .Status "serving")}}
+          {{if eq .Status "serving"}}
           <form method="post" action="/app/appointments/{{hex .ID}}/done" class="d-flex gap-1 mt-2"
                 onsubmit="return confirm('确认开单？开单后进入待缴费。')">
             <input type="hidden" name="_csrf" value="{{$.CSRF}}">

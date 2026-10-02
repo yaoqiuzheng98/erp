@@ -37,7 +37,14 @@
           </tbody>
         </table>
         <div class="text-end fs-5">合计：¥<span id="billTotal">{{printf "%.2f" .Data.A.Total}}</span></div>
-        {{if or (eq .Data.A.Status "arrived") (eq .Data.A.Status "serving")}}
+        {{if eq .Data.A.Status "arrived"}}
+        <div class="alert alert-info py-2">候诊中：请先叫号，再开单。</div>
+        <form method="post" action="/app/appointments/{{hex .Data.A.ID}}/call" class="m-0">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button class="btn btn-sm btn-outline-info">叫号</button>
+        </form>
+        {{end}}
+        {{if eq .Data.A.Status "serving"}}
         <hr>
         <h6>医生开单 <span class="text-muted small">添加本次诊疗项目/药品后点完成，直接生成收费单</span></h6>
         <form method="post" action="/app/appointments/{{hex .Data.A.ID}}/done" id="billForm"
