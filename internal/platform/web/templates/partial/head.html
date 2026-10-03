@@ -6,13 +6,38 @@
   <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
   <style>
     body { background: #f5f6f8; }
-    .sidebar { width: 220px; min-height: 100vh; background: #212529 !important; overflow-y: auto; }
+    /* 品牌色（与患者端同系）：主按钮青绿，侧边栏深青渐变 */
+    .btn-primary {
+      --bs-btn-bg: #0d9488; --bs-btn-border-color: #0d9488;
+      --bs-btn-hover-bg: #0f766e; --bs-btn-hover-border-color: #0f766e;
+      --bs-btn-active-bg: #115e59; --bs-btn-active-border-color: #115e59;
+      --bs-btn-disabled-bg: #0d9488; --bs-btn-disabled-border-color: #0d9488;
+    }
+    .btn-outline-primary {
+      --bs-btn-color: #0d9488; --bs-btn-border-color: #0d9488;
+      --bs-btn-hover-bg: #0d9488; --bs-btn-hover-border-color: #0d9488;
+      --bs-btn-active-bg: #0f766e; --bs-btn-active-border-color: #0f766e;
+    }
+    .sidebar { width: 220px; min-height: 100vh; background: linear-gradient(180deg, #0f766e, #134e4a) !important; overflow-y: auto; }
     /* 手机端 offcanvas 抽屉内菜单过长时可滚动 */
     .offcanvas-md.sidebar { max-height: 100vh; }
-    .sidebar a { color: #adb5bd; text-decoration: none; display: block; padding: .45rem 1rem; border-radius: .375rem; }
-    .sidebar a:hover, .sidebar a.active { color: #fff; background: rgba(255,255,255,.1); }
-    .sidebar .nav-group { color: #6c757d; font-size: .78rem; padding: .9rem 1rem .25rem; text-transform: uppercase; }
-    .topbar { background: #fff; border-bottom: 1px solid #dee2e6; }
+    .sidebar a { color: #d7ebe8; text-decoration: none; display: block; padding: .45rem 1rem; border-radius: .375rem; }
+    .sidebar a:hover, .sidebar a.active { color: #fff; background: rgba(255,255,255,.15); }
+    .sidebar .nav-group { color: rgba(255,255,255,.55); font-size: .78rem; padding: .9rem 1rem .25rem; text-transform: uppercase; }
+    .sidebar .text-white-50 { color: rgba(255,255,255,.6) !important; }
+    .topbar { background: #fff; border-bottom: 1px solid #dee2e6; position: sticky; top: 0; z-index: 1020; }
+    /* 长列表表头吸顶（横滑wrapper内不生效时至少回顶按钮可用） */
+    .table-responsive thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+    /* 金额语义色：欠费红 / 已收绿 */
+    .amt-unpaid { color: #dc3545; font-weight: 700; }
+    .amt-paid { color: #198754; font-weight: 700; }
+    /* 回顶按钮 */
+    #backTop { position: fixed; right: 1rem; bottom: 1.5rem; z-index: 1040; display: none;
+      width: 2.75rem; height: 2.75rem; border-radius: 50%; padding: 0; font-size: 1.25rem; }
+    @media (max-width: 767.98px) {
+      /* 手机端操作按钮放大，触控更稳 */
+      main .btn-sm { padding: .5rem .8rem; font-size: .95rem; }
+    }
     .topbar > div { min-width: 0; }
     .topbar a, .topbar span, .topbar button { white-space: nowrap; }
     .topbar .topbar-path { overflow: hidden; text-overflow: ellipsis; }

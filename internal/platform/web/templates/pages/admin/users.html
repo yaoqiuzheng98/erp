@@ -69,7 +69,7 @@
         </form>
       </div></div>
 
-      <div class="table-responsive"><table class="table table-sm bg-white align-middle">
+      <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white align-middle">
         <thead><tr><th>姓名</th><th>手机号</th><th>角色</th><th>可接诊</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Users}}
@@ -108,6 +108,46 @@
         {{end}}
         </tbody>
       </table></div>
+      <div class="d-md-none">
+        {{range .Data.Users}}
+        {{$row := .}}
+        {{$fid := print "emp-" (hex .ID)}}
+        {{$mid := print "m-emp-" (hex .ID)}}
+        <div class="card mb-2"><div class="card-body py-2">
+          <div class="row g-1 mb-1">
+            <div class="col-6"><input class="form-control" form="{{$mid}}" name="name" value="{{.Name}}" placeholder="姓名" required></div>
+            <div class="col-6"><input class="form-control" form="{{$mid}}" name="phone" value="{{.Phone}}"
+                   inputmode="tel" pattern="1[3-9][0-9]{9}" title="11 位大陆手机号" placeholder="手机号" required></div>
+          </div>
+          <div class="mb-1">
+            {{range $.Data.Roles}}
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" form="{{$mid}}" type="checkbox" name="role_ids" value="{{hex .ID}}"
+                     id="{{$mid}}-r-{{hex .ID}}" {{if hasID $row.RoleIDs .ID}}checked{{end}}>
+              <label class="form-check-label small" for="{{$mid}}-r-{{hex .ID}}">{{.Name}}</label>
+            </div>
+            {{end}}
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <label class="form-check form-switch m-0 small flex-shrink-0">
+              <input class="form-check-input" form="{{$mid}}" type="checkbox" name="can_practice" {{if .CanPractice}}checked{{end}}> 可接诊</label>
+            <select class="form-select form-select-sm flex-grow-1" form="{{$mid}}" name="status">
+              <option value="active" {{if eq .Status "active"}}selected{{end}}>在职</option>
+              <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>离职</option>
+            </select>
+            <form method="post" action="/admin/users/{{hex .ID}}" id="{{$mid}}" class="m-0 flex-shrink-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-primary" form="{{$mid}}">保存</button>
+            </form>
+            <button class="btn btn-sm btn-outline-secondary flex-shrink-0" data-bs-toggle="modal" data-bs-target="#pwdModal"
+                    onclick="pwdFor('{{.Name}}', '/admin/users/{{hex .ID}}/password')">改密</button>
+          </div>
+          <div class="small text-muted mt-1">最近登录 {{date .LastLoginAt}}{{if .IsTenantAdm}} · <span class="badge bg-info text-dark">管理员</span>{{end}}</div>
+        </div></div>
+        {{else}}
+        <div class="text-muted">暂无员工，先新增（设置医生勾选可接诊）</div>
+        {{end}}
+      </div>
       <script>
         function pwdFor(name, action) {
           document.getElementById('pwdName').textContent = name;

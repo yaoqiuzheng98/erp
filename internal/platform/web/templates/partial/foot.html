@@ -1,4 +1,5 @@
 {{define "partial/foot"}}
+<button id="backTop" class="btn btn-secondary" title="回到顶部" aria-label="回到顶部">↑</button>
 <script src="/static/vendor/bootstrap.bundle.min.js"></script>
 <script src="/static/vendor/htmx.min.js"></script>
 <script>
@@ -17,19 +18,40 @@
   }
   document.addEventListener('htmx:load', function (e) { autoDismiss(e.detail.elt); });
   autoDismiss(document.body);
+  // 防重复提交：同一表单提交中再点直接拦掉；提交按钮变“提交中…”并禁用。
+  // 带 confirm 的表单点取消时不锁（defaultPrevented 时回滚），后退回来时 pageshow 复位。
   document.addEventListener('submit', function (e) {
     var f = e.target;
+    if (!(f instanceof HTMLFormElement)) return;
     if (f.dataset.submitting) { e.preventDefault(); return; }
     f.dataset.submitting = '1';
-    var b = e.submitter || f.querySelector('button[type="submit"], button:not([type])');
-    if (b) b.disabled = true;
+    setTimeout(function () {
+      if (e.defaultPrevented) { delete f.dataset.submitting; return; }
+      var b = e.submitter || f.querySelector('button[type="submit"], button:not([type])');
+      if (b && b.classList.contains('btn')) {
+        if (b.textContent.trim()) { b.dataset.label = b.textContent; b.textContent = '提交中…'; }
+        b.disabled = true;
+      }
+    }, 0);
   });
   window.addEventListener('pageshow', function () {
     document.querySelectorAll('form[data-submitting]').forEach(function (f) {
       delete f.dataset.submitting;
-      f.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+      f.querySelectorAll('button').forEach(function (b) {
+        b.disabled = false;
+        if (b.dataset.label) { b.textContent = b.dataset.label; delete b.dataset.label; }
+      });
     });
   });
+  // 回顶按钮：滚过一屏才出现
+  (function () {
+    var btn = document.getElementById('backTop');
+    if (!btn) return;
+    window.addEventListener('scroll', function () {
+      btn.style.display = window.scrollY > 480 ? 'block' : 'none';
+    }, { passive: true });
+    btn.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  })();
   // datalist：有值时点开也展开全量选项（聚焦暂存清空，未选则恢复；
   // 已聚焦时再点没有 focus 事件，用 mousedown 补）
   document.querySelectorAll('input[list]').forEach(function (el) {

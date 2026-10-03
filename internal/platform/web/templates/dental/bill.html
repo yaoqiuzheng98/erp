@@ -27,10 +27,10 @@
           {{if .Data.A.Item}}<tr><th>就诊主诉</th><td>{{.Data.A.Item}}</td></tr>{{end}}
         </table>
         <table class="table table-sm">
-          <thead><tr><th>诊疗项目</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
+          <thead><tr><th>诊疗项目</th><th>数量</th><th class="text-end">单价</th><th class="text-end">小计</th></tr></thead>
           <tbody id="billItems">
           {{range .Data.A.Items}}
-          <tr data-sid="{{hex .ServiceID}}"><td>{{.Name}}</td><td>{{.Qty}}</td><td>{{printf "%.2f" .Price}}</td><td>{{printf "%.2f" .Amount}}</td></tr>
+          <tr data-sid="{{hex .ServiceID}}"><td>{{.Name}}</td><td>{{.Qty}}</td><td class="text-end">{{printf "%.2f" .Price}}</td><td class="text-end">{{printf "%.2f" .Amount}}</td></tr>
           {{else}}
           <tr data-empty="1"><td colspan="4" class="text-muted">暂无明细</td></tr>
           {{end}}
@@ -123,7 +123,7 @@
             var amt = it.qty * it.price;
             total += amt;
             rows += '<tr data-sid="' + esc(sid) + '"><td>' + esc(it.name) + '</td><td>' + it.qty +
-              '</td><td>' + money(it.price) + '</td><td>' + money(amt) + '</td></tr>';
+              '</td><td class="text-end">' + money(it.price) + '</td><td class="text-end">' + money(amt) + '</td></tr>';
           });
           tb.innerHTML = rows || '<tr data-empty="1"><td colspan="4" class="text-muted">暂无明细</td></tr>';
           document.getElementById('billTotal').textContent = money(total);

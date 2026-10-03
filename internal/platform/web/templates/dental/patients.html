@@ -48,7 +48,7 @@
         <input class="form-control form-control-sm flex-grow-1" name="q" value="{{.Data.Q}}" placeholder="姓名/电话筛选">
         <button class="btn btn-sm btn-outline-secondary flex-shrink-0">搜索</button>
       </form>
-      <div class="table-responsive"><table class="table table-sm bg-white align-middle">
+      <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white align-middle">
         <thead><tr><th>姓名</th><th>性别</th><th>出生</th><th>电话</th><th>过敏史</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
@@ -63,6 +63,19 @@
         {{end}}
         </tbody>
       </table></div>
+      <div class="d-md-none">
+        {{range .Data.Rows}}
+        <div class="card mb-2"><div class="card-body py-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <b>{{.Name}}</b>
+            <a class="btn btn-sm btn-outline-secondary" href="/app/patients/{{hex .ID}}">详情</a>
+          </div>
+          <div class="small text-muted mt-1">{{.Gender}} · {{.Birth}} · {{.Phone}}{{if .Allergy}} · <span class="text-danger">{{.Allergy}}</span>{{end}}</div>
+        </div></div>
+        {{else}}
+        <div class="text-muted">暂无患者</div>
+        {{end}}
+      </div>
       {{template "partial/pager" .}}
     </main>
   </div>

@@ -27,16 +27,29 @@
           <div class="col-12 col-md-auto d-grid d-md-block"><button class="btn btn-sm btn-primary">记账</button></div>
         </form>
       </div></div>
-      <div class="table-responsive"><table class="table table-sm bg-white">
-        <thead><tr><th>日期</th><th>事项</th><th>类别</th><th>金额</th></tr></thead>
+      <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white align-middle">
+        <thead><tr><th>日期</th><th>事项</th><th>类别</th><th class="text-end">金额</th></tr></thead>
         <tbody>
         {{range .Data.List}}
-        <tr><td>{{date .At}}</td><td>{{.Title}}</td><td>{{.Category}}</td><td>{{f2 .Amount}}</td></tr>
+        <tr><td>{{date .At}}</td><td>{{.Title}}</td><td>{{.Category}}</td><td class="text-end">{{f2 .Amount}}</td></tr>
         {{else}}
         <tr><td colspan="4" class="text-muted">暂无费用</td></tr>
         {{end}}
         </tbody>
       </table></div>
+      <div class="d-md-none">
+        {{range .Data.List}}
+        <div class="card mb-2"><div class="card-body py-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <b>{{.Title}}</b>
+            <span>¥{{f2 .Amount}}</span>
+          </div>
+          <div class="small text-muted mt-1">{{date .At}}{{if .Category}} · {{.Category}}{{end}}</div>
+        </div></div>
+        {{else}}
+        <div class="text-muted">暂无费用</div>
+        {{end}}
+      </div>
       {{template "partial/pager" .}}
     </main>
   </div>
