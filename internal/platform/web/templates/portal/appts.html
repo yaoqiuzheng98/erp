@@ -1,0 +1,39 @@
+{{define "portal/appts"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body class="portal">
+{{template "portal/nav" .}}
+<main class="p-2">
+  {{template "partial/flash" .}}
+  <div class="px-1 mb-2"><a href="/p/{{.Data.Tid}}/">&lt; 返回首页</a></div>
+  <h6 class="text-muted px-1">我的预约</h6>
+  {{range .Data.Appts}}
+  {{$pos := index $.Data.Pos (hex .ID)}}
+  <div class="card portal-card mb-2"><div class="card-body py-2">
+    <div class="d-flex justify-content-between align-items-center">
+      <b>{{.Date}} {{.Slot}}</b>
+      <span class="badge {{.Badge}}">{{.StatusName}}</span>
+    </div>
+    <div class="small text-muted">{{.Doctor}} · {{.DisplayItem}}</div>
+    {{if gt $pos 0}}<div class="small text-info">前面还有 {{$pos}} 位，请稍候</div>{{else if eq $pos 0}}<div class="small text-success">正在就诊，请入内</div>{{end}}
+    {{if and (eq .Status "booked") (gt .RegFee 0.0) (not .RegPaid)}}
+    <div class="mt-1"><a class="btn btn-sm btn-warning" href="/p/{{$.Data.Tid}}/pay/{{hex .ID}}">去支付挂号费 ¥{{printf "%.2f" .RegFee}}</a></div>
+    {{end}}
+    {{if eq .Status "booked"}}
+    <form method="post" action="/p/{{$.Data.Tid}}/appointments/{{hex .ID}}/cancel" class="mt-1"
+          onsubmit="return confirm('确认取消这次预约？')">
+      <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+      <button class="btn btn-sm btn-outline-danger">取消预约</button>
+    </form>
+    {{end}}
+  </div></div>
+  {{else}}
+  <div class="text-muted px-1 mb-2">暂无预约，去<a href="/p/{{.Data.Tid}}/book">挂号</a>吧</div>
+  {{end}}
+</main>
+{{template "portal/tabbar" .}}
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}
