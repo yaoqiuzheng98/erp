@@ -126,7 +126,8 @@ func (h *Web) home(c *gin.Context) {
 	}
 	var team []staff
 	for _, u := range users {
-		if u.Status != "active" || u.HideHome {
+		// 无角色的纯管理账号不上首页
+		if u.Status != "active" || u.HideHome || len(u.RoleIDs) == 0 {
 			continue
 		}
 		var rn []string
