@@ -11,7 +11,8 @@ import (
 )
 
 // Tenant 门诊租户（一家门诊）。RegFee 挂号费（患者自助预约时收），0=不收。
-// Intro/Address/Phone/Hours 为患者端首页展示的诊所介绍信息。
+// Intro/Address/Phone/Hours/Notice/CoverID 为患者端首页展示的诊所信息，
+// CoverID 为 GridFS 图片 ID（封面图，门诊后台上传）。
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
@@ -21,6 +22,8 @@ type Tenant struct {
 	Address   string        `bson:"address,omitempty"`
 	Phone     string        `bson:"phone,omitempty"`
 	Hours     string        `bson:"hours,omitempty"`
+	Notice    string        `bson:"notice,omitempty"`
+	CoverID   string        `bson:"cover_id,omitempty"`
 	CreatedAt time.Time     `bson:"created_at"`
 }
 
@@ -78,10 +81,16 @@ func (s *Service) SetFee(ctx context.Context, id bson.ObjectID, fee float64) err
 }
 
 // SetProfile 更新诊所介绍信息（门诊后台门诊设置维护，患者端首页展示）。
-func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, intro, address, phone, hours string) error {
+func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, intro, address, phone, hours, notice string) error {
 	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
-		"intro": intro, "address": address, "phone": phone, "hours": hours,
+		"intro": intro, "address": address, "phone": phone, "hours": hours, "notice": notice,
 	}})
+	return err
+}
+
+// SetCover 更新诊所封面图（GridFS 文件 ID hex，空串=清除）。
+func (s *Service) SetCover(ctx context.Context, id bson.ObjectID, coverID string) error {
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"cover_id": coverID}})
 	return err
 }
 

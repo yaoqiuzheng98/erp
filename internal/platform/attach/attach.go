@@ -155,6 +155,19 @@ func (s *Service) Open(ctx context.Context, tenantID, id bson.ObjectID) (*Attach
 	return d.attach(), stream, nil
 }
 
+// Delete 删除单张图片（先校验租户归属）。
+func (s *Service) Delete(ctx context.Context, tenantID, id bson.ObjectID) error {
+	var d fileDoc
+	err := s.bucket.GetFilesCollection().FindOne(ctx, bson.M{
+		"_id":               id,
+		"metadata.tenant_id": tenantID,
+	}).Decode(&d)
+	if err != nil {
+		return err
+	}
+	return s.bucket.Delete(ctx, id)
+}
+
 // PurgeTenant 删除租户全部图片，删门诊时调用。
 func (s *Service) PurgeTenant(ctx context.Context, tenantID bson.ObjectID) error {
 	cur, err := s.bucket.Find(ctx, bson.M{"metadata.tenant_id": tenantID})

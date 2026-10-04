@@ -6,10 +6,16 @@
 {{template "portal/nav" .}}
 <main class="p-3">
   {{template "partial/flash" .}}
+  {{if .Data.HasCover}}
+  <div class="mb-3"><img src="/p/{{.Data.Tid}}/cover" class="img-fluid rounded w-100" style="max-height:12em;object-fit:cover" alt="{{.Data.Clinic}}"></div>
+  {{end}}
   <div class="portal-hero p-3 mb-3">
     <div class="small opacity-75">{{.Data.Clinic}}</div>
     <h4 class="mb-0">{{.Data.Name}}，你好 🦷</h4>
   </div>
+  {{if .Data.Notice}}
+  <div class="alert alert-info py-2">📢 {{.Data.Notice}}</div>
+  {{end}}
   {{if .Data.Intro}}
   <div class="card portal-card mb-2"><div class="card-body py-2">
     <h6 class="mb-1">诊所介绍</h6>

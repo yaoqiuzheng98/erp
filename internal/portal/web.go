@@ -39,6 +39,7 @@ func (h *Web) Register(g *gin.RouterGroup) {
 	g.GET("", h.requirePatient, h.home)
 	g.GET("/", h.requirePatient, h.home)
 	g.GET("/services", h.services)
+	g.GET("/cover", h.cover)
 	g.GET("/book", h.requirePatient, h.bookPage)
 	g.POST("/book", h.requirePatient, h.book)
 	g.GET("/pay/:id", h.requirePatient, h.payPage)
@@ -106,8 +107,35 @@ func (h *Web) home(c *gin.Context) {
 	if t := mw.Tenant(c); t != nil {
 		data["Intro"], data["Address"] = t.Intro, t.Address
 		data["Phone"], data["Hours"] = t.Phone, t.Hours
+		data["Notice"], data["HasCover"] = t.Notice, t.CoverID != ""
 	}
 	web.Render(c, h.e, "portal/home", data)
+}
+
+// cover 诊所封面图（公开：首页展示用，无需患者登录，归属校验防串门诊）。
+func (h *Web) cover(c *gin.Context) {
+	t := mw.Tenant(c)
+	if t == nil || t.CoverID == "" {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	id, err := bson.ObjectIDFromHex(t.CoverID)
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	a, stream, err := h.e.Attach.Open(c.Request.Context(), t.ID, id)
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	defer stream.Close()
+	mime := a.Mime
+	if mime == "" {
+		mime = "application/octet-stream"
+	}
+	c.Header("Content-Disposition", "inline; filename=\""+a.Filename+"\"")
+	c.DataFromReader(http.StatusOK, a.Size, mime, stream, nil)
 }
 
 func (h *Web) apptsPage(c *gin.Context) {

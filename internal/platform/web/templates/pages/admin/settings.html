@@ -11,7 +11,7 @@
       {{template "partial/flash" .}}
       <h4 class="mb-3">门诊设置</h4>
       <div class="card mb-3" style="max-width:560px"><div class="card-body">
-        <form method="post" action="/admin/settings">
+        <form method="post" action="/admin/settings" enctype="multipart/form-data">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="mb-2"><label class="form-label">门诊名称</label>
             <input class="form-control form-control-sm" value="{{.Data.Tenant.Name}}" disabled></div>
@@ -21,6 +21,11 @@
             <div class="form-text">患者自助预约时收取，填 0 为不收；改价只影响之后的新预约。</div></div>
           <div class="mb-2"><label class="form-label">诊所介绍 <span class="text-muted">（患者端首页展示）</span></label>
             <textarea class="form-control form-control-sm" name="intro" rows="3" placeholder="如 建于2018年，专注种植/正畸…">{{.Data.Tenant.Intro}}</textarea></div>
+          <div class="mb-2"><label class="form-label">公告 <span class="text-muted">（患者端首页横幅，空则不显示）</span></label>
+            <input class="form-control form-control-sm" name="notice" value="{{.Data.Tenant.Notice}}" placeholder="如 国庆期间正常接诊"></div>
+          <div class="mb-2"><label class="form-label">封面图 <span class="text-muted">（患者端首页顶部，不选则保持原图）</span></label>
+            {{if .Data.Tenant.CoverID}}<div class="mb-1"><img src="/app/attach/{{.Data.Tenant.CoverID}}" class="img-fluid rounded" style="max-height:10em" alt="封面预览"></div>{{end}}
+            <input class="form-control form-control-sm" name="cover" type="file" accept="image/*"></div>
           <div class="row g-2">
             <div class="col-12 col-md-6"><label class="form-label">地址</label>
               <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>
