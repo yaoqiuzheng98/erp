@@ -55,6 +55,7 @@ type User struct {
 	HomeOrder    int             `bson:"home_order,omitempty"` // 首页展示排序（小在前）
 	Status       string          `bson:"status"`       // active / disabled
 	IsTenantAdm  bool            `bson:"is_tenant_admin"`
+	Avatar       string          `bson:"avatar,omitempty"` // 大头照 GridFS 文件 ID hex
 	LastLoginAt  time.Time       `bson:"last_login_at,omitempty"`
 }
 

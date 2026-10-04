@@ -16,7 +16,7 @@
       <p class="text-muted small">员工用手机号+密码登录；勾选「可接诊」才会出现在预约的医生列表里。</p>
 
       <div class="modal fade" id="empModal" tabindex="-1"><div class="modal-dialog modal-lg">
-        <form method="post" action="/admin/users" class="modal-content">
+        <form method="post" action="/admin/users" class="modal-content" enctype="multipart/form-data">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="modal-header"><h5 class="modal-title">新增员工</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -44,6 +44,8 @@
             <div class="mb-2"><label class="form-label">个人简介 <span class="text-muted">（患者端首页团队展示）</span></label>
               <textarea class="form-control form-control-sm" name="bio" rows="2" placeholder="如 主治医师，擅长种植/正畸…"></textarea>
             </div>
+            <div class="mb-2"><label class="form-label">大头照</label>
+              <input class="form-control form-control-sm" name="avatar" type="file" accept="image/*"></div>
             <div class="d-flex align-items-center gap-4">
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" name="can_practice" id="new-can-practice">
@@ -76,7 +78,7 @@
       {{$row := .}}
       {{$eid := print "edit-" (hex .ID)}}
       <div class="modal fade" id="{{$eid}}" tabindex="-1"><div class="modal-dialog">
-        <form method="post" action="/admin/users/{{hex .ID}}" class="modal-content">
+        <form method="post" action="/admin/users/{{hex .ID}}" class="modal-content" enctype="multipart/form-data">
           <input type="hidden" name="_csrf" value="{{$.CSRF}}">
           <div class="modal-header"><h5 class="modal-title">编辑员工 · {{.Name}}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -102,6 +104,9 @@
             <div class="mb-2"><label class="form-label">个人简介 <span class="text-muted">（患者端首页团队展示）</span></label>
               <textarea class="form-control form-control-sm" name="bio" rows="2" placeholder="如 主治医师，擅长种植/正畸…">{{.Bio}}</textarea>
             </div>
+            <div class="mb-2"><label class="form-label">大头照 <span class="text-muted">（不选则保持原图）</span></label>
+              {{if .Avatar}}<div class="mb-1"><img src="/app/attach/{{.Avatar}}" class="rounded" style="width:4em;height:4em;object-fit:cover" alt="大头照"></div>{{end}}
+              <input class="form-control form-control-sm" name="avatar" type="file" accept="image/*"></div>
             <div class="row g-2 align-items-end">
               <div class="col-6"><label class="form-label">状态</label>
                 <select class="form-select form-select-sm" name="status">
@@ -120,11 +125,12 @@
       {{end}}
 
       <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white align-middle">
-        <thead><tr><th>姓名</th><th>手机号</th><th>角色</th><th>可接诊</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
+        <thead><tr><th></th><th>姓名</th><th>手机号</th><th>角色</th><th>可接诊</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Users}}
         {{$row := .}}
         <tr>
+          <td>{{if .Avatar}}<img src="/app/attach/{{.Avatar}}" class="rounded-circle" style="width:2em;height:2em;object-fit:cover" alt="{{.Name}}">{{else}}<span class="text-muted">—</span>{{end}}</td>
           <td class="text-nowrap">{{.Name}} {{if .IsTenantAdm}}<span class="badge bg-info text-dark">管理员</span>{{end}}</td>
           <td>{{.Phone}}</td>
           <td class="small">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</td>
@@ -138,7 +144,7 @@
           </td>
         </tr>
         {{else}}
-        <tr><td colspan="7" class="text-muted">暂无员工，先新增（设置医生勾选可接诊）</td></tr>
+        <tr><td colspan="8" class="text-muted">暂无员工，先新增（设置医生勾选可接诊）</td></tr>
         {{end}}
         </tbody>
       </table></div>
@@ -147,7 +153,10 @@
         {{$row := .}}
         <div class="card mb-2"><div class="card-body py-2">
           <div class="d-flex justify-content-between align-items-center">
-            <b>{{.Name}} {{if .IsTenantAdm}}<span class="badge bg-info text-dark">管理员</span>{{end}}</b>
+            <span class="d-flex align-items-center gap-2">
+              {{if .Avatar}}<img src="/app/attach/{{.Avatar}}" class="rounded-circle" style="width:2em;height:2em;object-fit:cover" alt="{{.Name}}">{{end}}
+              <b>{{.Name}} {{if .IsTenantAdm}}<span class="badge bg-info text-dark">管理员</span>{{end}}</b>
+            </span>
             <span class="small text-muted">{{if eq .Status "active"}}在职{{else}}离职{{end}}</span>
           </div>
           <div class="small text-muted mt-1">{{.Phone}} · {{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}{{if .CanPractice}}· 可接诊{{end}}</div>

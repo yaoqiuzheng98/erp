@@ -88,9 +88,43 @@ func (h *Handler) createUser(c *gin.Context) {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
 		h.audit(c, "user.create", u.Name+" "+u.Phone, "")
-		web.SetFlash(c, "员工已创建: " + u.Name)
+		if msg := h.saveAvatar(c, u.ID, ""); msg != "" {
+			web.SetFlash(c, "员工已创建，但"+msg)
+		} else {
+			web.SetFlash(c, "员工已创建: " + u.Name)
+		}
 	}
 	c.Redirect(http.StatusFound, "/admin/users")
+}
+
+// saveAvatar 员工大头照（可选）：无上传返回空串；有上传则存 GridFS 并回写用户，
+// 成功时删掉旧图。返回空串=成功或无事可做，否则为错误描述。
+func (h *Handler) saveAvatar(c *gin.Context, id bson.ObjectID, oldAvatar string) string {
+	fh, err := c.FormFile("avatar")
+	if err != nil || fh == nil || fh.Filename == "" {
+		return ""
+	}
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
+	f, err := fh.Open()
+	if err != nil {
+		return "大头照打开失败"
+	}
+	defer f.Close()
+	a, err := h.e.Attach.Save(ctx, tid, "user", id,
+		fh.Filename, fh.Header.Get("Content-Type"), f, mw.User(c).Name)
+	if err != nil {
+		return "大头照上传失败: " + err.Error()
+	}
+	if oldAvatar != "" {
+		if oldID, err := bson.ObjectIDFromHex(oldAvatar); err == nil {
+			_ = h.e.Attach.Delete(ctx, tid, oldID)
+		}
+	}
+	if err := h.e.Auth.Update(ctx, tid, id, bson.M{"avatar": a.ID.Hex()}); err != nil {
+		return "大头照保存失败: " + err.Error()
+	}
+	return ""
 }
 
 func (h *Handler) updateUser(c *gin.Context) {
@@ -98,6 +132,10 @@ func (h *Handler) updateUser(c *gin.Context) {
 	status := c.PostForm("status")
 	if status != "active" && status != "disabled" {
 		status = "active"
+	}
+	oldAvatar := ""
+	if u, err := h.e.Auth.UserByID(c.Request.Context(), mw.TenantID(c), id); err == nil {
+		oldAvatar = u.Avatar
 	}
 	set := bson.M{
 		"name":         c.PostForm("name"),
@@ -109,6 +147,8 @@ func (h *Handler) updateUser(c *gin.Context) {
 	}
 	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
+	} else if msg := h.saveAvatar(c, id, oldAvatar); msg != "" {
+		web.SetFlash(c, "员工已保存，但"+msg)
 	} else {
 		h.audit(c, "user.update", c.PostForm("name"), "")
 		web.SetFlash(c, "员工已保存")
