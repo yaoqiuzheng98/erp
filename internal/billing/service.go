@@ -10,6 +10,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var ErrOverPay = errors.New("核销金额超过未付余额")
@@ -168,6 +169,24 @@ func (s *Service) CreateExpense(ctx context.Context, tenantID bson.ObjectID, ex 
 	ex.TenantID, ex.CreatedAt, ex.CreatedBy = tenantID, time.Now(), by
 	_, err := s.expenses.Insert(ctx, tenantID, ex)
 	return err
+}
+
+// OpenBills 未收应收（最新在前），汇总页明细用。
+func (s *Service) OpenBills(ctx context.Context, tenantID bson.ObjectID, limit int64) ([]Bill, error) {
+	return s.bills.FindMany(ctx, tenantID, bson.M{"status": BillOpen},
+		options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}).SetLimit(limit))
+}
+
+// RecentPayments 最近收款（最新在前），汇总页明细用。
+func (s *Service) RecentPayments(ctx context.Context, tenantID bson.ObjectID, limit int64) ([]Payment, error) {
+	return s.payments.FindMany(ctx, tenantID, bson.M{},
+		options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}).SetLimit(limit))
+}
+
+// RecentExpenses 最近费用（最新在前），汇总页明细用。
+func (s *Service) RecentExpenses(ctx context.Context, tenantID bson.ObjectID, limit int64) ([]Expense, error) {
+	return s.expenses.FindMany(ctx, tenantID, bson.M{},
+		options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}).SetLimit(limit))
 }
 
 // Summary 账簿汇总：未收应收、累计收款、累计费用。

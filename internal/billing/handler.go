@@ -39,9 +39,15 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 }
 
 func (h *Handler) summary(c *gin.Context) {
-	openAR, received, expense := h.svc.Summary(c.Request.Context(), mw.TenantID(c))
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
+	openAR, received, expense := h.svc.Summary(ctx, tid)
+	openBills, _ := h.svc.OpenBills(ctx, tid, 10)
+	payments, _ := h.svc.RecentPayments(ctx, tid, 10)
+	expenses, _ := h.svc.RecentExpenses(ctx, tid, 10)
 	web.Render(c, h.e, "billing/summary", gin.H{
 		"OpenAR": openAR, "Received": received, "Expense": expense,
+		"OpenBills": openBills, "Payments": payments, "Expenses": expenses,
 	})
 }
 
