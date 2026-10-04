@@ -15,7 +15,7 @@ secret = "REPLACE-WITH-STRONG-RANDOM"   # 测试环境单独生成，勿与生�
 secure = true                           # HTTPS 下必须 true
 
 [storage]
-upload_dir = "./data/uploads"           # 挂载 erp_test_uploads 卷，与生产隔离
+max_image_mb = 10                   # 图片上传上限（MB），文件本体存 MongoDB GridFS，随库备份
 
 [log]
 level = "info"

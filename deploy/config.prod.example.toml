@@ -14,7 +14,7 @@ secret = "REPLACE-WITH-STRONG-RANDOM"   # 生产强随机值，勿与开发共�
 secure = true                           # HTTPS 下必须 true
 
 [storage]
-upload_dir = "./data/uploads"           # 挂载 erp_uploads 卷
+max_image_mb = 10                   # 图片上传上限（MB），文件本体存 MongoDB GridFS，随库备份
 
 [log]
 level = "info"

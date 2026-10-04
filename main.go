@@ -58,7 +58,7 @@ func main() {
 		Seq:      seqno.New(d.Database),
 		Audit:    audit.New(d.Database),
 		Notify:   notify.New(d.Database),
-		Attach:   attach.New(d.Database, cfg.Storage.UploadDir),
+		Attach:   attach.New(d.Database, cfg.Storage.MaxImageMB),
 	}
 	// 业务服务直连装配（员工即 e.Auth 用户）
 	billingSvc := billing.New(d.Database, e.Seq)

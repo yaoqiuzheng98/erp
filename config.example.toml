@@ -13,7 +13,7 @@ secret = "change-me"          # 会话 cookie 签名密钥
 secure = false                # HTTPS 部署置 true，cookie 加 Secure 标记
 
 [storage]
-upload_dir = "./data/uploads"
+max_image_mb = 10             # 图片上传上限（MB），文件本体存 MongoDB GridFS
 
 [log]
 level = "info"

@@ -114,13 +114,23 @@ func attachUpload(e *env.Env) gin.HandlerFunc {
 func attachDownload(e *env.Env) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, _ := bson.ObjectIDFromHex(c.Param("id"))
-		a, path, err := e.Attach.Get(c.Request.Context(), mw.TenantID(c), id)
+		a, stream, err := e.Attach.Open(c.Request.Context(), mw.TenantID(c), id)
 		if err != nil {
 			c.Status(http.StatusNotFound)
 			return
 		}
-		c.Header("Content-Disposition", "attachment; filename=\""+a.Filename+"\"")
-		c.File(path)
+		defer stream.Close()
+		mime := a.Mime
+		if mime == "" {
+			mime = "application/octet-stream"
+		}
+		// 图片 inline 直接预览，其余走附件下载
+		disp := "attachment"
+		if len(mime) >= 6 && mime[:6] == "image/" {
+			disp = "inline"
+		}
+		c.Header("Content-Disposition", disp+"; filename=\""+a.Filename+"\"")
+		c.DataFromReader(http.StatusOK, a.Size, mime, stream, nil)
 	}
 }
 

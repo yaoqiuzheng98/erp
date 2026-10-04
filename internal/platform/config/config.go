@@ -34,7 +34,7 @@ type SessionConfig struct {
 }
 
 type StorageConfig struct {
-	UploadDir string `toml:"upload_dir"`
+	MaxImageMB int `toml:"max_image_mb"` // 图片上传上限（MB），<=0 则默认 10
 }
 
 type LogConfig struct {
@@ -71,8 +71,8 @@ func Load(path string) (*Config, error) {
 	if c.Session.SysCookieName == "" {
 		c.Session.SysCookieName = "erp_sys"
 	}
-	if c.Storage.UploadDir == "" {
-		c.Storage.UploadDir = "./data/uploads"
+	if c.Storage.MaxImageMB <= 0 {
+		c.Storage.MaxImageMB = 10
 	}
 	return &c, nil
 }
