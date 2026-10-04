@@ -11,8 +11,8 @@ import (
 )
 
 // Tenant 门诊租户（一家门诊）。RegFee 挂号费（患者自助预约时收），0=不收。
-// Intro/Address/Phone/Hours/Notice/CoverID 为患者端首页展示的诊所信息，
-// CoverID 为 GridFS 图片 ID（封面图，门诊后台上传）。
+// Intro/Address/Phone/Hours/Notice/Gallery 为患者端首页展示的诊所信息，
+// Gallery 为 GridFS 图片 ID（hex）列表，多图画廊，门诊后台上传维护。
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
@@ -23,7 +23,7 @@ type Tenant struct {
 	Phone     string        `bson:"phone,omitempty"`
 	Hours     string        `bson:"hours,omitempty"`
 	Notice    string        `bson:"notice,omitempty"`
-	CoverID   string        `bson:"cover_id,omitempty"`
+	Gallery   []string      `bson:"gallery,omitempty"`
 	CreatedAt time.Time     `bson:"created_at"`
 }
 
@@ -88,9 +88,15 @@ func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, intro, addre
 	return err
 }
 
-// SetCover 更新诊所封面图（GridFS 文件 ID hex，空串=清除）。
-func (s *Service) SetCover(ctx context.Context, id bson.ObjectID, coverID string) error {
-	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"cover_id": coverID}})
+// AddGalleryPhoto 门诊图库追加一张（GridFS 文件 ID hex）。
+func (s *Service) AddGalleryPhoto(ctx context.Context, id bson.ObjectID, fileID string) error {
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$push": bson.M{"gallery": fileID}})
+	return err
+}
+
+// RemoveGalleryPhoto 门诊图库删除一张。
+func (s *Service) RemoveGalleryPhoto(ctx context.Context, id bson.ObjectID, fileID string) error {
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$pull": bson.M{"gallery": fileID}})
 	return err
 }
 

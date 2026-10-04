@@ -50,6 +50,7 @@ type User struct {
 	Name         string          `bson:"name"`
 	RoleIDs      []bson.ObjectID `bson:"role_ids"`
 	CanPractice  bool            `bson:"can_practice"` // 可接诊：预约候选医生
+	Bio          string          `bson:"bio,omitempty"` // 个人简介：患者端首页医生团队展示
 	Status       string          `bson:"status"`       // active / disabled
 	IsTenantAdm  bool            `bson:"is_tenant_admin"`
 	LastLoginAt  time.Time       `bson:"last_login_at,omitempty"`

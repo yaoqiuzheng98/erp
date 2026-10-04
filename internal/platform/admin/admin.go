@@ -36,6 +36,7 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 
 	g.GET("/settings", mw.RequirePerm("admin.settings"), h.settingsPage)
 	g.POST("/settings", mw.RequirePerm("admin.settings"), h.saveSettings)
+	g.POST("/settings/gallery/:id/delete", mw.RequirePerm("admin.settings"), h.deleteGalleryPhoto)
 
 	g.GET("/audit", mw.RequirePerm("admin.audit"), h.auditPage)
 }
@@ -75,6 +76,7 @@ func (h *Handler) createUser(c *gin.Context) {
 		RoleIDs:     roleIDsOf(c),
 		CanPractice: c.PostForm("can_practice") == "on",
 		IsTenantAdm: c.PostForm("is_admin") == "on",
+		Bio:         c.PostForm("bio"),
 	}
 	if err := h.e.Auth.Create(c.Request.Context(), mw.TenantID(c), u, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
@@ -94,6 +96,7 @@ func (h *Handler) updateUser(c *gin.Context) {
 	set := bson.M{
 		"name":         c.PostForm("name"),
 		"phone":        c.PostForm("phone"),
+		"bio":          c.PostForm("bio"),
 		"role_ids":     roleIDsOf(c),
 		"can_practice": c.PostForm("can_practice") == "on",
 		"status":       status,
@@ -185,10 +188,6 @@ func (h *Handler) settingsPage(c *gin.Context) {
 func (h *Handler) saveSettings(c *gin.Context) {
 	ctx := c.Request.Context()
 	tid := mw.TenantID(c)
-	oldCover := ""
-	if t := mw.Tenant(c); t != nil {
-		oldCover = t.CoverID
-	}
 	fee, _ := strconv.ParseFloat(c.PostForm("reg_fee"), 64)
 	if err := h.e.Tenants.SetFee(ctx, tid, fee); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
@@ -202,30 +201,34 @@ func (h *Handler) saveSettings(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/admin/settings")
 		return
 	}
-	// 封面图（可选）：有上传才替换，旧图删掉防孤儿
+	// 门诊图（可多张）：有上传就追加
 	coverErr := ""
-	if fh, err := c.FormFile("cover"); err == nil && fh != nil && fh.Filename != "" {
-		if f, err := fh.Open(); err == nil {
+	if mf, err := c.MultipartForm(); err == nil && mf != nil {
+		for _, fh := range mf.File["photos"] {
+			if fh == nil || fh.Filename == "" {
+				continue
+			}
 			func() {
+				f, err := fh.Open()
+				if err != nil {
+					coverErr = "图片打开失败"
+					return
+				}
 				defer f.Close()
 				a, err := h.e.Attach.Save(ctx, tid, "tenant", tid,
 					fh.Filename, fh.Header.Get("Content-Type"), f, mw.User(c).Name)
 				if err != nil {
-					coverErr = "封面上传失败: " + err.Error()
+					coverErr = "图片上传失败: " + err.Error()
 					return
 				}
-				if oldCover != "" {
-					if oldID, err := bson.ObjectIDFromHex(oldCover); err == nil {
-						_ = h.e.Attach.Delete(ctx, tid, oldID)
-					}
-				}
-				if err := h.e.Tenants.SetCover(ctx, tid, a.ID.Hex()); err != nil {
+				if err := h.e.Tenants.AddGalleryPhoto(ctx, tid, a.ID.Hex()); err != nil {
 					coverErr = "保存失败: " + err.Error()
 					return
 				}
 			}()
-		} else {
-			coverErr = "封面打开失败"
+			if coverErr != "" {
+				break
+			}
 		}
 	}
 	if coverErr != "" {
@@ -234,6 +237,19 @@ func (h *Handler) saveSettings(c *gin.Context) {
 		h.audit(c, "tenant.settings", "reg_fee+profile", c.PostForm("reg_fee"))
 		web.SetFlash(c, "门诊设置已保存")
 	}
+	c.Redirect(http.StatusFound, "/admin/settings")
+}
+
+// deleteGalleryPhoto 门诊图库删除一张（库记录 + GridFS 文件一起删）。
+func (h *Handler) deleteGalleryPhoto(c *gin.Context) {
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
+	fid := c.Param("id")
+	if oid, err := bson.ObjectIDFromHex(fid); err == nil {
+		_ = h.e.Attach.Delete(ctx, tid, oid)
+	}
+	_ = h.e.Tenants.RemoveGalleryPhoto(ctx, tid, fid)
+	web.SetFlash(c, "门诊图已删除")
 	c.Redirect(http.StatusFound, "/admin/settings")
 }
 

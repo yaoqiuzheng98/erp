@@ -23,9 +23,22 @@
             <textarea class="form-control form-control-sm" name="intro" rows="3" placeholder="如 建于2018年，专注种植/正畸…">{{.Data.Tenant.Intro}}</textarea></div>
           <div class="mb-2"><label class="form-label">公告 <span class="text-muted">（患者端首页横幅，空则不显示）</span></label>
             <input class="form-control form-control-sm" name="notice" value="{{.Data.Tenant.Notice}}" placeholder="如 国庆期间正常接诊"></div>
-          <div class="mb-2"><label class="form-label">封面图 <span class="text-muted">（患者端首页顶部，不选则保持原图）</span></label>
-            {{if .Data.Tenant.CoverID}}<div class="mb-1"><img src="/app/attach/{{.Data.Tenant.CoverID}}" class="img-fluid rounded" style="max-height:10em" alt="封面预览"></div>{{end}}
-            <input class="form-control form-control-sm" name="cover" type="file" accept="image/*"></div>
+          <div class="mb-2"><label class="form-label">门诊图 <span class="text-muted">（患者端首页画廊，可多选批量上传）</span></label>
+            {{if .Data.Tenant.Gallery}}
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              {{range .Data.Tenant.Gallery}}
+              <div class="position-relative">
+                <img src="/app/attach/{{.}}" class="rounded" style="width:6em;height:6em;object-fit:cover" alt="门诊图">
+                <form method="post" action="/admin/settings/gallery/{{.}}/delete" class="m-0"
+                      onsubmit="return confirm('确认删除这张门诊图？')">
+                  <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                  <button class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1">×</button>
+                </form>
+              </div>
+              {{end}}
+            </div>
+            {{end}}
+            <input class="form-control form-control-sm" name="photos" type="file" accept="image/*" multiple></div>
           <div class="row g-2">
             <div class="col-12 col-md-6"><label class="form-label">地址</label>
               <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>

@@ -39,7 +39,7 @@ func (h *Web) Register(g *gin.RouterGroup) {
 	g.GET("", h.requirePatient, h.home)
 	g.GET("/", h.requirePatient, h.home)
 	g.GET("/services", h.services)
-	g.GET("/cover", h.cover)
+	g.GET("/gallery/:id", h.gallery)
 	g.GET("/book", h.requirePatient, h.bookPage)
 	g.POST("/book", h.requirePatient, h.book)
 	g.GET("/pay/:id", h.requirePatient, h.payPage)
@@ -107,19 +107,32 @@ func (h *Web) home(c *gin.Context) {
 	if t := mw.Tenant(c); t != nil {
 		data["Intro"], data["Address"] = t.Intro, t.Address
 		data["Phone"], data["Hours"] = t.Phone, t.Hours
-		data["Notice"], data["HasCover"] = t.Notice, t.CoverID != ""
+		data["Notice"], data["Gallery"] = t.Notice, t.Gallery
 	}
+	doctors, _ := h.e.Auth.ListPractitioners(c.Request.Context(), p.TenantID)
+	data["Doctors"] = doctors
 	web.Render(c, h.e, "portal/home", data)
 }
 
-// cover 诊所封面图（公开：首页展示用，无需患者登录，归属校验防串门诊）。
-func (h *Web) cover(c *gin.Context) {
+// gallery 门诊图库图片（公开：首页画廊用，无需患者登录；
+// 仅允许图库名单里的 ID，防止用 ID 猜解患者影像）。
+func (h *Web) gallery(c *gin.Context) {
 	t := mw.Tenant(c)
-	if t == nil || t.CoverID == "" {
+	fid := c.Param("id")
+	allowed := false
+	if t != nil {
+		for _, g := range t.Gallery {
+			if g == fid {
+				allowed = true
+				break
+			}
+		}
+	}
+	if !allowed {
 		c.Status(http.StatusNotFound)
 		return
 	}
-	id, err := bson.ObjectIDFromHex(t.CoverID)
+	id, err := bson.ObjectIDFromHex(fid)
 	if err != nil {
 		c.Status(http.StatusNotFound)
 		return

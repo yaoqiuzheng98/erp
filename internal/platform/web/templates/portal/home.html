@@ -6,8 +6,12 @@
 {{template "portal/nav" .}}
 <main class="p-3">
   {{template "partial/flash" .}}
-  {{if .Data.HasCover}}
-  <div class="mb-3"><img src="/p/{{.Data.Tid}}/cover" class="img-fluid rounded w-100" style="max-height:12em;object-fit:cover" alt="{{.Data.Clinic}}"></div>
+  {{if .Data.Gallery}}
+  <div class="d-flex gap-2 mb-3" style="overflow-x:auto">
+    {{range .Data.Gallery}}
+    <img src="/p/{{$.Data.Tid}}/gallery/{{.}}" class="rounded flex-shrink-0" style="width:14em;height:9em;object-fit:cover" alt="{{$.Data.Clinic}}">
+    {{end}}
+  </div>
   {{end}}
   <div class="portal-hero p-3 mb-3">
     <div class="small opacity-75">{{.Data.Clinic}}</div>
@@ -27,6 +31,20 @@
     {{if .Data.Address}}<div>📍 {{.Data.Address}}</div>{{end}}
     {{if .Data.Phone}}<div>📞 <a href="tel:{{.Data.Phone}}">{{.Data.Phone}}</a></div>{{end}}
     {{if .Data.Hours}}<div>🕐 {{.Data.Hours}}</div>{{end}}
+  </div></div>
+  {{end}}
+  {{if .Data.Doctors}}
+  <div class="card portal-card mb-3"><div class="card-body py-2">
+    <h6 class="mb-2">医生团队</h6>
+    {{range .Data.Doctors}}
+    <div class="d-flex gap-2 align-items-start py-1 border-bottom">
+      <span class="fs-4">👨‍⚕️</span>
+      <div>
+        <div><b>{{.Name}}</b></div>
+        {{if .Bio}}<div class="small text-muted">{{.Bio}}</div>{{end}}
+      </div>
+    </div>
+    {{end}}
   </div></div>
   {{end}}
 </main>
