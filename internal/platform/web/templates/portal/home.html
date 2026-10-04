@@ -23,10 +23,6 @@
     {{if .Data.Hours}}<div>🕐 {{.Data.Hours}}</div>{{end}}
   </div></div>
   {{end}}
-  <div class="d-grid gap-2">
-    <a class="btn btn-primary btn-lg py-3" href="/p/{{.Data.Tid}}/appointments">🧾 我的预约</a>
-    <a class="btn btn-outline-primary btn-lg py-3" href="/p/{{.Data.Tid}}/bills">💰 我的账单</a>
-  </div>
 </main>
 {{template "portal/tabbar" .}}
 {{template "partial/foot" .}}
