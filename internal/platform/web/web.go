@@ -58,6 +58,7 @@ var appMenu = []menu.Item{
 var adminMenu = []menu.Item{
 	{ID: "admin", Title: "系统管理", Icon: "⚙", Children: []menu.Item{
 		{ID: "admin.users", Title: "员工", Path: "/admin/users", Perm: "admin.users"},
+		{ID: "admin.home", Title: "首页配置", Path: "/admin/home", Perm: "admin.settings"},
 		{ID: "admin.roles", Title: "权限角色", Path: "/admin/roles", Perm: "admin.roles"},
 		{ID: "admin.settings", Title: "门诊设置", Path: "/admin/settings", Perm: "admin.settings"},
 		{ID: "admin.audit", Title: "审计日志", Path: "/admin/audit", Perm: "admin.audit"},

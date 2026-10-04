@@ -11,7 +11,7 @@
       {{template "partial/flash" .}}
       <h4 class="mb-3">门诊设置</h4>
       <div class="card mb-3" style="max-width:560px"><div class="card-body">
-        <form method="post" action="/admin/settings" enctype="multipart/form-data">
+        <form method="post" action="/admin/settings">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="mb-2"><label class="form-label">门诊名称</label>
             <input class="form-control form-control-sm" value="{{.Data.Tenant.Name}}" disabled></div>
@@ -19,35 +19,8 @@
             <input class="form-control form-control-sm" name="reg_fee" type="number" step="0.01" min="0"
                    value="{{printf "%.2f" .Data.Tenant.RegFee}}">
             <div class="form-text">患者自助预约时收取，填 0 为不收；改价只影响之后的新预约。</div></div>
-          <div class="mb-2"><label class="form-label">诊所介绍 <span class="text-muted">（患者端首页展示）</span></label>
-            <textarea class="form-control form-control-sm" name="intro" rows="3" placeholder="如 建于2018年，专注种植/正畸…">{{.Data.Tenant.Intro}}</textarea></div>
-          <div class="mb-2"><label class="form-label">公告 <span class="text-muted">（患者端首页横幅，空则不显示）</span></label>
-            <input class="form-control form-control-sm" name="notice" value="{{.Data.Tenant.Notice}}" placeholder="如 国庆期间正常接诊"></div>
-          <div class="mb-2"><label class="form-label">门诊图 <span class="text-muted">（患者端首页画廊，可多选批量上传）</span></label>
-            {{if .Data.Tenant.Gallery}}
-            <div class="d-flex flex-wrap gap-2 mb-2">
-              {{range .Data.Tenant.Gallery}}
-              <div class="position-relative">
-                <img src="/app/attach/{{.}}" class="rounded" style="width:6em;height:6em;object-fit:cover" alt="门诊图">
-                <form method="post" action="/admin/settings/gallery/{{.}}/delete" class="m-0"
-                      onsubmit="return confirm('确认删除这张门诊图？')">
-                  <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-                  <button class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1">×</button>
-                </form>
-              </div>
-              {{end}}
-            </div>
-            {{end}}
-            <input class="form-control form-control-sm" name="photos" type="file" accept="image/*" multiple></div>
-          <div class="row g-2">
-            <div class="col-12 col-md-6"><label class="form-label">地址</label>
-              <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>
-            <div class="col-6 col-md-3"><label class="form-label">咨询电话</label>
-              <input class="form-control form-control-sm" name="phone" value="{{.Data.Tenant.Phone}}" inputmode="tel"></div>
-            <div class="col-6 col-md-3"><label class="form-label">营业时间</label>
-              <input class="form-control form-control-sm" name="hours" value="{{.Data.Tenant.Hours}}" placeholder="如 9:00-18:00"></div>
-          </div>
-          <div class="mt-2"><button class="btn btn-sm btn-primary">保存</button></div>
+          <div class="form-text mb-2">诊所介绍、门诊图、人员展示请到「<a href="/admin/home">首页配置</a>」维护。</div>
+          <button class="btn btn-sm btn-primary">保存</button>
         </form>
       </div></div>
     </main>

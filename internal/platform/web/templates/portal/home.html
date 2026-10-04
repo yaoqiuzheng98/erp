@@ -33,14 +33,14 @@
     {{if .Data.Hours}}<div>🕐 {{.Data.Hours}}</div>{{end}}
   </div></div>
   {{end}}
-  {{if .Data.Doctors}}
+  {{if .Data.Team}}
   <div class="card portal-card mb-3"><div class="card-body py-2">
-    <h6 class="mb-2">医生团队</h6>
-    {{range .Data.Doctors}}
+    <h6 class="mb-2">团队介绍</h6>
+    {{range .Data.Team}}
     <div class="d-flex gap-2 align-items-start py-1 border-bottom">
       <span class="fs-4">👨‍⚕️</span>
       <div>
-        <div><b>{{.Name}}</b></div>
+        <div><b>{{.Name}}</b>{{if .Roles}} <small class="text-muted">{{.Roles}}</small>{{end}}</div>
         {{if .Bio}}<div class="small text-muted">{{.Bio}}</div>{{end}}
       </div>
     </div>

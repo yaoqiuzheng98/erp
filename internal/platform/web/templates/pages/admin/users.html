@@ -41,9 +41,6 @@
               </div>
               <div class="form-text">角色决定能看哪些页/做哪些操作，可在「系统管理 → 权限角色」里定义。</div>
             </div>
-            <div class="mb-2"><label class="form-label">个人简介 <span class="text-muted">（可接诊医生会在患者端首页展示）</span></label>
-              <textarea class="form-control form-control-sm" name="bio" rows="2" placeholder="如 主治医师，擅长种植/正畸…"></textarea>
-            </div>
             <div class="d-flex align-items-center gap-4">
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" name="can_practice" id="new-can-practice">
@@ -73,7 +70,7 @@
       </div></div>
 
       <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white align-middle">
-        <thead><tr><th>姓名</th><th>手机号</th><th>简介</th><th>角色</th><th>可接诊</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
+        <thead><tr><th>姓名</th><th>手机号</th><th>角色</th><th>可接诊</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Users}}
         {{$row := .}}
@@ -83,8 +80,6 @@
             {{if .IsTenantAdm}}<span class="badge bg-info text-dark flex-shrink-0">管理员</span>{{end}}</div></td>
           <td><input class="form-control form-control-sm" form="{{$fid}}" name="phone" value="{{.Phone}}"
                      inputmode="tel" pattern="1[3-9][0-9]{9}" title="11 位大陆手机号" style="min-width:9em" required></td>
-          <td><input class="form-control form-control-sm" form="{{$fid}}" name="bio" value="{{.Bio}}"
-                     placeholder="简介" style="min-width:10em"></td>
           <td>{{range $.Data.Roles}}
             <div class="form-check form-check-inline">
               <input class="form-check-input" form="{{$fid}}" type="checkbox" name="role_ids" value="{{hex .ID}}"
@@ -109,7 +104,7 @@
           </td>
         </tr>
         {{else}}
-        <tr><td colspan="8" class="text-muted">暂无员工，先新增（设置医生勾选可接诊）</td></tr>
+        <tr><td colspan="7" class="text-muted">暂无员工，先新增（设置医生勾选可接诊）</td></tr>
         {{end}}
         </tbody>
       </table></div>
@@ -124,7 +119,6 @@
             <div class="col-6"><input class="form-control" form="{{$mid}}" name="phone" value="{{.Phone}}"
                    inputmode="tel" pattern="1[3-9][0-9]{9}" title="11 位大陆手机号" placeholder="手机号" required></div>
           </div>
-          <div class="mb-1"><input class="form-control form-control-sm" form="{{$mid}}" name="bio" value="{{.Bio}}" placeholder="个人简介"></div>
           <div class="mb-1">
             {{range $.Data.Roles}}
             <div class="form-check form-check-inline">

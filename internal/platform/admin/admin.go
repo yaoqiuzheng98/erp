@@ -38,6 +38,12 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 	g.POST("/settings", mw.RequirePerm("admin.settings"), h.saveSettings)
 	g.POST("/settings/gallery/:id/delete", mw.RequirePerm("admin.settings"), h.deleteGalleryPhoto)
 
+	g.GET("/home", mw.RequirePerm("admin.settings"), h.homePage)
+	g.POST("/home/profile", mw.RequirePerm("admin.settings"), h.saveHomeProfile)
+	g.POST("/home/gallery", mw.RequirePerm("admin.settings"), h.uploadGallery)
+	g.POST("/home/gallery/:id/delete", mw.RequirePerm("admin.settings"), h.deleteGalleryPhoto)
+	g.POST("/home/staff/:id", mw.RequirePerm("admin.settings"), h.saveHomeStaff)
+
 	g.GET("/audit", mw.RequirePerm("admin.audit"), h.auditPage)
 }
 
@@ -76,7 +82,6 @@ func (h *Handler) createUser(c *gin.Context) {
 		RoleIDs:     roleIDsOf(c),
 		CanPractice: c.PostForm("can_practice") == "on",
 		IsTenantAdm: c.PostForm("is_admin") == "on",
-		Bio:         c.PostForm("bio"),
 	}
 	if err := h.e.Auth.Create(c.Request.Context(), mw.TenantID(c), u, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
@@ -96,7 +101,6 @@ func (h *Handler) updateUser(c *gin.Context) {
 	set := bson.M{
 		"name":         c.PostForm("name"),
 		"phone":        c.PostForm("phone"),
-		"bio":          c.PostForm("bio"),
 		"role_ids":     roleIDsOf(c),
 		"can_practice": c.PostForm("can_practice") == "on",
 		"status":       status,
@@ -186,23 +190,49 @@ func (h *Handler) settingsPage(c *gin.Context) {
 }
 
 func (h *Handler) saveSettings(c *gin.Context) {
+	fee, _ := strconv.ParseFloat(c.PostForm("reg_fee"), 64)
+	if err := h.e.Tenants.SetFee(c.Request.Context(), mw.TenantID(c), fee); err != nil {
+		web.SetFlash(c, "保存失败: "+err.Error())
+	} else {
+		h.audit(c, "tenant.settings", "reg_fee", c.PostForm("reg_fee"))
+		web.SetFlash(c, "门诊设置已保存")
+	}
+	c.Redirect(http.StatusFound, "/admin/settings")
+}
+
+// ---------- 首页配置（患者端首页所有内容统一在这里配） ----------
+
+func (h *Handler) homePage(c *gin.Context) {
 	ctx := c.Request.Context()
 	tid := mw.TenantID(c)
-	fee, _ := strconv.ParseFloat(c.PostForm("reg_fee"), 64)
-	if err := h.e.Tenants.SetFee(ctx, tid, fee); err != nil {
-		web.SetFlash(c, "保存失败: "+err.Error())
-		c.Redirect(http.StatusFound, "/admin/settings")
-		return
-	}
+	users, _ := h.e.Auth.List(ctx, tid)
+	roles, _ := h.e.RBAC.List(ctx, tid)
+	web.Render(c, h.e, "admin/home", gin.H{
+		"Tenant": mw.Tenant(c), "Users": users, "Roles": roles,
+	})
+}
+
+// saveHomeProfile 诊所介绍信息（介绍/公告/地址/电话/营业时间）。
+func (h *Handler) saveHomeProfile(c *gin.Context) {
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
 	if err := h.e.Tenants.SetProfile(ctx, tid,
 		c.PostForm("intro"), c.PostForm("address"), c.PostForm("phone"),
 		c.PostForm("hours"), c.PostForm("notice")); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
-		c.Redirect(http.StatusFound, "/admin/settings")
-		return
+	} else {
+		h.audit(c, "tenant.home", "profile", "")
+		web.SetFlash(c, "诊所介绍已保存")
 	}
-	// 门诊图（可多张）：有上传就追加
+	c.Redirect(http.StatusFound, "/admin/home")
+}
+
+// uploadGallery 门诊图多张批量上传。
+func (h *Handler) uploadGallery(c *gin.Context) {
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
 	coverErr := ""
+	n := 0
 	if mf, err := c.MultipartForm(); err == nil && mf != nil {
 		for _, fh := range mf.File["photos"] {
 			if fh == nil || fh.Filename == "" {
@@ -225,6 +255,7 @@ func (h *Handler) saveSettings(c *gin.Context) {
 					coverErr = "保存失败: " + err.Error()
 					return
 				}
+				n++
 			}()
 			if coverErr != "" {
 				break
@@ -233,11 +264,31 @@ func (h *Handler) saveSettings(c *gin.Context) {
 	}
 	if coverErr != "" {
 		web.SetFlash(c, coverErr)
+	} else if n == 0 {
+		web.SetFlash(c, "请选择图片")
 	} else {
-		h.audit(c, "tenant.settings", "reg_fee+profile", c.PostForm("reg_fee"))
-		web.SetFlash(c, "门诊设置已保存")
+		h.audit(c, "tenant.home", "gallery.add", strconv.Itoa(n))
+		web.SetFlash(c, "门诊图已上传")
 	}
-	c.Redirect(http.StatusFound, "/admin/settings")
+	c.Redirect(http.StatusFound, "/admin/home")
+}
+
+// saveHomeStaff 首页人员配置：简介/是否展示/排序。
+func (h *Handler) saveHomeStaff(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	order, _ := strconv.Atoi(c.PostForm("home_order"))
+	set := bson.M{
+		"bio":        c.PostForm("bio"),
+		"hide_home":  c.PostForm("hide_home") == "on",
+		"home_order": order,
+	}
+	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
+		web.SetFlash(c, "保存失败: "+err.Error())
+	} else {
+		h.audit(c, "tenant.home", "staff", c.PostForm("bio"))
+		web.SetFlash(c, "人员展示已保存")
+	}
+	c.Redirect(http.StatusFound, "/admin/home")
 }
 
 // deleteGalleryPhoto 门诊图库删除一张（库记录 + GridFS 文件一起删）。

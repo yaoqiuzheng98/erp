@@ -3,7 +3,9 @@ package portal
 import (
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"erp/internal/billing"
 	"erp/internal/dental/appointment"
@@ -109,8 +111,39 @@ func (h *Web) home(c *gin.Context) {
 		data["Phone"], data["Hours"] = t.Phone, t.Hours
 		data["Notice"], data["Gallery"] = t.Notice, t.Gallery
 	}
-	doctors, _ := h.e.Auth.ListPractitioners(c.Request.Context(), p.TenantID)
-	data["Doctors"] = doctors
+	// 首页团队：全部在职且未隐藏的成员，按排序号展示，附角色与简介
+	users, _ := h.e.Auth.List(c.Request.Context(), p.TenantID)
+	roles, _ := h.e.RBAC.List(c.Request.Context(), p.TenantID)
+	roleName := map[string]string{}
+	for _, r := range roles {
+		roleName[r.ID.Hex()] = r.Name
+	}
+	type staff struct {
+		Name  string
+		Roles string
+		Bio   string
+		Order int
+	}
+	var team []staff
+	for _, u := range users {
+		if u.Status != "active" || u.HideHome {
+			continue
+		}
+		var rn []string
+		for _, rid := range u.RoleIDs {
+			if n := roleName[rid.Hex()]; n != "" {
+				rn = append(rn, n)
+			}
+		}
+		team = append(team, staff{Name: u.Name, Roles: strings.Join(rn, "·"), Bio: u.Bio, Order: u.HomeOrder})
+	}
+	sort.Slice(team, func(i, j int) bool {
+		if team[i].Order != team[j].Order {
+			return team[i].Order < team[j].Order
+		}
+		return team[i].Name < team[j].Name
+	})
+	data["Team"] = team
 	web.Render(c, h.e, "portal/home", data)
 }
 

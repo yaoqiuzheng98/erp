@@ -1,0 +1,110 @@
+{{define "admin/home"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "partial/head" .}}
+<body>
+<div class="d-flex">
+  {{template "partial/appnav" .}}
+  <div class="flex-grow-1">
+    {{template "partial/apptop" .}}
+    <main class="p-2 p-md-4">
+      {{template "partial/flash" .}}
+      <h4 class="mb-3">首页配置 <span class="text-muted small">患者端首页所有内容都在这里配</span></h4>
+      <div class="card mb-3" style="max-width:560px"><div class="card-body">
+        <h6>诊所介绍</h6>
+        <form method="post" action="/admin/home/profile">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="mb-2"><label class="form-label">公告 <span class="text-muted">（首页横幅，空则不显示）</span></label>
+            <input class="form-control form-control-sm" name="notice" value="{{.Data.Tenant.Notice}}" placeholder="如 国庆期间正常接诊"></div>
+          <div class="mb-2"><label class="form-label">诊所介绍</label>
+            <textarea class="form-control form-control-sm" name="intro" rows="3" placeholder="如 建于2018年，专注种植/正畸…">{{.Data.Tenant.Intro}}</textarea></div>
+          <div class="row g-2">
+            <div class="col-12 col-md-6"><label class="form-label">地址</label>
+              <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>
+            <div class="col-6 col-md-3"><label class="form-label">咨询电话</label>
+              <input class="form-control form-control-sm" name="phone" value="{{.Data.Tenant.Phone}}" inputmode="tel"></div>
+            <div class="col-6 col-md-3"><label class="form-label">营业时间</label>
+              <input class="form-control form-control-sm" name="hours" value="{{.Data.Tenant.Hours}}" placeholder="如 9:00-18:00"></div>
+          </div>
+          <div class="mt-2"><button class="btn btn-sm btn-primary">保存介绍</button></div>
+        </form>
+      </div></div>
+      <div class="card mb-3" style="max-width:560px"><div class="card-body">
+        <h6>门诊图 <span class="text-muted small">首页画廊，可多选批量上传</span></h6>
+        {{if .Data.Tenant.Gallery}}
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          {{range .Data.Tenant.Gallery}}
+          <div class="position-relative">
+            <img src="/app/attach/{{.}}" class="rounded" style="width:6em;height:6em;object-fit:cover" alt="门诊图">
+            <form method="post" action="/admin/home/gallery/{{.}}/delete" class="m-0"
+                  onsubmit="return confirm('确认删除这张门诊图？')">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1">×</button>
+            </form>
+          </div>
+          {{end}}
+        </div>
+        {{end}}
+        <form method="post" action="/admin/home/gallery" enctype="multipart/form-data" class="d-flex gap-2">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <input class="form-control form-control-sm flex-grow-1" name="photos" type="file" accept="image/*" multiple required>
+          <button class="btn btn-sm btn-primary flex-shrink-0">上传</button>
+        </form>
+      </div></div>
+      <h6 class="mb-2">人员展示 <span class="text-muted small">勾选隐藏的不出现在首页，序号小排前面</span></h6>
+      <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white align-middle">
+        <thead><tr><th>姓名</th><th>角色</th><th>简介</th><th>排序</th><th>首页隐藏</th><th>操作</th></tr></thead>
+        <tbody>
+        {{range .Data.Users}}
+        {{$row := .}}
+        {{$fid := print "home-" (hex .ID)}}
+        <tr>
+          <td class="text-nowrap">{{.Name}}<br><small class="text-muted">{{.Phone}}</small></td>
+          <td class="small text-muted">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</td>
+          <td><input class="form-control form-control-sm" form="{{$fid}}" name="bio" value="{{.Bio}}" placeholder="简介" style="min-width:10em"></td>
+          <td><input class="form-control form-control-sm text-end" form="{{$fid}}" name="home_order" type="number" min="0" step="1" value="{{.HomeOrder}}" style="width:5em"></td>
+          <td><div class="form-check form-switch m-0">
+            <input class="form-check-input" form="{{$fid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}></div></td>
+          <td class="text-nowrap">
+            <form method="post" action="/admin/home/staff/{{hex .ID}}" id="{{$fid}}" class="d-inline m-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-primary">保存</button>
+            </form>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="text-muted">暂无员工，先去员工页新增</td></tr>
+        {{end}}
+        </tbody>
+      </table></div>
+      <div class="d-md-none">
+        {{range .Data.Users}}
+        {{$row := .}}
+        {{$mid := print "m-home-" (hex .ID)}}
+        <div class="card mb-2"><div class="card-body py-2">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <b>{{.Name}}</b>
+            <small class="text-muted">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</small>
+          </div>
+          <div class="mb-1"><input class="form-control form-control-sm" form="{{$mid}}" name="bio" value="{{.Bio}}" placeholder="个人简介"></div>
+          <div class="d-flex gap-2 align-items-center">
+            <label class="form-check form-switch m-0 small flex-shrink-0">
+              <input class="form-check-input" form="{{$mid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}> 首页隐藏</label>
+            <input class="form-control form-control-sm text-end flex-grow-1" form="{{$mid}}" name="home_order" type="number" min="0" step="1" value="{{.HomeOrder}}" title="排序，数字小排前面">
+            <form method="post" action="/admin/home/staff/{{hex .ID}}" id="{{$mid}}" class="m-0 flex-shrink-0">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-primary" form="{{$mid}}">保存</button>
+            </form>
+          </div>
+        </div></div>
+        {{else}}
+        <div class="text-muted">暂无员工，先去员工页新增</div>
+        {{end}}
+      </div>
+    </main>
+  </div>
+</div>
+{{template "partial/foot" .}}
+</body>
+</html>
+{{end}}
