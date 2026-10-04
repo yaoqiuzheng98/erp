@@ -56,7 +56,7 @@
             </form>
             <div class="list-group list-group-flush">
               {{range .Data.Files}}
-              <a class="list-group-item list-group-item-action py-1 px-0" href="/app/attach/{{hex .ID}}">{{.Filename}} <small class="text-muted">{{.Size}}字节 · {{date .CreatedAt}}</small></a>
+              <a class="list-group-item list-group-item-action py-1 px-0" href="/app/attach/{{hex .ID}}" target="_blank" rel="noopener">{{.Filename}} <small class="text-muted">{{.Size}}字节 · {{date .CreatedAt}}</small></a>
               {{else}}
               <div class="text-muted small">暂无影像</div>
               {{end}}
