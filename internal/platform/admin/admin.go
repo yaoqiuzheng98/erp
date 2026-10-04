@@ -82,6 +82,7 @@ func (h *Handler) createUser(c *gin.Context) {
 		RoleIDs:     roleIDsOf(c),
 		CanPractice: c.PostForm("can_practice") == "on",
 		IsTenantAdm: c.PostForm("is_admin") == "on",
+		Bio:         c.PostForm("bio"),
 	}
 	if err := h.e.Auth.Create(c.Request.Context(), mw.TenantID(c), u, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
@@ -101,6 +102,7 @@ func (h *Handler) updateUser(c *gin.Context) {
 	set := bson.M{
 		"name":         c.PostForm("name"),
 		"phone":        c.PostForm("phone"),
+		"bio":          c.PostForm("bio"),
 		"role_ids":     roleIDsOf(c),
 		"can_practice": c.PostForm("can_practice") == "on",
 		"status":       status,
@@ -273,19 +275,18 @@ func (h *Handler) uploadGallery(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/admin/home")
 }
 
-// saveHomeStaff 首页人员配置：简介/是否展示/排序。
+// saveHomeStaff 首页人员配置：是否展示/排序（简介在员工页维护，这里只展示）。
 func (h *Handler) saveHomeStaff(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	order, _ := strconv.Atoi(c.PostForm("home_order"))
 	set := bson.M{
-		"bio":        c.PostForm("bio"),
 		"hide_home":  c.PostForm("hide_home") == "on",
 		"home_order": order,
 	}
 	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
-		h.audit(c, "tenant.home", "staff", c.PostForm("bio"))
+		h.audit(c, "tenant.home", "staff", id.Hex())
 		web.SetFlash(c, "人员展示已保存")
 	}
 	c.Redirect(http.StatusFound, "/admin/home")

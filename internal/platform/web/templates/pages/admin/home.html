@@ -61,7 +61,7 @@
         <tr>
           <td class="text-nowrap">{{.Name}}<br><small class="text-muted">{{.Phone}}</small></td>
           <td class="small text-muted">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</td>
-          <td><input class="form-control form-control-sm" form="{{$fid}}" name="bio" value="{{.Bio}}" placeholder="简介" style="min-width:10em"></td>
+          <td class="small text-muted">{{if .Bio}}{{.Bio}}{{else}}—{{end}}</td>
           <td><input class="form-control form-control-sm text-end" form="{{$fid}}" name="home_order" type="number" min="0" step="1" value="{{.HomeOrder}}" style="width:5em"></td>
           <td><div class="form-check form-switch m-0">
             <input class="form-check-input" form="{{$fid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}></div></td>
@@ -86,7 +86,7 @@
             <b>{{.Name}}</b>
             <small class="text-muted">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</small>
           </div>
-          <div class="mb-1"><input class="form-control form-control-sm" form="{{$mid}}" name="bio" value="{{.Bio}}" placeholder="个人简介"></div>
+          <div class="small text-muted mb-1">{{if .Bio}}{{.Bio}}{{else}}暂无简介，去员工页编辑{{end}}</div>
           <div class="d-flex gap-2 align-items-center">
             <label class="form-check form-switch m-0 small flex-shrink-0">
               <input class="form-check-input" form="{{$mid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}> 首页隐藏</label>
