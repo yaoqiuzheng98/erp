@@ -11,11 +11,16 @@ import (
 )
 
 // Tenant 门诊租户（一家门诊）。RegFee 挂号费（患者自助预约时收），0=不收。
+// Intro/Address/Phone/Hours 为患者端首页展示的诊所介绍信息。
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
 	RegFee    float64       `bson:"reg_fee"`
 	Status    string        `bson:"status"` // active / suspended
+	Intro     string        `bson:"intro,omitempty"`
+	Address   string        `bson:"address,omitempty"`
+	Phone     string        `bson:"phone,omitempty"`
+	Hours     string        `bson:"hours,omitempty"`
 	CreatedAt time.Time     `bson:"created_at"`
 }
 
@@ -69,6 +74,14 @@ func (s *Service) SetFee(ctx context.Context, id bson.ObjectID, fee float64) err
 		fee = 0
 	}
 	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"reg_fee": fee}})
+	return err
+}
+
+// SetProfile 更新诊所介绍信息（门诊后台门诊设置维护，患者端首页展示）。
+func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, intro, address, phone, hours string) error {
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
+		"intro": intro, "address": address, "phone": phone, "hours": hours,
+	}})
 	return err
 }
 

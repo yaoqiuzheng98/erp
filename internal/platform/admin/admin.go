@@ -183,11 +183,19 @@ func (h *Handler) settingsPage(c *gin.Context) {
 }
 
 func (h *Handler) saveSettings(c *gin.Context) {
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
 	fee, _ := strconv.ParseFloat(c.PostForm("reg_fee"), 64)
-	if err := h.e.Tenants.SetFee(c.Request.Context(), mw.TenantID(c), fee); err != nil {
+	if err := h.e.Tenants.SetFee(ctx, tid, fee); err != nil {
+		web.SetFlash(c, "保存失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/admin/settings")
+		return
+	}
+	if err := h.e.Tenants.SetProfile(ctx, tid,
+		c.PostForm("intro"), c.PostForm("address"), c.PostForm("phone"), c.PostForm("hours")); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
-		h.audit(c, "tenant.settings", "reg_fee", c.PostForm("reg_fee"))
+		h.audit(c, "tenant.settings", "reg_fee+profile", c.PostForm("reg_fee"))
 		web.SetFlash(c, "门诊设置已保存")
 	}
 	c.Redirect(http.StatusFound, "/admin/settings")

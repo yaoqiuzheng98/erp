@@ -19,7 +19,17 @@
             <input class="form-control form-control-sm" name="reg_fee" type="number" step="0.01" min="0"
                    value="{{printf "%.2f" .Data.Tenant.RegFee}}">
             <div class="form-text">患者自助预约时收取，填 0 为不收；改价只影响之后的新预约。</div></div>
-          <button class="btn btn-sm btn-primary">保存</button>
+          <div class="mb-2"><label class="form-label">诊所介绍 <span class="text-muted">（患者端首页展示）</span></label>
+            <textarea class="form-control form-control-sm" name="intro" rows="3" placeholder="如 建于2018年，专注种植/正畸…">{{.Data.Tenant.Intro}}</textarea></div>
+          <div class="row g-2">
+            <div class="col-12 col-md-6"><label class="form-label">地址</label>
+              <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>
+            <div class="col-6 col-md-3"><label class="form-label">咨询电话</label>
+              <input class="form-control form-control-sm" name="phone" value="{{.Data.Tenant.Phone}}" inputmode="tel"></div>
+            <div class="col-6 col-md-3"><label class="form-label">营业时间</label>
+              <input class="form-control form-control-sm" name="hours" value="{{.Data.Tenant.Hours}}" placeholder="如 9:00-18:00"></div>
+          </div>
+          <div class="mt-2"><button class="btn btn-sm btn-primary">保存</button></div>
         </form>
       </div></div>
     </main>

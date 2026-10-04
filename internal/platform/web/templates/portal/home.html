@@ -10,6 +10,19 @@
     <div class="small opacity-75">{{.Data.Clinic}}</div>
     <h4 class="mb-0">{{.Data.Name}}，你好 🦷</h4>
   </div>
+  {{if .Data.Intro}}
+  <div class="card portal-card mb-2"><div class="card-body py-2">
+    <h6 class="mb-1">诊所介绍</h6>
+    <div class="small text-muted" style="white-space:pre-line">{{.Data.Intro}}</div>
+  </div></div>
+  {{end}}
+  {{if or .Data.Address .Data.Phone .Data.Hours}}
+  <div class="card portal-card mb-3"><div class="card-body py-2 small">
+    {{if .Data.Address}}<div>📍 {{.Data.Address}}</div>{{end}}
+    {{if .Data.Phone}}<div>📞 <a href="tel:{{.Data.Phone}}">{{.Data.Phone}}</a></div>{{end}}
+    {{if .Data.Hours}}<div>🕐 {{.Data.Hours}}</div>{{end}}
+  </div></div>
+  {{end}}
   <div class="d-grid gap-2">
     <a class="btn btn-primary btn-lg py-3" href="/p/{{.Data.Tid}}/appointments">🧾 我的预约</a>
     <a class="btn btn-outline-primary btn-lg py-3" href="/p/{{.Data.Tid}}/bills">💰 我的账单</a>

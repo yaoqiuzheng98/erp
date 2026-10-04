@@ -102,7 +102,12 @@ func (h *Web) logout(c *gin.Context) {
 
 func (h *Web) home(c *gin.Context) {
 	p := Patient(c)
-	web.Render(c, h.e, "portal/home", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name})
+	data := gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name}
+	if t := mw.Tenant(c); t != nil {
+		data["Intro"], data["Address"] = t.Intro, t.Address
+		data["Phone"], data["Hours"] = t.Phone, t.Hours
+	}
+	web.Render(c, h.e, "portal/home", data)
 }
 
 func (h *Web) apptsPage(c *gin.Context) {
