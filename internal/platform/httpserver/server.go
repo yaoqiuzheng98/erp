@@ -33,6 +33,14 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery(), requestLogger())
+	// 生产/测试均在 Caddy 反代后（容器 8080 不对外发布），信任内网段
+	// 让 c.ClientIP() 穿透 X-Forwarded-For 取到真实客户端 IP（审计/限流用）。
+	if err := r.SetTrustedProxies([]string{
+		"127.0.0.1", "::1",
+		"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+	}); err != nil {
+		slog.Error("set trusted proxies", "err", err)
+	}
 	r.SetHTMLTemplate(tpl)
 
 	if staticFS, err := web.StaticFS(); err == nil {
