@@ -162,7 +162,7 @@ func (h *Handler) done(c *gin.Context) {
 		deduct = t.RegDeduct
 	}
 	next, err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge, deduct,
-		c.PostForm("diagnosis"), c.PostForm("result"), c.PostForm("item"), mw.User(c).Name)
+		c.PostForm("diagnosis"), c.PostForm("result"), mw.User(c).Name)
 	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else if next != "" {

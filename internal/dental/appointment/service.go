@@ -357,7 +357,7 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id bson.ObjectID) error 
 // deduct 为真且已缴挂号费时，挂号费当定金抵扣（抵扣额=min(挂号费,小计)，明细列抵扣行）。
 // 生成财务应收，预约落为待缴费（前台收清后才翻已完成）；同时自动叫同医生下一位。
 // 返回下一位患者姓名（无则空）。
-func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, items []ApptItem, charge float64, deduct bool, diagnosis, result, item, by string) (string, error) {
+func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, items []ApptItem, charge float64, deduct bool, diagnosis, result, by string) (string, error) {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return "", err
@@ -392,9 +392,6 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, item
 		finalItems = append(finalItems, ApptItem{Name: "挂号费抵扣", Qty: 1, Price: -d, Amount: -d})
 		summary += "、挂号费抵扣"
 		total -= d
-	}
-	if item != "" {
-		summary = item // 开单时可改主诉
 	}
 	set := bson.M{"status": Unpaid, "charge": total, "items": finalItems, "item": summary,
 		"diagnosis": diagnosis, "result": result}
