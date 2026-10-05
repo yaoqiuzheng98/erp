@@ -60,6 +60,12 @@
     .portal-tabbar a.active { color: #0d9488; font-weight: 700; }
     .portal-topbar { background: #fff; }
     .portal-card { border: 0; border-radius: 1rem; box-shadow: 0 .125rem .5rem rgba(0,0,0,.06); }
+    /* 首页画廊：图片组从左往右缓慢轮播（内容复制一份实现无缝循环） */
+    .gallery-track { overflow: hidden; }
+    .gallery-scroll { display: flex; gap: .5rem; width: max-content;
+      animation: gallery-slide 30s linear infinite; }
+    .gallery-track:active .gallery-scroll { animation-play-state: paused; }
+    @keyframes gallery-slide { from { transform: translateX(-50%); } to { transform: translateX(0); } }
     @media (max-width: 767.98px) {
       .topbar .topbar-user { max-width: 7em; }
       .table-responsive .table th, .table-responsive .table td { white-space: nowrap; }

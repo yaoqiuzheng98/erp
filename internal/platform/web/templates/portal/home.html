@@ -6,17 +6,20 @@
 {{template "portal/nav" .}}
 <main class="p-3">
   {{template "partial/flash" .}}
-  {{if .Data.Gallery}}
-  <div class="d-flex gap-2 mb-3" style="overflow-x:auto">
-    {{range .Data.Gallery}}
-    <img src="/p/{{$.Data.Tid}}/gallery/{{.}}" class="rounded flex-shrink-0" style="width:14em;height:9em;object-fit:cover" alt="{{$.Data.Clinic}}">
-    {{end}}
-  </div>
-  {{end}}
   <div class="portal-hero p-3 mb-3">
     <div class="small opacity-75">{{.Data.Clinic}}</div>
     <h4 class="mb-0">{{.Data.Name}}，你好 🦷</h4>
   </div>
+  {{if .Data.Gallery}}
+  <div class="gallery-track mb-3"><div class="gallery-scroll">
+    {{range .Data.Gallery}}
+    <img src="/p/{{$.Data.Tid}}/gallery/{{.}}" class="flex-shrink-0" style="width:14em;height:9em;object-fit:cover;border-radius:.5rem" alt="{{$.Data.Clinic}}">
+    {{end}}
+    {{range .Data.Gallery}}
+    <img src="/p/{{$.Data.Tid}}/gallery/{{.}}" class="flex-shrink-0" style="width:14em;height:9em;object-fit:cover;border-radius:.5rem" alt="" aria-hidden="true">
+    {{end}}
+  </div></div>
+  {{end}}
   {{if .Data.Notice}}
   <div class="alert alert-info py-2">📢 {{.Data.Notice}}</div>
   {{end}}
