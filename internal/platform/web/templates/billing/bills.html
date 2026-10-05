@@ -10,12 +10,22 @@
     <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
       <h4 class="mb-3">应收单据</h4>
+      <form method="get" class="d-flex flex-wrap gap-2 align-items-end mb-2">
+        <div><label class="form-label small mb-0">从</label>
+          <input class="form-control form-control-sm" type="date" name="from" value="{{.Data.From}}"></div>
+        <div><label class="form-label small mb-0">到</label>
+          <input class="form-control form-control-sm" type="date" name="to" value="{{.Data.To}}"></div>
+        <div class="d-flex gap-1">
+          <button class="btn btn-sm btn-primary">筛选</button>
+          <a class="btn btn-sm btn-outline-secondary" href="?">全部</a>
+        </div>
+      </form>
       <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white align-middle">
-        <thead><tr><th>来源单号</th><th>患者</th><th class="text-end">金额</th><th class="text-end">已核销</th><th>状态</th><th></th></tr></thead>
+        <thead><tr><th>来源单号</th><th>开单时间</th><th>患者</th><th class="text-end">金额</th><th class="text-end">已核销</th><th>状态</th><th></th></tr></thead>
         <tbody>
         {{range .Data.Bills}}
         <tr>
-          <td>{{.DocNo}}{{if .Lines}}<br>{{range .Lines}}<small class="text-muted">{{.Name}}x{{.Qty}} {{f2 .Amount}}</small><br>{{end}}{{end}}</td><td>{{.PatientName}}</td><td class="text-end {{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">{{f2 .Amount}}</td><td class="text-end {{if gt .PaidAmount 0.0}}amt-paid{{end}}">{{f2 .PaidAmount}}</td>
+          <td>{{.DocNo}}{{if .Lines}}<br>{{range .Lines}}<small class="text-muted">{{.Name}}x{{.Qty}} {{f2 .Amount}}</small><br>{{end}}{{end}}</td><td class="text-nowrap small text-muted">{{date .CreatedAt}}</td><td>{{.PatientName}}</td><td class="text-end {{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">{{f2 .Amount}}</td><td class="text-end {{if gt .PaidAmount 0.0}}amt-paid{{end}}">{{f2 .PaidAmount}}</td>
           <td><span class="badge {{if eq .Status "paid"}}bg-success{{else if eq .Status "void"}}bg-secondary{{else}}bg-warning text-dark{{end}}">{{.StatusName}}</span></td>
           <td>
             {{if eq .Status "open"}}
@@ -38,7 +48,7 @@
           </td>
         </tr>
         {{else}}
-        <tr><td colspan="6" class="text-muted">暂无单据</td></tr>
+        <tr><td colspan="7" class="text-muted">暂无单据</td></tr>
         {{end}}
         </tbody>
       </table></div>
@@ -51,7 +61,7 @@
           </div>
           {{if .Lines}}<div class="small text-muted mt-1">{{range .Lines}}{{.Name}}x{{.Qty}} {{f2 .Amount}}<br>{{end}}</div>{{end}}
           <div class="d-flex justify-content-between align-items-center mt-1">
-            <span class="small text-muted">{{.PatientName}} · 已核销{{f2 .PaidAmount}}</span>
+            <span class="small text-muted">{{.PatientName}} · {{date .CreatedAt}} · 已核销{{f2 .PaidAmount}}</span>
             <span class="{{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">¥{{f2 .Amount}}</span>
           </div>
           {{if eq .Status "open"}}

@@ -7,6 +7,7 @@ import (
 
 	"erp/internal/platform/repo"
 	"erp/internal/platform/seqno"
+	"erp/internal/platform/tz"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -118,12 +119,13 @@ func (s *Service) PayMock(ctx context.Context, tenantID, billID bson.ObjectID, b
 	return s.Pay(ctx, tenantID, billID, b.Amount-b.PaidAmount, "mock", by)
 }
 
-func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, skip, limit int64) ([]Bill, int64, error) {
-	total, err := s.bills.Count(ctx, tenantID, bson.M{})
+func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, from, to string, skip, limit int64) ([]Bill, int64, error) {
+	filter := dateFilter("created_at", from, to)
+	total, err := s.bills.Count(ctx, tenantID, filter)
 	if err != nil {
 		return nil, 0, err
 	}
-	list, err := s.bills.FindMany(ctx, tenantID, bson.M{})
+	list, err := s.bills.FindMany(ctx, tenantID, filter)
 	return list, total, err
 }
 
@@ -178,11 +180,27 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 	return nil
 }
 
-func (s *Service) ListPayments(ctx context.Context, tenantID bson.ObjectID, skip, limit int64) ([]Payment, int64, error) {
-	total, err := s.payments.Count(ctx, tenantID, bson.M{})
+func (s *Service) ListPayments(ctx context.Context, tenantID bson.ObjectID, from, to string, skip, limit int64) ([]Payment, int64, error) {
+	filter := dateFilter("paid_at", from, to)
+	total, err := s.payments.Count(ctx, tenantID, filter)
 	if err != nil {
 		return nil, 0, err
 	}
-	list, err := s.payments.FindMany(ctx, tenantID, bson.M{})
+	list, err := s.payments.FindMany(ctx, tenantID, filter)
 	return list, total, err
+}
+
+// dateFilter 某时间字段的自然日范围过滤（东八区；起止为空=不限）。
+func dateFilter(field, from, to string) bson.M {
+	m := bson.M{}
+	if t, ok := tz.DayStart(from); from != "" && ok {
+		m["$gte"] = t
+	}
+	if t, ok := tz.DayStart(to); to != "" && ok {
+		m["$lt"] = t.AddDate(0, 0, 1)
+	}
+	if len(m) == 0 {
+		return bson.M{}
+	}
+	return bson.M{field: m}
 }

@@ -1,10 +1,12 @@
 package billing
 
 import (
+	"html/template"
 	"net/http"
 
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
+	"erp/internal/platform/tz"
 	"erp/internal/platform/web"
 
 	"github.com/gin-gonic/gin"
@@ -33,13 +35,15 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 
 func (h *Handler) receivables(c *gin.Context) {
 	skip, limit, pager := web.ParsePager(c, 20)
-	list, total, err := h.svc.ListBills(c.Request.Context(), mw.TenantID(c), skip, limit)
+	from, to := c.Query("from"), c.Query("to")
+	list, total, err := h.svc.ListBills(c.Request.Context(), mw.TenantID(c), from, to, skip, limit)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 	pager.Total = total
-	web.Render(c, h.e, "billing/bills", gin.H{"Bills": list, "Pager": pager})
+	pager.Query = dateQuery(from, to)
+	web.Render(c, h.e, "billing/bills", gin.H{"Bills": list, "Pager": pager, "From": from, "To": to})
 }
 
 func (h *Handler) pay(c *gin.Context) {
@@ -75,11 +79,25 @@ func (h *Handler) void(c *gin.Context) {
 
 func (h *Handler) payments(c *gin.Context) {
 	skip, limit, pager := web.ParsePager(c, 20)
-	list, total, err := h.svc.ListPayments(c.Request.Context(), mw.TenantID(c), skip, limit)
+	from, to := c.Query("from"), c.Query("to")
+	list, total, err := h.svc.ListPayments(c.Request.Context(), mw.TenantID(c), from, to, skip, limit)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 	pager.Total = total
-	web.Render(c, h.e, "billing/payments", gin.H{"Rows": list, "Pager": pager})
+	pager.Query = dateQuery(from, to)
+	web.Render(c, h.e, "billing/payments", gin.H{"Rows": list, "Pager": pager, "From": from, "To": to})
+}
+
+// dateQuery 翻页保留的日期筛选参数（空=全部；只收 DayStart 能解析的严格日期防注入）。
+func dateQuery(from, to string) template.URL {
+	q := ""
+	if _, ok := tz.DayStart(from); from != "" && ok {
+		q += "from=" + from + "&"
+	}
+	if _, ok := tz.DayStart(to); to != "" && ok {
+		q += "to=" + to + "&"
+	}
+	return template.URL(q)
 }

@@ -15,6 +15,7 @@ import (
 	"erp/internal/platform/menu"
 	"erp/internal/platform/middleware"
 	"erp/internal/platform/tenant"
+	"erp/internal/platform/tz"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -67,7 +68,7 @@ func funcMap() template.FuncMap {
 			if t.IsZero() {
 				return "-"
 			}
-			return t.Format("2006-01-02 15:04")
+			return t.In(tz.Loc()).Format("2006-01-02 15:04")
 		},
 		"hex": func(id any) string {
 			if oid, ok := id.(bson.ObjectID); ok {
@@ -142,11 +143,13 @@ func Render(c *gin.Context, e *env.Env, name string, data any) {
 	c.HTML(http.StatusOK, name, buildPage(c, e, data))
 }
 
-// Pager 简单分页器。
+// Pager 简单分页器。Query 为翻页时保留的筛选参数（形如 "from=..&to=..&"，空则无；
+// template.URL 跳过转义，调用方只许填严格校验过的日期）。
 type Pager struct {
 	Page  int
 	Size  int
 	Total int64
+	Query template.URL
 }
 
 // ParsePager 解析 ?page= 参数，返回 skip/limit 与 Pager（Total 由 handler 后填）。
