@@ -3,6 +3,7 @@ package admin
 
 import (
 	"net/http"
+	"sort"
 	"strconv"
 
 	"erp/internal/platform/audit"
@@ -90,7 +91,7 @@ func (h *Handler) createUser(c *gin.Context) {
 		if msg := h.saveAvatar(c, u.ID, ""); msg != "" {
 			web.SetFlash(c, "员工已创建，但"+msg)
 		} else {
-			web.SetFlash(c, "员工已创建: " + u.Name)
+			web.SetFlash(c, "员工已创建: "+u.Name)
 		}
 	}
 	c.Redirect(http.StatusFound, "/admin/users")
@@ -168,7 +169,7 @@ func (h *Handler) resetPassword(c *gin.Context) {
 		web.SetFlash(c, "重置失败: "+err.Error())
 	} else {
 		h.audit(c, "user.reset_password", u.Name+" "+u.Phone, "")
-		web.SetFlash(c, "已重置 " + u.Name + " 的密码")
+		web.SetFlash(c, "已重置 "+u.Name+" 的密码")
 	}
 	c.Redirect(http.StatusFound, "/admin/users")
 }
@@ -230,6 +231,16 @@ func (h *Handler) homePage(c *gin.Context) {
 	tid := mw.TenantID(c)
 	users, _ := h.e.Auth.List(ctx, tid)
 	roles, _ := h.e.RBAC.List(ctx, tid)
+	// 与患者端首页同序：置顶 → 序号 → 姓名，改完立即所见即所得。
+	sort.Slice(users, func(i, j int) bool {
+		if users[i].HomePinned != users[j].HomePinned {
+			return users[i].HomePinned
+		}
+		if users[i].HomeOrder != users[j].HomeOrder {
+			return users[i].HomeOrder < users[j].HomeOrder
+		}
+		return users[i].Name < users[j].Name
+	})
 	web.Render(c, h.e, "admin/home", gin.H{
 		"Tenant": mw.Tenant(c), "Users": users, "Roles": roles,
 	})
@@ -301,8 +312,9 @@ func (h *Handler) saveHomeStaff(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	order, _ := strconv.Atoi(c.PostForm("home_order"))
 	set := bson.M{
-		"hide_home":  c.PostForm("hide_home") == "on",
-		"home_order": order,
+		"hide_home":   c.PostForm("hide_home") == "on",
+		"home_order":  order,
+		"home_pinned": c.PostForm("home_pinned") == "on",
 	}
 	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())

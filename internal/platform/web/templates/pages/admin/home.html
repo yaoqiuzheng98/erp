@@ -51,9 +51,9 @@
           <button class="btn btn-sm btn-primary flex-shrink-0">上传</button>
         </form>
       </div></div>
-      <h6 class="mb-2">人员展示 <span class="text-muted small">勾选隐藏的不出现在首页，序号小排前面</span></h6>
+      <h6 class="mb-2">人员展示 <span class="text-muted small">置顶排最前，其余序号小排前面，新员工自动排最后；勾选隐藏的不出现在首页</span></h6>
       <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white align-middle">
-        <thead><tr><th>姓名</th><th>角色</th><th>简介</th><th>排序</th><th>首页隐藏</th><th>操作</th></tr></thead>
+        <thead><tr><th>姓名</th><th>角色</th><th>简介</th><th>置顶</th><th>排序</th><th>首页隐藏</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Users}}
         {{$row := .}}
@@ -62,7 +62,9 @@
           <td class="text-nowrap">{{.Name}}<br><small class="text-muted">{{.Phone}}</small></td>
           <td class="small text-muted">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</td>
           <td class="small text-muted">{{if .Bio}}{{.Bio}}{{else}}—{{end}}</td>
-          <td><input class="form-control form-control-sm text-end" form="{{$fid}}" name="home_order" type="number" min="0" step="1" value="{{.HomeOrder}}" style="width:5em"></td>
+          <td><div class="form-check form-switch m-0">
+            <input class="form-check-input" form="{{$fid}}" type="checkbox" name="home_pinned" {{if .HomePinned}}checked{{end}}></div></td>
+          <td><input class="form-control form-control-sm text-end" form="{{$fid}}" name="home_order" type="number" min="1" step="1" value="{{.HomeOrder}}" style="width:5em"></td>
           <td><div class="form-check form-switch m-0">
             <input class="form-check-input" form="{{$fid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}></div></td>
           <td class="text-nowrap">
@@ -73,7 +75,7 @@
           </td>
         </tr>
         {{else}}
-        <tr><td colspan="6" class="text-muted">暂无员工，先去员工页新增</td></tr>
+        <tr><td colspan="7" class="text-muted">暂无员工，先去员工页新增</td></tr>
         {{end}}
         </tbody>
       </table></div>
@@ -87,10 +89,14 @@
             <small class="text-muted">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</small>
           </div>
           <div class="small text-muted mb-1">{{if .Bio}}{{.Bio}}{{else}}暂无简介，去员工页编辑{{end}}</div>
-          <div class="d-flex gap-2 align-items-center">
-            <label class="form-check form-switch m-0 small flex-shrink-0">
+          <div class="d-flex gap-3 align-items-center small mb-1">
+            <label class="form-check form-switch m-0 flex-shrink-0">
+              <input class="form-check-input" form="{{$mid}}" type="checkbox" name="home_pinned" {{if .HomePinned}}checked{{end}}> 置顶</label>
+            <label class="form-check form-switch m-0 flex-shrink-0">
               <input class="form-check-input" form="{{$mid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}> 首页隐藏</label>
-            <input class="form-control form-control-sm text-end flex-grow-1" form="{{$mid}}" name="home_order" type="number" min="0" step="1" value="{{.HomeOrder}}" title="排序，数字小排前面">
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <input class="form-control form-control-sm text-end flex-grow-1" form="{{$mid}}" name="home_order" type="number" min="1" step="1" value="{{.HomeOrder}}" title="排序，数字小排前面">
             <form method="post" action="/admin/home/staff/{{hex .ID}}" id="{{$mid}}" class="m-0 flex-shrink-0">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
               <button class="btn btn-sm btn-outline-primary" form="{{$mid}}">保存</button>

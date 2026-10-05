@@ -49,11 +49,12 @@ type User struct {
 	PasswordHash string          `bson:"password_hash"`
 	Name         string          `bson:"name"`
 	RoleIDs      []bson.ObjectID `bson:"role_ids"`
-	CanPractice  bool            `bson:"can_practice"`  // 可接诊：预约候选医生
-	Bio          string          `bson:"bio,omitempty"` // 个人简介：患者端首页团队展示
-	HideHome     bool            `bson:"hide_home,omitempty"` // 首页不展示该成员
-	HomeOrder    int             `bson:"home_order,omitempty"` // 首页展示排序（小在前）
-	Status       string          `bson:"status"`       // active / disabled
+	CanPractice  bool            `bson:"can_practice"`          // 可接诊：预约候选医生
+	Bio          string          `bson:"bio,omitempty"`         // 个人简介：患者端首页团队展示
+	HideHome     bool            `bson:"hide_home,omitempty"`   // 首页不展示该成员
+	HomeOrder    int             `bson:"home_order,omitempty"`  // 首页展示排序（小在前）
+	HomePinned   bool            `bson:"home_pinned,omitempty"` // 首页置顶（在序号之前）
+	Status       string          `bson:"status"`                // active / disabled
 	IsTenantAdm  bool            `bson:"is_tenant_admin"`
 	Avatar       string          `bson:"avatar,omitempty"` // 大头照 GridFS 文件 ID hex
 	LastLoginAt  time.Time       `bson:"last_login_at,omitempty"`
@@ -172,6 +173,7 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, u *User, p
 	if u.Status == "" {
 		u.Status = "active"
 	}
+	u.HomeOrder = s.nextHomeOrder(ctx, tenantID)
 	res, err := s.users.InsertOne(ctx, u)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
@@ -181,6 +183,17 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, u *User, p
 	}
 	u.ID = res.InsertedID.(bson.ObjectID)
 	return nil
+}
+
+// nextHomeOrder 新员工默认排最后：当前最大序号 +1（无员工从 1 开始）。
+func (s *Service) nextHomeOrder(ctx context.Context, tenantID bson.ObjectID) int {
+	var last User
+	err := s.users.FindOne(ctx, bson.M{"tenant_id": tenantID},
+		options.FindOne().SetSort(bson.D{{Key: "home_order", Value: -1}})).Decode(&last)
+	if err != nil {
+		return 1
+	}
+	return last.HomeOrder + 1
 }
 
 // Update 更新员工资料（姓名/手机号/角色/可接诊/状态），不动密码。
@@ -247,7 +260,6 @@ func (s *Service) ChangePassword(ctx context.Context, tenantID, id bson.ObjectID
 	}
 	return s.SetPassword(ctx, tenantID, id, newPlain)
 }
-
 
 func (s *Service) SysAdminByID(ctx context.Context, id bson.ObjectID) (*SysAdmin, error) {
 	var a SysAdmin
