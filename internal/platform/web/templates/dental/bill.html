@@ -71,8 +71,8 @@
             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#pickModal">＋ 添加项目/药品</button>
           </div>
           <div class="row g-2 mb-2">
-            <div class="col-12 col-md-6"><input class="form-control form-control-sm" name="diagnosis" placeholder="病情分析/诊断" value="{{.Data.A.Diagnosis}}"></div>
-            <div class="col-12 col-md-6"><input class="form-control form-control-sm" name="result" placeholder="诊疗结果" value="{{.Data.A.Result}}"></div>
+            <div class="col-12 col-md-6"><textarea class="form-control form-control-sm" name="diagnosis" rows="1" data-autosize placeholder="病情分析/诊断">{{.Data.A.Diagnosis}}</textarea></div>
+            <div class="col-12 col-md-6"><textarea class="form-control form-control-sm" name="result" rows="1" data-autosize placeholder="诊疗结果">{{.Data.A.Result}}</textarea></div>
           </div>
           <div class="d-grid">
             <button class="btn btn-success btn-lg">开单完成</button>
@@ -105,6 +105,15 @@
           </div>
         </div></div>
         <script>
+        // 自适应文本框：内容增减自动伸缩
+        function autosize(el) {
+          el.style.height = 'auto';
+          el.style.height = el.scrollHeight + 'px';
+        }
+        document.querySelectorAll('textarea[data-autosize]').forEach(function (el) {
+          autosize(el);
+          el.addEventListener('input', function () { autosize(el); });
+        });
         var cart = {}; // sid -> {name, price, qty}，主表与表单同源渲染
         function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
           return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -212,6 +221,8 @@
   </div>
 </div>
 <style>
+/* 开单文本框：内容增减自动伸缩，不手动拉 */
+textarea[data-autosize] { resize: none; overflow: hidden; }
 /* 添加项目/药品弹窗：整行高亮选中项（只靠小勾看不清） */
 #pickOptions label:has(.pick-check:checked) {
   background-color: #e7f1ff !important;
