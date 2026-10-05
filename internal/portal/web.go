@@ -124,7 +124,6 @@ type teamMember struct {
 	Bio    string
 	Avatar string
 	Order  int
-	Pinned bool
 }
 
 // teamMembers 首页可见团队：全部在职、有角色、未隐藏的成员，按排序号展示。
@@ -148,14 +147,11 @@ func (h *Web) teamMembers(ctx context.Context, tid bson.ObjectID) []teamMember {
 				rn = append(rn, n)
 			}
 		}
-		team = append(team, teamMember{Name: u.Name, Roles: strings.Join(rn, "·"), Bio: u.Bio, Avatar: u.Avatar, Order: u.HomeOrder, Pinned: u.HomePinned})
+		team = append(team, teamMember{Name: u.Name, Roles: strings.Join(rn, "·"), Bio: u.Bio, Avatar: u.Avatar, Order: u.HomeOrder})
 	}
 	sort.Slice(team, func(i, j int) bool {
-		if team[i].Pinned != team[j].Pinned {
-			return team[i].Pinned
-		}
 		if team[i].Order != team[j].Order {
-			return team[i].Order < team[j].Order
+			return team[i].Order > team[j].Order
 		}
 		return team[i].Name < team[j].Name
 	})

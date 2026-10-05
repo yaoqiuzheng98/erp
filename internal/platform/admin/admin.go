@@ -43,6 +43,7 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 	g.POST("/home/gallery", mw.RequirePerm("admin.settings"), h.uploadGallery)
 	g.POST("/home/gallery/:id/delete", mw.RequirePerm("admin.settings"), h.deleteGalleryPhoto)
 	g.POST("/home/staff/:id", mw.RequirePerm("admin.settings"), h.saveHomeStaff)
+	g.POST("/home/staff/:id/top", mw.RequirePerm("admin.settings"), h.topHomeStaff)
 
 	g.GET("/audit", mw.RequirePerm("admin.audit"), h.auditPage)
 }
@@ -231,13 +232,10 @@ func (h *Handler) homePage(c *gin.Context) {
 	tid := mw.TenantID(c)
 	users, _ := h.e.Auth.List(ctx, tid)
 	roles, _ := h.e.RBAC.List(ctx, tid)
-	// 与患者端首页同序：置顶 → 序号 → 姓名，改完立即所见即所得。
+	// 与患者端首页同序：权重（大在前）→ 姓名，改完立即所见即所得。
 	sort.Slice(users, func(i, j int) bool {
-		if users[i].HomePinned != users[j].HomePinned {
-			return users[i].HomePinned
-		}
 		if users[i].HomeOrder != users[j].HomeOrder {
-			return users[i].HomeOrder < users[j].HomeOrder
+			return users[i].HomeOrder > users[j].HomeOrder
 		}
 		return users[i].Name < users[j].Name
 	})
@@ -312,15 +310,35 @@ func (h *Handler) saveHomeStaff(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	order, _ := strconv.Atoi(c.PostForm("home_order"))
 	set := bson.M{
-		"hide_home":   c.PostForm("hide_home") == "on",
-		"home_order":  order,
-		"home_pinned": c.PostForm("home_pinned") == "on",
+		"hide_home":  c.PostForm("hide_home") == "on",
+		"home_order": order,
 	}
 	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
 		h.audit(c, "tenant.home", "staff", id.Hex())
 		web.SetFlash(c, "人员展示已保存")
+	}
+	c.Redirect(http.StatusFound, "/admin/home")
+}
+
+// topHomeStaff 置顶：权重设为全门诊最大 +1（越大越前）。
+func (h *Handler) topHomeStaff(c *gin.Context) {
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	users, _ := h.e.Auth.List(ctx, tid)
+	max := 0
+	for _, u := range users {
+		if u.HomeOrder > max {
+			max = u.HomeOrder
+		}
+	}
+	if err := h.e.Auth.Update(ctx, tid, id, bson.M{"home_order": max + 1}); err != nil {
+		web.SetFlash(c, "置顶失败: "+err.Error())
+	} else {
+		h.audit(c, "tenant.home", "staff.top", id.Hex())
+		web.SetFlash(c, "已置顶")
 	}
 	c.Redirect(http.StatusFound, "/admin/home")
 }
