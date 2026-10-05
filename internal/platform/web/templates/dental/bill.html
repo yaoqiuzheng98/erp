@@ -18,7 +18,8 @@
       </div>
       <div class="card"><div class="card-body">
         <div class="text-center mb-3">
-          <h5>{{.Data.A.PatientName}} 诊疗单</h5>
+          {{if .Tenant}}<div class="fw-bold">{{.Tenant.Name}}</div>{{end}}
+          <h5>{{.Data.A.PatientName}} 诊疗单{{if .Data.A.ChargeNo}} <small class="text-muted">{{.Data.A.ChargeNo}}</small>{{end}}</h5>
           <div class="text-muted small">{{.Data.A.Date}} {{.Data.A.Slot}} · 接诊：{{.Data.A.Doctor}}</div>
         </div>
         <table class="table table-sm">
@@ -231,9 +232,11 @@ textarea[data-autosize] { resize: none; overflow: hidden; }
   border-color: #0d6efd !important;
 }
 @media print {
-  .sidebar, .topbar, .no-print { display: none !important; }
+  /* 打印只留单据：导航/按钮/表单/弹窗/提示全部隐藏 */
+  .sidebar, .topbar, .no-print, form, .modal, .alert, button, .flash-toast { display: none !important; }
   body { background: #fff; }
   .card { border: 0; box-shadow: none; }
+  main { padding: 0 !important; }
 }
 </style>
 {{template "partial/foot" .}}
