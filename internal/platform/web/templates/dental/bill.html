@@ -71,12 +71,12 @@
             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#pickModal">＋ 添加项目/药品</button>
           </div>
           <div class="row g-2 mb-2">
+            <div class="col-12"><input class="form-control form-control-sm" name="item" placeholder="就诊主诉" value="{{.Data.A.Item}}"></div>
             <div class="col-12 col-md-6"><input class="form-control form-control-sm" name="diagnosis" placeholder="病情分析/诊断" value="{{.Data.A.Diagnosis}}"></div>
             <div class="col-12 col-md-6"><input class="form-control form-control-sm" name="result" placeholder="诊疗结果" value="{{.Data.A.Result}}"></div>
           </div>
-          <div class="d-flex gap-2">
-            <input class="form-control form-control-sm flex-grow-1" name="charge" type="number" step="0.01" min="0" placeholder="手工收费（无明细时填）">
-            <button class="btn btn-sm btn-success flex-shrink-0">开单完成</button>
+          <div class="d-grid">
+            <button class="btn btn-success btn-lg">开单完成</button>
           </div>
         </form>
         <div class="modal fade" id="pickModal" tabindex="-1"><div class="modal-dialog">
