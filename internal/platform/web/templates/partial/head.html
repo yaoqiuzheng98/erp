@@ -21,6 +21,10 @@
     .sidebar { width: 220px; min-height: 100vh; background: linear-gradient(180deg, #0f766e, #134e4a) !important; overflow-y: auto; }
     /* 手机端 offcanvas 抽屉内菜单过长时可滚动 */
     .offcanvas-md.sidebar { max-height: 100vh; }
+    @media (min-width: 768px) {
+      /* 桌面端侧栏吸顶整屏高：内容长于屏幕时深色底不断、底下不露白 */
+      .offcanvas-md.sidebar { position: sticky; top: 0; height: 100vh; max-height: none; }
+    }
     .sidebar a { color: #d7ebe8; text-decoration: none; display: block; padding: .45rem 1rem; border-radius: .375rem; }
     .sidebar a:hover, .sidebar a.active { color: #fff; background: rgba(255,255,255,.15); }
     .sidebar .nav-group { color: rgba(255,255,255,.55); font-size: .78rem; padding: .9rem 1rem .25rem; text-transform: uppercase; }
