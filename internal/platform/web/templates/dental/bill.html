@@ -39,10 +39,18 @@
         <div class="text-end fs-5">合计：¥<span id="billTotal">{{printf "%.2f" .Data.A.Total}}</span></div>
         {{if eq .Data.A.Status "arrived"}}
         <div class="alert alert-info py-2">候诊中：请先叫号，再开单。</div>
-        <form method="post" action="/app/appointments/{{hex .Data.A.ID}}/call" class="m-0">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button class="btn btn-sm btn-outline-info">叫号</button>
-        </form>
+        <div class="d-flex gap-2">
+          <form method="post" action="/app/appointments/{{hex .Data.A.ID}}/call" class="m-0">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <button type="button" class="btn btn-sm btn-outline-info" data-say="{{.Data.A.PatientName}}请到前台分配就诊">叫号</button>
+          </form>
+          {{if gt .Data.A.CallCount 0}}
+          <form method="post" action="/app/appointments/{{hex .Data.A.ID}}/serve" class="m-0">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <button class="btn btn-sm btn-outline-success">就诊</button>
+          </form>
+          {{end}}
+        </div>
         {{end}}
         {{if eq .Data.A.Status "serving"}}
         <hr>
