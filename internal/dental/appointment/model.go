@@ -9,8 +9,8 @@ import (
 )
 
 // 预约状态机：booked → arrived(候诊) → serving(就诊中) → unpaid(待缴费) → done；
-// 分支 noshow / cancel。签到分配医生+排号；叫号只播报计数（CallCount），
-// 点就诊才进就诊中；开单（unpaid）仅就诊中可做；前台收清后翻 done。
+// 分支 noshow / cancel。签到分配医生+排号；叫号只前端播报；点就诊进就诊中；
+// 开单（unpaid）仅就诊中可做；前台收清后翻 done。
 const (
 	Booked  = "booked"
 	Arrived = "arrived"
@@ -42,7 +42,6 @@ type Appointment struct {
 	Item        string        `bson:"item"` // 自由文本兜底（无价目时填）
 	Items       []ApptItem    `bson:"items,omitempty"`
 	QueueNo     int           `bson:"queue_no,omitempty"` // 当天当医生排号（签到分配）
-	CallCount   int           `bson:"call_count,omitempty"` // 叫号次数（播报计数，不流转状态）
 	RegFee      float64       `bson:"reg_fee,omitempty"`    // 挂号费快照（预约时）
 	RegPaid     bool          `bson:"reg_paid,omitempty"`   // 挂号费已缴
 	Status      string        `bson:"status"`

@@ -262,31 +262,9 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (stri
 	return "", 0, lastErr
 }
 
-// CallNow 叫号：仅播报计数（前端播语音），状态保持候诊，须已在候诊。
-func (s *Service) CallNow(ctx context.Context, tenantID, id bson.ObjectID) error {
-	a, err := s.appts.FindByID(ctx, tenantID, id)
-	if err != nil {
-		return err
-	}
-	if a.Status != Arrived {
-		return ErrBadStatus
-	}
-	return s.appts.Update(ctx, tenantID, id, bson.M{"call_count": a.CallCount + 1})
-}
-
-// StartServe 就诊：arrived → serving，须已叫号（防跳过播报直接就诊）。
+// StartServe 就诊：arrived → serving。
 func (s *Service) StartServe(ctx context.Context, tenantID, id bson.ObjectID) error {
-	a, err := s.appts.FindByID(ctx, tenantID, id)
-	if err != nil {
-		return err
-	}
-	if a.Status != Arrived {
-		return ErrBadStatus
-	}
-	if a.CallCount <= 0 {
-		return errors.New("请先叫号")
-	}
-	_, err = s.setStatus(ctx, tenantID, id, []string{Arrived}, Serving)
+	_, err := s.setStatus(ctx, tenantID, id, []string{Arrived}, Serving)
 	return err
 }
 

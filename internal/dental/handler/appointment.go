@@ -25,7 +25,6 @@ func (h *Handler) registerAppointment(g *gin.RouterGroup) {
 	g.POST("/appointments/:id/checkin", mw.RequirePerm("appt.write"), h.checkin)
 	// 兼容旧版缓存页面上的 /arrive 入口（行为同签到）。
 	g.POST("/appointments/:id/arrive", mw.RequirePerm("appt.write"), h.checkin)
-	g.POST("/appointments/:id/call", mw.RequirePerm("appt.write"), h.call)
 	g.POST("/appointments/:id/serve", mw.RequirePerm("appt.write"), h.serve)
 	g.POST("/appointments/:id/done", mw.RequirePerm("appt.write"), h.done)
 	g.POST("/appointments/:id/noshow", mw.RequirePerm("appt.write"), h.noshow)
@@ -143,18 +142,7 @@ func queueNo(no int) string {
 	return strconv.Itoa(no) + "号"
 }
 
-// call 叫号：只记播报次数（前端播语音），状态保持候诊。
-func (h *Handler) call(c *gin.Context) {
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	if err := h.appts.CallNow(c.Request.Context(), mw.TenantID(c), id); err != nil {
-		web.SetFlash(c, "操作失败: "+err.Error())
-	} else {
-		web.SetFlash(c, "已叫号")
-	}
-	c.Redirect(http.StatusFound, "/app/appointments")
-}
-
-// serve 开始就诊：候诊 → 就诊中（须已叫号）。
+// serve 开始就诊：候诊 → 就诊中。
 func (h *Handler) serve(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	if err := h.appts.StartServe(c.Request.Context(), mw.TenantID(c), id); err != nil {

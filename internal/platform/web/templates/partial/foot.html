@@ -18,31 +18,17 @@
   }
   document.addEventListener('htmx:load', function (e) { autoDismiss(e.detail.elt); });
   autoDismiss(document.body);
-  // 叫号语音：点带 data-say 的按钮先播报（中文），播完（或失败/超时）再提交表单记次。
+  // 叫号语音：点带 data-say 的按钮纯播报中文，不提交、不流转。
   document.addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('[data-say]') : null;
-    if (!b) return;
-    e.preventDefault();
-    var f = b.closest('form');
-    if (!f) return;
-    b.disabled = true;
-    var done = false;
-    function go() {
-      if (done) return;
-      done = true;
-      f.submit();
-    }
+    if (!b || !('speechSynthesis' in window)) return;
     try {
-      if (!('speechSynthesis' in window)) { go(); return; }
       var u = new SpeechSynthesisUtterance(b.dataset.say);
       u.lang = 'zh-CN';
       u.rate = 0.9;
-      u.onend = go;
-      u.onerror = go;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
-      setTimeout(go, 8000); // 播报异常兜底：8秒后照常记次
-    } catch (err) { go(); }
+    } catch (err) { /* 无语音能力时静默 */ }
   });
   // 带 confirm 的表单点取消时不锁（defaultPrevented 时回滚），后退回来时 pageshow 复位。
   // 防重复提交：同一表单提交中再点直接拦掉；提交按钮变“提交中…”并禁用。
