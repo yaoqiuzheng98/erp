@@ -46,10 +46,8 @@ var appMenu = []menu.Item{
 		{ID: "dental.services", Title: "价目表", Path: "/app/services", Perm: "catalog.read"},
 	}},
 	{ID: "finance", Title: "财务", Icon: "￥", Children: []menu.Item{
-		{ID: "finance.summary", Title: "账簿汇总", Path: "/app/billing", Perm: "billing.read"},
 		{ID: "finance.ar", Title: "应收", Path: "/app/billing/receivables", Perm: "billing.read"},
 		{ID: "finance.payments", Title: "收款", Path: "/app/billing/payments", Perm: "billing.read"},
-		{ID: "finance.expenses", Title: "费用", Path: "/app/billing/expenses", Perm: "billing.read"},
 	}},
 }
 

@@ -19,7 +19,6 @@ type Service struct {
 	seq      *seqno.Generator
 	bills    *repo.TenantRepo[Bill]
 	payments *repo.TenantRepo[Payment]
-	expenses *repo.TenantRepo[Expense]
 }
 
 func New(db *mongo.Database, seq *seqno.Generator) *Service {
@@ -27,7 +26,6 @@ func New(db *mongo.Database, seq *seqno.Generator) *Service {
 		db: db, seq: seq,
 		bills:    repo.NewTenantRepo[Bill](db, "bills"),
 		payments: repo.NewTenantRepo[Payment](db, "payments"),
-		expenses: repo.NewTenantRepo[Expense](db, "expenses"),
 	}
 }
 
@@ -183,46 +181,4 @@ func (s *Service) ListPayments(ctx context.Context, tenantID bson.ObjectID, skip
 	}
 	list, err := s.payments.FindMany(ctx, tenantID, bson.M{})
 	return list, total, err
-}
-
-func (s *Service) ListExpenses(ctx context.Context, tenantID bson.ObjectID, skip, limit int64) ([]Expense, int64, error) {
-	total, err := s.expenses.Count(ctx, tenantID, bson.M{})
-	if err != nil {
-		return nil, 0, err
-	}
-	list, err := s.expenses.FindMany(ctx, tenantID, bson.M{})
-	return list, total, err
-}
-
-func (s *Service) CreateExpense(ctx context.Context, tenantID bson.ObjectID, ex *Expense, by string) error {
-	ex.TenantID, ex.CreatedAt, ex.CreatedBy = tenantID, time.Now(), by
-	_, err := s.expenses.Insert(ctx, tenantID, ex)
-	return err
-}
-
-// Summary 账簿汇总：未收应收、累计收款、累计费用。
-func (s *Service) Summary(ctx context.Context, tenantID bson.ObjectID) (openAR, received, expense float64) {
-	sum := func(col *mongo.Collection, f bson.M, field string) float64 {
-		pipe := mongo.Pipeline{
-			{{Key: "$match", Value: f}},
-			{{Key: "$group", Value: bson.M{"_id": nil, "s": bson.M{"$sum": "$" + field}}}},
-		}
-		cur, err := col.Aggregate(ctx, pipe)
-		if err != nil {
-			return 0
-		}
-		var rows []struct {
-			S float64 `bson:"s"`
-		}
-		_ = cur.All(ctx, &rows)
-		if len(rows) > 0 {
-			return rows[0].S
-		}
-		return 0
-	}
-	f := bson.M{"tenant_id": tenantID}
-	openAR = sum(s.bills.Col, bson.M{"tenant_id": tenantID, "status": BillOpen}, "amount")
-	received = sum(s.payments.Col, f, "amount")
-	expense = sum(s.expenses.Col, f, "amount")
-	return
 }

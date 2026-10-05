@@ -58,15 +58,6 @@ type Payment struct {
 	PaidAt    time.Time     `bson:"paid_at"`
 }
 
-// Expense 费用单（房租/耗材/工资等支出）。
-type Expense struct {
-	model.Doc `bson:",inline"`
-	Title     string    `bson:"title"`
-	Amount    float64   `bson:"amount"`
-	Category  string    `bson:"category"`
-	At        time.Time `bson:"at"`
-}
-
 // AR 创建应收入参。
 type AR struct {
 	PatientID   bson.ObjectID
