@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -111,20 +112,30 @@ func (h *Web) home(c *gin.Context) {
 		data["Phone"], data["Hours"] = t.Phone, t.Hours
 		data["Notice"], data["Gallery"] = t.Notice, t.Gallery
 	}
-	// 首页团队：全部在职且未隐藏的成员，按排序号展示，附角色与简介
-	users, _ := h.e.Auth.List(c.Request.Context(), p.TenantID)
-	roles, _ := h.e.RBAC.List(c.Request.Context(), p.TenantID)
+	// 首页团队：全部在职、有角色、未隐藏的成员，按排序号展示
+	data["Team"] = h.teamMembers(c.Request.Context(), p.TenantID)
+	web.Render(c, h.e, "portal/home", data)
+}
+
+// teamMember 首页团队成员（与 home 模板字段对应）。
+type teamMember struct {
+	Name   string
+	Roles  string
+	Bio    string
+	Avatar string
+	Order  int
+}
+
+// teamMembers 首页可见团队：全部在职、有角色、未隐藏的成员，按排序号展示。
+// gallery 公开图接口复用同一名单做头像白名单。
+func (h *Web) teamMembers(ctx context.Context, tid bson.ObjectID) []teamMember {
+	users, _ := h.e.Auth.List(ctx, tid)
+	roles, _ := h.e.RBAC.List(ctx, tid)
 	roleName := map[string]string{}
 	for _, r := range roles {
 		roleName[r.ID.Hex()] = r.Name
 	}
-	type staff struct {
-		Name  string
-		Roles string
-		Bio   string
-		Order int
-	}
-	var team []staff
+	var team []teamMember
 	for _, u := range users {
 		// 无角色的纯管理账号不上首页
 		if u.Status != "active" || u.HideHome || len(u.RoleIDs) == 0 {
@@ -136,7 +147,7 @@ func (h *Web) home(c *gin.Context) {
 				rn = append(rn, n)
 			}
 		}
-		team = append(team, staff{Name: u.Name, Roles: strings.Join(rn, "·"), Bio: u.Bio, Order: u.HomeOrder})
+		team = append(team, teamMember{Name: u.Name, Roles: strings.Join(rn, "·"), Bio: u.Bio, Avatar: u.Avatar, Order: u.HomeOrder})
 	}
 	sort.Slice(team, func(i, j int) bool {
 		if team[i].Order != team[j].Order {
@@ -144,12 +155,11 @@ func (h *Web) home(c *gin.Context) {
 		}
 		return team[i].Name < team[j].Name
 	})
-	data["Team"] = team
-	web.Render(c, h.e, "portal/home", data)
+	return team
 }
 
-// gallery 门诊图库图片（公开：首页画廊用，无需患者登录；
-// 仅允许图库名单里的 ID，防止用 ID 猜解患者影像）。
+// gallery 首页公开图片（无需患者登录）：门诊图库 + 首页可见成员的大头照。
+// 白名单制：不在名单里的 ID 一律 404，防止用 ID 猜解患者影像。
 func (h *Web) gallery(c *gin.Context) {
 	t := mw.Tenant(c)
 	fid := c.Param("id")
@@ -159,6 +169,14 @@ func (h *Web) gallery(c *gin.Context) {
 			if g == fid {
 				allowed = true
 				break
+			}
+		}
+		if !allowed {
+			for _, m := range h.teamMembers(c.Request.Context(), t.ID) {
+				if m.Avatar != "" && m.Avatar == fid {
+					allowed = true
+					break
+				}
 			}
 		}
 	}

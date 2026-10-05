@@ -34,18 +34,23 @@
   </div></div>
   {{end}}
   {{if .Data.Team}}
-  <div class="card portal-card mb-3"><div class="card-body py-2">
-    <h6 class="mb-2">团队介绍</h6>
+  <h6 class="text-muted px-1">团队介绍</h6>
+  <div class="row g-2 mb-3">
     {{range .Data.Team}}
-    <div class="d-flex gap-2 align-items-start py-1 border-bottom">
-      <span class="fs-4">👨‍⚕️</span>
-      <div>
-        <div><b>{{.Name}}</b>{{if .Roles}} <small class="text-muted">{{.Roles}}</small>{{end}}</div>
-        {{if .Bio}}<div class="small text-muted">{{.Bio}}</div>{{end}}
-      </div>
+    <div class="col-6">
+      <div class="card portal-card h-100"><div class="card-body text-center py-3">
+        {{if .Avatar}}
+        <img src="/p/{{$.Data.Tid}}/gallery/{{.Avatar}}" class="rounded-circle mb-2" style="width:4em;height:4em;object-fit:cover" alt="{{.Name}}">
+        {{else}}
+        <div class="fs-1 mb-1">👨‍⚕️</div>
+        {{end}}
+        <div><b>{{.Name}}</b></div>
+        {{if .Roles}}<div class="small text-muted">{{.Roles}}</div>{{end}}
+        {{if .Bio}}<div class="small text-muted mt-1">{{.Bio}}</div>{{end}}
+      </div></div>
     </div>
     {{end}}
-  </div></div>
+  </div>
   {{end}}
 </main>
 {{template "portal/tabbar" .}}
