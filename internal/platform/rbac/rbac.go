@@ -42,7 +42,7 @@ func Catalog() []PermissionDef {
 	}
 }
 
-// defaultRoles 新门诊默认角色（名称→权限码）。店长=全量权限。
+// defaultRoles 新门诊默认角色（名称→权限码）。
 func defaultRoles() []Role {
 	return []Role{
 		{Name: "医生", PermCodes: []string{
@@ -56,17 +56,7 @@ func defaultRoles() []Role {
 			"patient.read", "patient.write", "appt.read", "appt.write",
 			"catalog.read", "billing.read", "billing.write",
 		}},
-		{Name: "店长", PermCodes: allCodes()},
 	}
-}
-
-func allCodes() []string {
-	defs := Catalog()
-	out := make([]string, 0, len(defs))
-	for _, d := range defs {
-		out = append(out, d.Code)
-	}
-	return out
 }
 
 type Service struct {

@@ -112,7 +112,7 @@ expenses     { _id, tenant_id, title, amount, category, at }
 
 权限码固定目录（`rbac.Catalog`）：`patient/appt/catalog/billing` 各 `.read/.write`，
 加 `admin.users/roles/settings/audit`。租户管理员拥有全部权限；新门诊自动种
-默认角色（医生/护士/前台/店长），可在「系统管理→权限角色」调整。
+默认角色（医生/护士/前台），可在「系统管理→权限角色」调整。
 
 ## 5. 目录结构
 
