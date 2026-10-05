@@ -43,7 +43,7 @@ func (h *Handler) receivables(c *gin.Context) {
 	}
 	pager.Total = total
 	pager.Query = dateQuery(from, to)
-	web.Render(c, h.e, "billing/bills", gin.H{"Bills": list, "Pager": pager, "From": from, "To": to})
+	web.Render(c, h.e, "billing/bills", gin.H{"Bills": list, "Pager": pager, "From": from, "To": to, "Today": tz.Today()})
 }
 
 func (h *Handler) pay(c *gin.Context) {
@@ -87,7 +87,7 @@ func (h *Handler) payments(c *gin.Context) {
 	}
 	pager.Total = total
 	pager.Query = dateQuery(from, to)
-	web.Render(c, h.e, "billing/payments", gin.H{"Rows": list, "Pager": pager, "From": from, "To": to})
+	web.Render(c, h.e, "billing/payments", gin.H{"Rows": list, "Pager": pager, "From": from, "To": to, "Today": tz.Today()})
 }
 
 // dateQuery 翻页保留的日期筛选参数（空=全部；只收 DayStart 能解析的严格日期防注入）。

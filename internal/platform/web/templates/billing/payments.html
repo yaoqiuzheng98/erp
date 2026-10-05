@@ -16,6 +16,7 @@
           <input class="form-control form-control-sm" type="date" name="to" value="{{.Data.To}}"></div>
         <div class="d-flex gap-1">
           <button class="btn btn-sm btn-primary">筛选</button>
+          <a class="btn btn-sm btn-outline-secondary" href="?from={{.Data.Today}}&to={{.Data.Today}}">今天</a>
           <a class="btn btn-sm btn-outline-secondary" href="?">全部</a>
         </div>
       </form>
