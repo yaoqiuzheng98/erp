@@ -31,7 +31,7 @@ func loginTenant(e *env.Env) gin.HandlerFunc {
 			TenantID: u.TenantID, UserID: u.ID, Username: u.Phone,
 			Action: "login", IP: c.ClientIP(),
 		})
-		c.Redirect(http.StatusFound, "/app")
+		c.Redirect(http.StatusFound, "/app/appointments")
 	}
 }
 

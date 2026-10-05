@@ -49,7 +49,7 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 
 	r.GET("/", func(c *gin.Context) {
 		if _, err := c.Cookie(e.Cfg.Session.CookieName); err == nil {
-			c.Redirect(http.StatusFound, "/app")
+			c.Redirect(http.StatusFound, "/app/appointments")
 		} else {
 			c.Redirect(http.StatusFound, "/login")
 		}
@@ -58,7 +58,7 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 	// ---------- 租户认证 ----------
 	r.GET("/login", mw.Session(e), func(c *gin.Context) {
 		if mw.User(c) != nil {
-			c.Redirect(http.StatusFound, "/app")
+			c.Redirect(http.StatusFound, "/app/appointments")
 			return
 		}
 		web.Render(c, e, "login", nil)

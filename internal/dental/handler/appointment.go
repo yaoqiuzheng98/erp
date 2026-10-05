@@ -15,7 +15,10 @@ import (
 )
 
 func (h *Handler) registerAppointment(g *gin.RouterGroup) {
-	g.GET("", mw.RequirePerm("appt.read"), h.today)
+	// /app 即预约列表（默认当天，今日预约已并入此处）。
+	g.GET("", mw.RequirePerm("appt.read"), func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/app/appointments")
+	})
 	g.GET("/appointments", mw.RequirePerm("appt.read"), h.appointments)
 	g.POST("/appointments", mw.RequirePerm("appt.write"), h.createAppt)
 	g.GET("/appointments/:id/bill", mw.RequirePerm("appt.read"), h.billPage)
@@ -26,12 +29,6 @@ func (h *Handler) registerAppointment(g *gin.RouterGroup) {
 	g.POST("/appointments/:id/done", mw.RequirePerm("appt.write"), h.done)
 	g.POST("/appointments/:id/noshow", mw.RequirePerm("appt.write"), h.noshow)
 	g.POST("/appointments/:id/cancel", mw.RequirePerm("appt.write"), h.cancel)
-}
-
-// today 今日预约工作台（/app 首页）。
-func (h *Handler) today(c *gin.Context) {
-	list, _ := h.appts.Today(c.Request.Context(), mw.TenantID(c))
-	web.Render(c, h.e, "dental/index", gin.H{"Rows": list})
 }
 
 func (h *Handler) appointments(c *gin.Context) {

@@ -4,7 +4,7 @@
     <span class="fw-bold text-white-50 small">菜单</span>
     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#appnav" aria-label="关闭"></button>
   </div>
-  <a class="fs-5 fw-bold text-white px-2 py-2 mb-1" href="/app">{{if .Tenant}}{{.Tenant.Name}}{{else}}ERP{{end}}</a>
+  <a class="fs-5 fw-bold text-white px-2 py-2 mb-1" href="/app/appointments">{{if .Tenant}}{{.Tenant.Name}}{{else}}ERP{{end}}</a>
   {{range .Menu}}
     {{if .Children}}
       <div class="nav-group">{{if .Icon}}{{.Icon}} {{end}}{{.Title}}</div>
