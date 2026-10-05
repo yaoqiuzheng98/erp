@@ -80,17 +80,3 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, p *Patient
 	p.ID = id
 	return nil
 }
-
-// SetTooth 设置牙位状态；空状态 = 恢复健康（删除键）。
-func (s *Service) SetTooth(ctx context.Context, tenantID, patID bson.ObjectID, tooth, status string) error {
-	if status == "" {
-		_, err := s.pats.Col.UpdateOne(ctx,
-			bson.M{"_id": patID, "tenant_id": tenantID},
-			bson.M{"$unset": bson.M{"teeth." + tooth: ""}})
-		return err
-	}
-	_, err := s.pats.Col.UpdateOne(ctx,
-		bson.M{"_id": patID, "tenant_id": tenantID},
-		bson.M{"$set": bson.M{"teeth." + tooth: status}})
-	return err
-}

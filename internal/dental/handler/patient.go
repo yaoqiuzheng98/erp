@@ -15,7 +15,6 @@ func (h *Handler) registerPatient(g *gin.RouterGroup) {
 	g.GET("/patients", mw.RequirePerm("patient.read"), h.patients)
 	g.POST("/patients", mw.RequirePerm("patient.write"), h.createPatient)
 	g.GET("/patients/:id", mw.RequirePerm("patient.read"), h.patient)
-	g.POST("/patients/:id/tooth", mw.RequirePerm("patient.write"), h.setTooth)
 	g.POST("/patients/:id/attach", mw.RequirePerm("patient.write"), h.uploadAttach)
 	g.POST("/patients/:id/password", mw.RequirePerm("patient.write"), h.setPassword)
 }
@@ -59,39 +58,7 @@ func (h *Handler) patient(c *gin.Context) {
 	files, _ := h.e.Attach.ListByOwner(c.Request.Context(), tid, "patient", id)
 	web.Render(c, h.e, "dental/patient", gin.H{
 		"P": p, "Appts": appts, "Files": files,
-		"Quadrants": quadrants(), "ToothNames": patient.ToothStatuses,
 	})
-}
-
-// quadrants FDI 四象限，按牙位图显示顺序。
-func quadrants() [][]string {
-	return [][]string{
-		{"18", "17", "16", "15", "14", "13", "12", "11"},
-		{"21", "22", "23", "24", "25", "26", "27", "28"},
-		{"48", "47", "46", "45", "44", "43", "42", "41"},
-		{"31", "32", "33", "34", "35", "36", "37", "38"},
-	}
-}
-
-// setTooth 牙位状态更新（fetch POST）。
-func (h *Handler) setTooth(c *gin.Context) {
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	tooth, status := c.PostForm("tooth"), c.PostForm("status")
-	if len(tooth) != 2 || tooth[0] < '1' || tooth[0] > '4' || tooth[1] < '1' || tooth[1] > '8' {
-		c.String(http.StatusBadRequest, "牙位无效")
-		return
-	}
-	if status != "" {
-		if _, ok := patient.ToothStatuses[status]; !ok {
-			c.String(http.StatusBadRequest, "状态无效")
-			return
-		}
-	}
-	if err := h.pats.SetTooth(c.Request.Context(), mw.TenantID(c), id, tooth, status); err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
-		return
-	}
-	c.Status(http.StatusNoContent)
 }
 
 // setPassword 配置患者端登录密码。
