@@ -123,6 +123,7 @@ func (h *API) myAppointments(c *gin.Context) {
 		fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+	list = visibleAppts(list)
 	out := make([]gin.H, 0, len(list))
 	for _, a := range list {
 		out = append(out, apptJSON(a, h.appts.Position(c.Request.Context(), p.TenantID, a.ID)))

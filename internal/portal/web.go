@@ -207,6 +207,7 @@ func (h *Web) apptsPage(c *gin.Context) {
 	p := Patient(c)
 	ctx := c.Request.Context()
 	appts, _ := h.appts.OfPatient(ctx, p.TenantID, p.ID)
+	appts = visibleAppts(appts)
 	pos := map[string]int{}
 	for _, a := range appts {
 		pos[a.ID.Hex()] = h.appts.Position(ctx, p.TenantID, a.ID)
