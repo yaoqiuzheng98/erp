@@ -16,18 +16,24 @@
         {{range .Data.Bills}}
         <tr>
           <td>{{.DocNo}}{{if .Lines}}<br>{{range .Lines}}<small class="text-muted">{{.Name}}x{{.Qty}} {{f2 .Amount}}</small><br>{{end}}{{end}}</td><td>{{.PatientName}}</td><td class="text-end {{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">{{f2 .Amount}}</td><td class="text-end {{if gt .PaidAmount 0.0}}amt-paid{{end}}">{{f2 .PaidAmount}}</td>
-          <td><span class="badge {{if eq .Status "paid"}}bg-success{{else}}bg-warning text-dark{{end}}">{{.Status}}</span></td>
+          <td><span class="badge {{if eq .Status "paid"}}bg-success{{else if eq .Status "void"}}bg-secondary{{else}}bg-warning text-dark{{end}}">{{.StatusName}}</span></td>
           <td>
             {{if eq .Status "open"}}
-            <form method="post" action="/app/billing/bills/{{hex .ID}}/pay" class="row g-1">
-              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <div class="col-auto"><input class="form-control form-control-sm" style="width:100px"
-                   name="amount" type="number" step="0.01" value="{{.Amount}}" required></div>
-              <div class="col-auto"><select class="form-select form-select-sm" name="method">
-                <option value="bank">银行</option><option value="cash">现金</option><option value="other">其他</option>
-              </select></div>
-              <div class="col-auto"><button class="btn btn-sm btn-primary">核销</button></div>
-            </form>
+            <div class="d-flex gap-1 align-items-center">
+              <form method="post" action="/app/billing/bills/{{hex .ID}}/pay" class="d-flex gap-1 align-items-center m-0"
+                    onsubmit="return confirm('确认收款 ¥{{f2 .Amount}}？')">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <select class="form-select form-select-sm" name="method">
+                  <option value="bank">银行</option><option value="cash">现金</option><option value="other">其他</option>
+                </select>
+                <button class="btn btn-sm btn-primary text-nowrap">收款</button>
+              </form>
+              <form method="post" action="/app/billing/bills/{{hex .ID}}/void" class="m-0"
+                    onsubmit="return confirm('确认作废 {{.DocNo}}？作废后移出未收，不可恢复。')">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button class="btn btn-sm btn-outline-danger text-nowrap">作废</button>
+              </form>
+            </div>
             {{end}}
           </td>
         </tr>
@@ -41,7 +47,7 @@
         <div class="card mb-2"><div class="card-body py-2">
           <div class="d-flex justify-content-between align-items-center">
             <b>{{.DocNo}}</b>
-            <span class="badge {{if eq .Status "paid"}}bg-success{{else}}bg-warning text-dark{{end}}">{{.Status}}</span>
+            <span class="badge {{if eq .Status "paid"}}bg-success{{else if eq .Status "void"}}bg-secondary{{else}}bg-warning text-dark{{end}}">{{.StatusName}}</span>
           </div>
           {{if .Lines}}<div class="small text-muted mt-1">{{range .Lines}}{{.Name}}x{{.Qty}} {{f2 .Amount}}<br>{{end}}</div>{{end}}
           <div class="d-flex justify-content-between align-items-center mt-1">
@@ -49,14 +55,21 @@
             <span class="{{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">¥{{f2 .Amount}}</span>
           </div>
           {{if eq .Status "open"}}
-          <form method="post" action="/app/billing/bills/{{hex .ID}}/pay" class="d-flex gap-1 mt-2">
-            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-            <input class="form-control form-control-sm text-end flex-grow-1" name="amount" type="number" step="0.01" value="{{.Amount}}" required>
-            <select class="form-select form-select-sm flex-shrink-0" name="method" style="width:5.5em">
-              <option value="bank">银行</option><option value="cash">现金</option><option value="other">其他</option>
-            </select>
-            <button class="btn btn-sm btn-primary flex-shrink-0">核销</button>
-          </form>
+          <div class="d-flex gap-1 mt-2">
+            <form method="post" action="/app/billing/bills/{{hex .ID}}/pay" class="d-flex gap-1 flex-grow-1 m-0"
+                  onsubmit="return confirm('确认收款 ¥{{f2 .Amount}}？')">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <select class="form-select form-select-sm flex-shrink-0" name="method" style="width:5.5em">
+                <option value="bank">银行</option><option value="cash">现金</option><option value="other">其他</option>
+              </select>
+              <button class="btn btn-sm btn-primary flex-grow-1">收款 ¥{{f2 .Amount}}</button>
+            </form>
+            <form method="post" action="/app/billing/bills/{{hex .ID}}/void" class="m-0 flex-shrink-0"
+                  onsubmit="return confirm('确认作废 {{.DocNo}}？作废后移出未收，不可恢复。')">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">作废</button>
+            </form>
+          </div>
           {{end}}
         </div></div>
         {{else}}

@@ -76,6 +76,34 @@ func (s *Service) ByDocNo(ctx context.Context, tenantID bson.ObjectID, docNo str
 	return s.bills.FindOne(ctx, tenantID, bson.M{"doc_no": docNo})
 }
 
+// BillByID 按 ID 查单。
+func (s *Service) BillByID(ctx context.Context, tenantID, id bson.ObjectID) (*Bill, error) {
+	return s.bills.FindByID(ctx, tenantID, id)
+}
+
+// VoidBill 作废应收：收不回来的单（免单/坏账）移出未收；
+// 若关联预约还在待缴费，一并翻已完成（幂等，只翻待缴费态）。
+func (s *Service) VoidBill(ctx context.Context, tenantID, billID bson.ObjectID) error {
+	b, err := s.bills.FindByID(ctx, tenantID, billID)
+	if err != nil {
+		return err
+	}
+	if b.Status != BillOpen {
+		return errors.New("单据已结清或已作废")
+	}
+	if err := s.bills.Update(ctx, tenantID, billID, bson.M{"status": BillVoid}); err != nil {
+		return err
+	}
+	if b.RefID != "" {
+		if apptID, err := bson.ObjectIDFromHex(b.RefID); err == nil {
+			_, _ = s.db.Collection("appointments").UpdateOne(ctx,
+				bson.M{"tenant_id": tenantID, "_id": apptID, "status": "unpaid"},
+				bson.M{"$set": bson.M{"status": "done", "updated_at": time.Now()}})
+		}
+	}
+	return nil
+}
+
 // PayMock 模拟全额代收（患者端/演示用，真支付接入时换这一处）。
 func (s *Service) PayMock(ctx context.Context, tenantID, billID bson.ObjectID, by string) error {
 	b, err := s.bills.FindByID(ctx, tenantID, billID)
@@ -97,9 +125,11 @@ func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, skip, l
 	return list, total, err
 }
 
-// Mine 某患者的全部账单（患者端）。
+// Mine 某患者的有效账单（患者端；已作废的不展示不计欠）。
 func (s *Service) Mine(ctx context.Context, tenantID, patientID bson.ObjectID) ([]Bill, error) {
-	return s.bills.FindMany(ctx, tenantID, bson.M{"patient_id": patientID})
+	return s.bills.FindMany(ctx, tenantID, bson.M{
+		"patient_id": patientID, "status": bson.M{"$ne": BillVoid},
+	})
 }
 
 // Pay 核销：生成收款单并累加已核销额，足额标记 paid。
@@ -108,8 +138,8 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 	if err != nil {
 		return err
 	}
-	if b.Status == BillPaid {
-		return errors.New("单据已核销")
+	if b.Status != BillOpen {
+		return errors.New("单据已结清或已作废")
 	}
 	if amount <= 0 || b.PaidAmount+amount > b.Amount+1e-9 {
 		return ErrOverPay

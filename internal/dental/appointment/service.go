@@ -214,10 +214,11 @@ func (s *Service) pickDoctor(ctx context.Context, tenantID bson.ObjectID, date s
 }
 
 // nextQueueNo 当天当医生下一个排号（已用号+1）。
+// 注意：排号一旦分配就占号（开单待缴费也占），必须统计所有带号单据，
+// 否则下一位签到会撞唯一索引。
 func (s *Service) nextQueueNo(ctx context.Context, tenantID, doctorID bson.ObjectID, date string) int {
 	n, _ := s.appts.Count(ctx, tenantID, bson.M{
 		"doctor_id": doctorID, "date": date,
-		"status": bson.M{"$in": []string{Arrived, Serving, Done}},
 		"queue_no": bson.M{"$gt": 0},
 	})
 	return int(n) + 1

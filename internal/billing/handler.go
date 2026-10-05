@@ -33,6 +33,7 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 	g.GET("", mw.RequirePerm("billing.read"), h.summary)
 	g.GET("/receivables", mw.RequirePerm("billing.read"), h.receivables)
 	g.POST("/bills/:id/pay", mw.RequirePerm("billing.write"), h.pay)
+	g.POST("/bills/:id/void", mw.RequirePerm("billing.write"), h.void)
 	g.GET("/payments", mw.RequirePerm("billing.read"), h.payments)
 	g.GET("/expenses", mw.RequirePerm("billing.read"), h.expenses)
 	g.POST("/expenses", mw.RequirePerm("billing.write"), h.createExpense)
@@ -58,11 +59,31 @@ func (h *Handler) receivables(c *gin.Context) {
 
 func (h *Handler) pay(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	amount, _ := strconv.ParseFloat(c.PostForm("amount"), 64)
-	if err := h.svc.Pay(c.Request.Context(), mw.TenantID(c), id, amount, c.PostForm("method"), mw.User(c).Name); err != nil {
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
+	b, err := h.svc.BillByID(ctx, tid, id)
+	if err != nil || b.Status != BillOpen {
+		web.SetFlash(c, "单据已结清或已作废")
+		c.Redirect(http.StatusFound, "/app/billing/receivables")
+		return
+	}
+	// 按单全额收清，金额不可改
+	amount := b.Amount - b.PaidAmount
+	if err := h.svc.Pay(ctx, tid, id, amount, c.PostForm("method"), mw.User(c).Name); err != nil {
 		web.SetFlash(c, "核销失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "已核销")
+	}
+	c.Redirect(http.StatusFound, "/app/billing/receivables")
+}
+
+// void 作废应收（免单/坏账），移出未收。
+func (h *Handler) void(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	if err := h.svc.VoidBill(c.Request.Context(), mw.TenantID(c), id); err != nil {
+		web.SetFlash(c, "作废失败: "+err.Error())
+	} else {
+		web.SetFlash(c, "单据已作废")
 	}
 	c.Redirect(http.StatusFound, "/app/billing/receivables")
 }
