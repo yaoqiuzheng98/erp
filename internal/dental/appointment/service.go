@@ -48,6 +48,19 @@ func (s *Service) fillItems(ctx context.Context, tenantID bson.ObjectID, in []Ap
 		if l.Qty <= 0 {
 			continue
 		}
+		if l.ServiceID.IsZero() {
+			// 手工项：名称必填，单价以传入为准
+			if l.Name == "" || l.Price < 0 {
+				continue
+			}
+			amt := l.Qty * l.Price
+			out = append(out, ApptItem{
+				Name: l.Name, Qty: l.Qty, Price: l.Price, Amount: amt,
+			})
+			total += amt
+			names = append(names, l.Name)
+			continue
+		}
 		si, err := s.items.ByID(ctx, tenantID, l.ServiceID)
 		if err != nil {
 			return nil, "", 0, errors.New("价目项目不存在")

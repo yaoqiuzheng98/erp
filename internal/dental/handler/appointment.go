@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"erp/internal/dental/appointment"
 	mw "erp/internal/platform/middleware"
@@ -81,6 +82,33 @@ func parseApptItems(c *gin.Context) []appointment.ApptItem {
 			}
 		}
 		out = append(out, appointment.ApptItem{ServiceID: oid, Qty: qty})
+	}
+	// 手工项（不在价目表）：三数组按序对齐，名称必填。
+	names := c.PostFormArray("manual_name")
+	mqtys := c.PostFormArray("manual_qty")
+	mprices := c.PostFormArray("manual_price")
+	for i, nm := range names {
+		nm = strings.TrimSpace(nm)
+		if nm == "" {
+			continue
+		}
+		qty := 1.0
+		if i < len(mqtys) {
+			if q, err := strconv.ParseFloat(mqtys[i], 64); err == nil && q > 0 {
+				qty = q
+			} else {
+				continue
+			}
+		}
+		price := 0.0
+		if i < len(mprices) {
+			if p, err := strconv.ParseFloat(mprices[i], 64); err == nil && p >= 0 {
+				price = p
+			} else {
+				continue
+			}
+		}
+		out = append(out, appointment.ApptItem{Name: nm, Qty: qty, Price: price})
 	}
 	return out
 }

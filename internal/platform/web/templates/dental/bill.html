@@ -60,10 +60,18 @@
             {{range .Data.A.Items}}
             <div class="d-flex gap-2 align-items-center border rounded px-2 py-1"
                  data-sid="{{hex .ServiceID}}" data-name="{{.Name}}" data-price="{{printf "%.2f" .Price}}">
+              {{if .ServiceID.IsZero}}
+              <input type="hidden" name="manual_name" value="{{.Name}}">
+              <span class="flex-grow-1">{{.Name}} <small class="text-muted">¥{{printf "%.2f" .Price}} <span class="badge bg-secondary">手工</span></small></span>
+              <input class="form-control form-control-sm pick-row-qty" name="manual_qty"
+                     type="number" min="1" step="1" value="{{.Qty}}" style="width:4.5em" title="数量">
+              <input type="hidden" name="manual_price" value="{{printf "%.2f" .Price}}">
+              {{else}}
               <input type="hidden" name="service_id" value="{{hex .ServiceID}}">
               <span class="flex-grow-1">{{.Name}} <small class="text-muted">¥{{printf "%.2f" .Price}}</small></span>
               <input class="form-control form-control-sm pick-row-qty" name="qty_{{hex .ServiceID}}"
                      type="number" min="1" step="1" value="{{.Qty}}" style="width:4.5em" title="数量">
+              {{end}}
               <button type="button" class="btn btn-sm btn-outline-danger" onclick="dropRow(this)">删</button>
             </div>
             {{end}}
@@ -100,13 +108,22 @@
                 <span class="text-muted small">暂无价目，先去价目表维护</span>
                 {{end}}
               </div>
+              <hr>
+              <h6>手工添加 <span class="text-muted small">不在价目表的项目/药品</span></h6>
+              <div id="manualStage" class="d-flex flex-column gap-1 mb-2"></div>
+              <div class="d-flex gap-1">
+                <input id="manualName" class="form-control form-control-sm flex-grow-1" placeholder="项目/药品名">
+                <input id="manualQty" class="form-control form-control-sm" type="number" min="1" step="1" value="1" style="width:4em" title="数量">
+                <input id="manualPrice" class="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="单价" style="width:5.5em" title="单价">
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" onclick="stageManual()">加入</button>
+              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
               <button type="button" class="btn btn-sm btn-primary" onclick="confirmPick()">确认添加</button>
             </div>
           </div>
-        </div></div>
+        </div>
         <script>
         // 自适应文本框：内容增减自动伸缩
         function autosize(el) {
@@ -118,6 +135,32 @@
           el.addEventListener('input', function () { autosize(el); });
         });
         var cart = {}; // sid -> {name, price, qty}，主表与表单同源渲染
+        var manualSeq = 0;
+        var manualStage = []; // 弹窗手工暂存 [{name, qty, price}]，确认添加时进购物车
+        function stageManual(){
+          var nm = document.getElementById('manualName').value.trim();
+          var q = parseFloat(document.getElementById('manualQty').value) || 0;
+          var p = parseFloat(document.getElementById('manualPrice').value);
+          if (!nm) { alert('请填写项目/药品名'); return; }
+          if (!(q > 0)) { alert('数量须大于0'); return; }
+          if (isNaN(p) || p < 0) { alert('单价不能为负'); return; }
+          manualStage.push({name: nm, qty: q, price: p});
+          document.getElementById('manualName').value = '';
+          document.getElementById('manualQty').value = 1;
+          document.getElementById('manualPrice').value = '';
+          renderManualStage();
+        }
+        function renderManualStage(){
+          var list = document.getElementById('manualStage');
+          var html = '';
+          manualStage.forEach(function(it, i){
+            html += '<div class="d-flex gap-2 align-items-center border rounded px-2 py-1">' +
+              '<span class="flex-grow-1">' + esc(it.name) + ' <small class="text-muted">¥' + money(it.price) + ' x' + it.qty + '</small></span>' +
+              '<button type="button" class="btn btn-sm btn-outline-danger" onclick="dropManual(' + i + ')">删</button></div>';
+          });
+          list.innerHTML = html;
+        }
+        function dropManual(i){ manualStage.splice(i, 1); renderManualStage(); }
         function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
           return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
         function money(n){ return (Math.round(n * 100) / 100).toFixed(2); }
@@ -127,6 +170,16 @@
           var html = '';
           sids.forEach(function(sid){
             var it = cart[sid];
+            if (it.manual) {
+              html += '<div class="d-flex gap-2 align-items-center border rounded px-2 py-1" data-sid="' + esc(sid) + '">' +
+                '<input type="hidden" name="manual_name" value="' + esc(it.name) + '">' +
+                '<span class="flex-grow-1">' + esc(it.name) + ' <small class="text-muted">¥' + money(it.price) + ' <span class="badge bg-secondary">手工</span></small></span>' +
+                '<input class="form-control form-control-sm pick-row-qty" name="manual_qty"' +
+                ' type="number" min="1" step="1" value="' + it.qty + '" style="width:4.5em" title="数量">' +
+                '<input type="hidden" name="manual_price" value="' + it.price + '">' +
+                '<button type="button" class="btn btn-sm btn-outline-danger" onclick="dropRow(this)">删</button></div>';
+              return;
+            }
             html += '<div class="d-flex gap-2 align-items-center border rounded px-2 py-1" data-sid="' + esc(sid) + '"' +
               ' data-name="' + esc(it.name) + '" data-price="' + it.price + '">' +
               '<input type="hidden" name="service_id" value="' + esc(sid) + '">' +
@@ -171,11 +224,15 @@
         }
         (function(){
           document.querySelectorAll('#pickList [data-sid]').forEach(function(row){
-            var q = row.querySelector('input[name^="qty_"]');
-            cart[row.dataset.sid] = {
+            var q = row.querySelector('input.pick-row-qty');
+            var isManual = !!row.querySelector('input[name="manual_name"]');
+            var key = row.dataset.sid;
+            if (isManual) key = 'm-init-' + (++manualSeq);
+            cart[key] = {
               name: row.dataset.name,
               price: parseFloat(row.dataset.price) || 0,
-              qty: parseFloat(q && q.value) || 1
+              qty: parseFloat(q && q.value) || 1,
+              manual: isManual
             };
           });
           renderCart();
@@ -203,6 +260,11 @@
             box.checked = false;
             if (qtyInput) qtyInput.value = 1;
           });
+          manualStage.forEach(function(it){
+            cart['m' + (++manualSeq)] = {name: it.name, price: it.price, qty: it.qty, manual: true};
+          });
+          manualStage = [];
+          renderManualStage();
           bootstrap.Modal.getInstance(document.getElementById('pickModal')).hide();
           renderCart();
         }
