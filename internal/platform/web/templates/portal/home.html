@@ -38,10 +38,10 @@
   {{end}}
   {{if .Data.Team}}
   <h6 class="text-muted px-1">团队介绍</h6>
-  <div class="row g-2 mb-3">
+  <div class="team-masonry mb-3">
     {{range .Data.Team}}
-    <div class="col-6">
-      <div class="card portal-card h-100"><div class="card-body text-center py-3">
+    <div class="team-item">
+      <div class="card portal-card"><div class="card-body text-center py-3">
         {{if .Avatar}}
         <img src="/p/{{$.Data.Tid}}/gallery/{{.Avatar}}" class="rounded-circle mb-2" style="width:4em;height:4em;object-fit:cover" alt="{{.Name}}">
         {{else}}

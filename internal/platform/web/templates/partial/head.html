@@ -64,6 +64,9 @@
     .portal-tabbar a.active { color: #0d9488; font-weight: 700; }
     .portal-topbar { background: #fff; }
     .portal-card { border: 0; border-radius: 1rem; box-shadow: 0 .125rem .5rem rgba(0,0,0,.06); }
+    /* 团队介绍瀑布流：两列纵向填，简介长短不一也不留白 */
+    .team-masonry { columns: 2; column-gap: .5rem; }
+    .team-masonry > .team-item { break-inside: avoid; margin-bottom: .5rem; }
     /* 首页画廊：图片组从左往右缓慢轮播（内容复制一份实现无缝循环） */
     .gallery-track { overflow: hidden; }
     .gallery-scroll { display: flex; gap: .5rem; width: max-content;
