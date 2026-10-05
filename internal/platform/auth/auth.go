@@ -248,10 +248,6 @@ func (s *Service) ChangePassword(ctx context.Context, tenantID, id bson.ObjectID
 	return s.SetPassword(ctx, tenantID, id, newPlain)
 }
 
-// CountByRole 引用某角色的员工数（删角色前的守卫）。
-func (s *Service) CountByRole(ctx context.Context, tenantID, roleID bson.ObjectID) (int64, error) {
-	return s.users.CountDocuments(ctx, bson.M{"tenant_id": tenantID, "role_ids": roleID})
-}
 
 func (s *Service) SysAdminByID(ctx context.Context, id bson.ObjectID) (*SysAdmin, error) {
 	var a SysAdmin

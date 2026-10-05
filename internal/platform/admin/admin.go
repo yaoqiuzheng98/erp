@@ -32,7 +32,6 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 
 	g.GET("/roles", mw.RequirePerm("admin.roles"), h.rolesPage)
 	g.POST("/roles", mw.RequirePerm("admin.roles"), h.createRole)
-	g.POST("/roles/:id/delete", mw.RequirePerm("admin.roles"), h.deleteRole)
 
 	g.GET("/settings", mw.RequirePerm("admin.settings"), h.settingsPage)
 	g.POST("/settings", mw.RequirePerm("admin.settings"), h.saveSettings)
@@ -201,25 +200,6 @@ func (h *Handler) createRole(c *gin.Context) {
 	} else {
 		h.audit(c, "role.create", r.Name, r.Name)
 		web.SetFlash(c, "角色已创建")
-	}
-	c.Redirect(http.StatusFound, "/admin/roles")
-}
-
-func (h *Handler) deleteRole(c *gin.Context) {
-	ctx := c.Request.Context()
-	tid := mw.TenantID(c)
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	n, _ := h.e.Auth.CountByRole(ctx, tid, id)
-	if n > 0 {
-		web.SetFlash(c, "仍有员工使用该角色，请先调整员工")
-		c.Redirect(http.StatusFound, "/admin/roles")
-		return
-	}
-	if err := h.e.RBAC.Delete(ctx, tid, id); err == nil {
-		h.audit(c, "role.delete", id.Hex(), "")
-		web.SetFlash(c, "角色已删除")
-	} else {
-		web.SetFlash(c, "删除失败: "+err.Error())
 	}
 	c.Redirect(http.StatusFound, "/admin/roles")
 }

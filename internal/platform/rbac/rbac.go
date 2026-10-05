@@ -161,12 +161,6 @@ func (s *Service) Create(ctx context.Context, r *Role) error {
 	return nil
 }
 
-// Delete 删除角色。调用方应先确认无员工在用（auth.CountByRole）。
-func (s *Service) Delete(ctx context.Context, tenantID, id bson.ObjectID) error {
-	_, err := s.roles.DeleteOne(ctx, bson.M{"_id": id, "tenant_id": tenantID})
-	return err
-}
-
 func Has(set map[string]bool, code string) bool {
 	if set["*"] {
 		return true

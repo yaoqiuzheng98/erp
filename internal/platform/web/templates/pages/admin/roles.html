@@ -29,19 +29,12 @@
         </form>
       </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white align-middle">
-        <thead><tr><th>名称</th><th>权限码</th><th></th></tr></thead>
+        <thead><tr><th>名称</th><th>权限码</th></tr></thead>
         <tbody>
         {{range .Data.Roles}}
         <tr>
           <td>{{.Name}}</td>
           <td class="small text-muted">{{range .PermCodes}}{{.}} {{end}}</td>
-          <td>
-            <form method="post" action="/admin/roles/{{hex .ID}}/delete" class="m-0"
-                  onsubmit="return confirm('确认删除角色 {{.Name}}？')">
-              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <button class="btn btn-sm btn-outline-danger">删除</button>
-            </form>
-          </td>
         </tr>
         {{end}}
         </tbody>
