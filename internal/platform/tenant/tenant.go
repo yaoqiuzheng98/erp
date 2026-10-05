@@ -17,6 +17,7 @@ type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
 	RegFee    float64       `bson:"reg_fee"`
+	RegDeduct bool          `bson:"reg_deduct,omitempty"` // 挂号费抵扣最终诊疗费（开时已缴挂号费当定金抵）
 	Status    string        `bson:"status"` // active / suspended
 	Intro     string        `bson:"intro,omitempty"`
 	Address   string        `bson:"address,omitempty"`
@@ -77,6 +78,16 @@ func (s *Service) SetFee(ctx context.Context, id bson.ObjectID, fee float64) err
 		fee = 0
 	}
 	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"reg_fee": fee}})
+	return err
+}
+
+// SetBilling 挂号费与抵扣开关一起存（门诊设置）。
+func (s *Service) SetBilling(ctx context.Context, id bson.ObjectID, fee float64, deduct bool) error {
+	if fee < 0 {
+		fee = 0
+	}
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id},
+		bson.M{"$set": bson.M{"reg_fee": fee, "reg_deduct": deduct}})
 	return err
 }
 

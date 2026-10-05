@@ -233,10 +233,11 @@ func (h *Handler) settingsPage(c *gin.Context) {
 
 func (h *Handler) saveSettings(c *gin.Context) {
 	fee, _ := strconv.ParseFloat(c.PostForm("reg_fee"), 64)
-	if err := h.e.Tenants.SetFee(c.Request.Context(), mw.TenantID(c), fee); err != nil {
+	deduct := c.PostForm("reg_deduct") == "on"
+	if err := h.e.Tenants.SetBilling(c.Request.Context(), mw.TenantID(c), fee, deduct); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
-		h.audit(c, "tenant.settings", "reg_fee", c.PostForm("reg_fee"))
+		h.audit(c, "tenant.settings", "reg_fee+deduct", c.PostForm("reg_fee"))
 		web.SetFlash(c, "门诊设置已保存")
 	}
 	c.Redirect(http.StatusFound, "/admin/settings")

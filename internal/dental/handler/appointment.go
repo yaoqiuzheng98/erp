@@ -157,7 +157,11 @@ func (h *Handler) done(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	charge, _ := strconv.ParseFloat(c.PostForm("charge"), 64)
 	items := parseApptItems(c)
-	next, err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge, mw.User(c).Name)
+	deduct := false
+	if t := mw.Tenant(c); t != nil {
+		deduct = t.RegDeduct
+	}
+	next, err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge, deduct, mw.User(c).Name)
 	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else if next != "" {
