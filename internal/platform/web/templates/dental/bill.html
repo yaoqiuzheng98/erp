@@ -71,8 +71,10 @@
             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#pickModal">＋ 添加项目/药品</button>
           </div>
           <div class="row g-2 mb-2">
-            <div class="col-12 col-md-6"><textarea class="form-control form-control-sm" name="diagnosis" rows="1" data-autosize placeholder="病情分析/诊断">{{.Data.A.Diagnosis}}</textarea></div>
-            <div class="col-12 col-md-6"><textarea class="form-control form-control-sm" name="result" rows="1" data-autosize placeholder="诊疗结果">{{.Data.A.Result}}</textarea></div>
+            <div class="col-12 col-md-6"><label class="form-label">病情分析/诊断</label>
+              <textarea class="form-control form-control-sm" name="diagnosis" rows="1" data-autosize>{{.Data.A.Diagnosis}}</textarea></div>
+            <div class="col-12 col-md-6"><label class="form-label">诊疗结果</label>
+              <textarea class="form-control form-control-sm" name="result" rows="1" data-autosize>{{.Data.A.Result}}</textarea></div>
           </div>
           <div class="d-grid">
             <button class="btn btn-success btn-lg">开单完成</button>
