@@ -348,7 +348,7 @@ func (h *Web) billPage(c *gin.Context) {
 			return
 		}
 	}
-	c.String(http.StatusNotFound, "账单不存在")
+	c.String(http.StatusNotFound, "诊疗单不存在")
 }
 
 func (h *Web) payBill(c *gin.Context) {
@@ -362,7 +362,7 @@ func (h *Web) payBill(c *gin.Context) {
 		}
 	}
 	if !found {
-		web.SetFlash(c, "账单不存在")
+		web.SetFlash(c, "诊疗单不存在")
 		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/bills")
 		return
 	}

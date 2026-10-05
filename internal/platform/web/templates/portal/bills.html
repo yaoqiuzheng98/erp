@@ -10,7 +10,7 @@
   {{if gt .Data.Unpaid 0.0}}
   <div class="alert alert-warning py-2">待付 ¥{{printf "%.2f" .Data.Unpaid}}，请到店支付</div>
   {{end}}
-  <h6 class="text-muted px-1">我的账单</h6>
+  <h6 class="text-muted px-1">我的诊疗单</h6>
   {{range .Data.Bills}}
   <a class="card portal-card mb-2 text-decoration-none text-dark" href="/p/{{$.Data.Tid}}/bills/{{hex .ID}}">
     <div class="card-body py-2">
@@ -23,7 +23,7 @@
     </div>
   </a>
   {{else}}
-  <div class="text-muted px-1">暂无账单</div>
+  <div class="text-muted px-1">暂无诊疗单</div>
   {{end}}
 </main>
 {{template "portal/tabbar" .}}

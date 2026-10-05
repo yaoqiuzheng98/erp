@@ -229,7 +229,7 @@ func (h *API) ownBill(c *gin.Context) (*billing.Bill, bool) {
 func (h *API) billDetail(c *gin.Context) {
 	b, found := h.ownBill(c)
 	if !found {
-		fail(c, http.StatusNotFound, "账单不存在")
+		fail(c, http.StatusNotFound, "诊疗单不存在")
 		return
 	}
 	lines := make([]gin.H, 0, len(b.Lines))
@@ -246,7 +246,7 @@ func (h *API) payBill(c *gin.Context) {
 	p := Patient(c)
 	b, found := h.ownBill(c)
 	if !found {
-		fail(c, http.StatusNotFound, "账单不存在")
+		fail(c, http.StatusNotFound, "诊疗单不存在")
 		return
 	}
 	if err := h.bill.PayMock(c.Request.Context(), p.TenantID, b.ID, p.Name); err != nil {
