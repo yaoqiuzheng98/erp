@@ -57,12 +57,16 @@ func (s *Service) CreateAR(ctx context.Context, tenantID bson.ObjectID, ar AR) e
 	return err
 }
 
-// BillByRef 按来源预约查应收（诊疗单打印用），无单返回 nil, nil。
+// BillByRef 按来源预约查诊疗应收（诊疗单打印用），无单返回 nil, nil。
+// 注意只认 CH- 诊疗单：挂号费 RG 单也挂同一 ref_id，必须排除，
+// 否则没开单也显示“已开单”（挂号流水号前缀规则见 seqno 用法）。
 func (s *Service) BillByRef(ctx context.Context, tenantID bson.ObjectID, refID string) (*Bill, error) {
 	if refID == "" {
 		return nil, nil
 	}
-	b, err := s.bills.FindOne(ctx, tenantID, bson.M{"ref_id": refID})
+	b, err := s.bills.FindOne(ctx, tenantID, bson.M{
+		"ref_id": refID, "doc_no": bson.M{"$regex": "^CH-"},
+	})
 	if err != nil {
 		return nil, nil
 	}
