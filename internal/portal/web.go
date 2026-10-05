@@ -344,7 +344,13 @@ func (h *Web) billPage(c *gin.Context) {
 	list, _ := h.bill.Mine(c.Request.Context(), p.TenantID, p.ID)
 	for _, b := range list {
 		if b.ID == id {
-			web.Render(c, h.e, "portal/bill", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "B": b})
+			var appt *appointment.Appointment
+			if b.RefID != "" {
+				if aid, err := bson.ObjectIDFromHex(b.RefID); err == nil {
+					appt, _ = h.appts.ByID(c.Request.Context(), p.TenantID, aid)
+				}
+			}
+			web.Render(c, h.e, "portal/bill", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "B": b, "A": appt})
 			return
 		}
 	}

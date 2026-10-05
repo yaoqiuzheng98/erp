@@ -40,6 +40,8 @@ type Appointment struct {
 	Date        string        `bson:"date"` // YYYY-MM-DD
 	Slot        string        `bson:"slot"` // HH:MM
 	Item        string        `bson:"item"` // 自由文本兜底（无价目时填）
+	Diagnosis   string        `bson:"diagnosis,omitempty"` // 病情分析/诊断（开单时填）
+	Result      string        `bson:"result,omitempty"`    // 诊疗结果（开单时填）
 	Items       []ApptItem    `bson:"items,omitempty"`
 	QueueNo     int           `bson:"queue_no,omitempty"` // 当天当医生排号（签到分配）
 	RegFee      float64       `bson:"reg_fee,omitempty"`    // 挂号费快照（预约时）

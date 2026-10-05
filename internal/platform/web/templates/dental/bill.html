@@ -25,6 +25,8 @@
           <tr><th class="w-25">患者</th><td>{{.Data.A.PatientName}}{{if .Data.P}}（{{.Data.P.Gender}} {{.Data.P.Phone}}）{{end}}</td></tr>
           <tr><th>医生</th><td>{{.Data.A.Doctor}}</td></tr>
           {{if .Data.A.Item}}<tr><th>就诊主诉</th><td>{{.Data.A.Item}}</td></tr>{{end}}
+          {{if .Data.A.Diagnosis}}<tr><th>病情分析</th><td>{{.Data.A.Diagnosis}}</td></tr>{{end}}
+          {{if .Data.A.Result}}<tr><th>诊疗结果</th><td>{{.Data.A.Result}}</td></tr>{{end}}
         </table>
         <table class="table table-sm">
           <thead><tr><th>诊疗项目</th><th>数量</th><th class="text-end">单价</th><th class="text-end">小计</th></tr></thead>
@@ -67,6 +69,10 @@
           </div>
           <div class="d-flex gap-2 mb-2">
             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#pickModal">＋ 添加项目/药品</button>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-12 col-md-6"><input class="form-control form-control-sm" name="diagnosis" placeholder="病情分析/诊断" value="{{.Data.A.Diagnosis}}"></div>
+            <div class="col-12 col-md-6"><input class="form-control form-control-sm" name="result" placeholder="诊疗结果" value="{{.Data.A.Result}}"></div>
           </div>
           <div class="d-flex gap-2">
             <input class="form-control form-control-sm flex-grow-1" name="charge" type="number" step="0.01" min="0" placeholder="手工收费（无明细时填）">
