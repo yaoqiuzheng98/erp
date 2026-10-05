@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"erp/internal/dental/appointment"
 	"erp/internal/dental/patient"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/web"
@@ -55,9 +56,16 @@ func (h *Handler) patient(c *gin.Context) {
 		return
 	}
 	appts, _ := h.appts.OfPatient(c.Request.Context(), tid, id)
+	// 就诊记录只展示已完成的。
+	done := appts[:0]
+	for _, a := range appts {
+		if a.Status == appointment.Done {
+			done = append(done, a)
+		}
+	}
 	files, _ := h.e.Attach.ListByOwner(c.Request.Context(), tid, "patient", id)
 	web.Render(c, h.e, "dental/patient", gin.H{
-		"P": p, "Appts": appts, "Files": files,
+		"P": p, "Appts": done, "Files": files,
 	})
 }
 
