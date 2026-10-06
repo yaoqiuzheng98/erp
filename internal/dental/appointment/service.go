@@ -422,31 +422,69 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id bson.ObjectID) error 
 	return err
 }
 
-// CancelUnpaid 门诊后台取消待缴费单：先作废其名下所有未收单，再取消预约。
-// 未开单的走普通 Cancel；已结清的不动（收了的钱不退）；serving/done 等其他状态拒绝。
-// 返回被作废的单号（审计留痕）。患者端不调这个（防患者自助作废逃费），只调 Cancel。
+// CancelUnpaid 门诊后台取消待缴费/已接诊未收单：先作废其名下所有未收单，再取消预约。
+// 未开单的走普通 Cancel；动过钱的一律拒绝（已结清/部分已收都要人工处理）；
+// serving 等其他状态拒绝。返回被作废的单号（审计留痕）。
+// 患者端不调这个（防患者自助作废逃费），只调 Cancel。
 func (s *Service) CancelUnpaid(ctx context.Context, tenantID, id bson.ObjectID) ([]string, error) {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
 	}
-	if a.Status != Unpaid {
+	switch a.Status {
+	case Booked, Arrived:
 		return nil, s.Cancel(ctx, tenantID, id)
+	case Unpaid, Done:
+	default:
+		return nil, ErrBadStatus
+	}
+	// 有收款记录（已结清/部分已收）不自动取消：钱动了必须人工处理
+	bills, err := s.billing.BillsByRef(ctx, tenantID, id.Hex())
+	if err != nil {
+		return nil, err
+	}
+	var received float64
+	for _, b := range bills {
+		received += b.PaidAmount
+	}
+	if received > billing.Epsilon {
+		return nil, errors.New("已有收款记录，无法取消，请人工处理")
 	}
 	voided, err := s.billing.VoidOpenByRef(ctx, tenantID, id.Hex())
 	if err != nil {
 		return nil, err
 	}
-	// 作废与取消之间若被收清（matched=0）：钱已收，只取消预约，已结清单不动
 	matched, err := s.appts.UpdateWhere(ctx, tenantID,
-		bson.M{"_id": id, "status": Unpaid}, bson.M{"status": Cancel})
+		bson.M{"_id": id, "status": a.Status}, bson.M{"status": Cancel})
 	if err != nil {
 		return voided, err
 	}
-	if matched == 0 {
+	if matched == 0 && !s.cancelConverged(ctx, tenantID, id) {
 		return voided, ErrBadStatus
 	}
 	return voided, nil
+}
+
+// cancelConverged 取消是否已收敛到一致态：预约已是取消，或（已接诊且名下无未收单）。
+// 并发中被别人先处理完时直接成功，不报状态错。
+func (s *Service) cancelConverged(ctx context.Context, tenantID, id bson.ObjectID) bool {
+	a, err := s.appts.FindByID(ctx, tenantID, id)
+	if err != nil {
+		return false
+	}
+	if a.Status == Cancel {
+		return true
+	}
+	bills, err := s.billing.BillsByRef(ctx, tenantID, id.Hex())
+	if err != nil {
+		return false
+	}
+	for _, b := range bills {
+		if b.Status == billing.BillOpen {
+			return false
+		}
+	}
+	return true
 }
 
 // Complete 开单：仅就诊中（serving）可开单，不许跳过叫号。

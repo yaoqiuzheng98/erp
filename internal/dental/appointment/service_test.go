@@ -160,10 +160,10 @@ func TestCancelUnpaid(t *testing.T) {
 		}
 		return res.InsertedID.(bson.ObjectID)
 	}
-	mkBill := func(ref, docno, status string) {
+	mkBill := func(ref, docno, status string, paid float64) {
 		if _, err := db.Collection("bills").InsertOne(ctx, bson.M{
 			"tenant_id": tid, "patient_id": pid, "patient_name": "取消测试",
-			"doc_no": docno, "amount": 100, "paid_amount": 0,
+			"doc_no": docno, "amount": 100, "paid_amount": paid,
 			"status": status, "ref_id": ref, "created_at": time.Now(),
 		}); err != nil {
 			t.Fatal(err)
@@ -172,7 +172,7 @@ func TestCancelUnpaid(t *testing.T) {
 
 	// unpaid + open → 取消 + 作废
 	a1 := mk(Unpaid)
-	mkBill(a1.Hex(), "CH-T-0010", "open")
+	mkBill(a1.Hex(), "CH-T-0010", "open", 0)
 	voided, err := svc.CancelUnpaid(ctx, tid, a1)
 	if err != nil {
 		t.Fatalf("CancelUnpaid: %v", err)
@@ -193,14 +193,54 @@ func TestCancelUnpaid(t *testing.T) {
 		t.Fatalf("bill status = %+v, %v", b, err)
 	}
 
-	// unpaid + paid → 取消预约，已结清单不动
+	// unpaid + paid → 拒绝（钱动了必须人工处理）
 	a2 := mk(Unpaid)
-	mkBill(a2.Hex(), "CH-T-0011", "paid")
-	if _, err := svc.CancelUnpaid(ctx, tid, a2); err != nil {
-		t.Fatalf("CancelUnpaid paid: %v", err)
+	mkBill(a2.Hex(), "CH-T-0011", "paid", 100)
+	if _, err := svc.CancelUnpaid(ctx, tid, a2); err == nil {
+		t.Fatal("CancelUnpaid with paid bill should fail")
 	}
-	if err := db.Collection("bills").FindOne(ctx, bson.M{"doc_no": "CH-T-0011"}).Decode(&b); err != nil || b.Status != "paid" {
-		t.Fatalf("paid bill touched: %+v, %v", b, err)
+
+	// done + open（新模型：开单即 done，钱还没收）→ 作废 + 取消
+	a5 := mk(Done)
+	mkBill(a5.Hex(), "CH-T-0012", "open", 0)
+	if _, err := db.Collection("treatments").InsertOne(ctx, bson.M{
+		"tenant_id": tid, "appt_id": a5, "total": 100,
+		"status": "billed", "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var trPick struct {
+		ID bson.ObjectID `bson:"_id"`
+	}
+	if err := db.Collection("treatments").FindOne(ctx, bson.M{"appt_id": a5}).Decode(&trPick); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Collection("bills").UpdateOne(ctx, bson.M{"doc_no": "CH-T-0012"},
+		bson.M{"$set": bson.M{"treatment_id": trPick.ID}}); err != nil {
+		t.Fatal(err)
+	}
+	voided, err = svc.CancelUnpaid(ctx, tid, a5)
+	if err != nil {
+		t.Fatalf("CancelUnpaid done+open: %v", err)
+	}
+	if len(voided) != 1 {
+		t.Fatalf("voided = %v", voided)
+	}
+	if err := db.Collection("appointments").FindOne(ctx, bson.M{"_id": a5}).Decode(&got); err != nil || got.Status != Cancel {
+		t.Fatalf("appt status = %+v, %v", got, err)
+	}
+	var tr struct {
+		Status string `bson:"status"`
+	}
+	if err := db.Collection("treatments").FindOne(ctx, bson.M{"appt_id": a5}).Decode(&tr); err != nil || tr.Status != "void" {
+		t.Fatalf("treatment status = %+v, %v", tr, err)
+	}
+
+	// done + paid → 拒绝
+	a6 := mk(Done)
+	mkBill(a6.Hex(), "CH-T-0013", "paid", 100)
+	if _, err := svc.CancelUnpaid(ctx, tid, a6); err == nil {
+		t.Fatal("CancelUnpaid done+paid should fail")
 	}
 
 	// booked 走普通取消

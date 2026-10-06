@@ -18,8 +18,8 @@ import (
 
 var ErrOverPay = errors.New("核销金额超过未付余额")
 
-// epsilon 金额浮点比较容差（分以下抹零误差）。
-const epsilon = 1e-9
+// Epsilon 金额浮点比较容差（分以下抹零误差）。
+const Epsilon = 1e-9
 
 // ValidMethod 收款方式白名单（表单手填非法值直接拒绝，不进库）。
 func ValidMethod(m string) bool {
@@ -135,6 +135,11 @@ func (s *Service) VoidBill(ctx context.Context, tenantID, billID bson.ObjectID) 
 	return nil
 }
 
+// BillsByRef 按来源预约查全部单据（含挂号费单；作废的也在内，调用方自判）。
+func (s *Service) BillsByRef(ctx context.Context, tenantID bson.ObjectID, refID string) ([]Bill, error) {
+	return s.bills.FindMany(ctx, tenantID, bson.M{"ref_id": refID})
+}
+
 // VoidOpenByRef 作废某预约名下所有未收单（取消待缴费预约用）。
 // 只动 open 单：已结清的不动（收了的钱不退），已作废的不重复动。
 // 返回被作废的单号（审计留痕用）。注意不联动预约状态，调用方负责落预约。
@@ -153,6 +158,12 @@ func (s *Service) VoidOpenByRef(ctx context.Context, tenantID bson.ObjectID, ref
 		}
 		if matched > 0 {
 			voided = append(voided, b.DocNo)
+			// 联动诊疗单 billed→void（条件更新，幂等）
+			if !b.TreatmentID.IsZero() {
+				_, _ = s.db.Collection("treatments").UpdateOne(ctx,
+					bson.M{"tenant_id": tenantID, "_id": b.TreatmentID, "status": "billed"},
+					bson.M{"$set": bson.M{"status": "void", "updated_at": time.Now()}})
+			}
 		}
 		// 命中为 0 说明并发中被收掉了：只收不作废，跳过（钱已收，调用方取消预约即可）
 	}
@@ -217,7 +228,7 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 	if !ValidMethod(method) {
 		return false, errors.New("未知收款方式")
 	}
-	if amount <= 0 || b.PaidAmount+amount > b.Amount+epsilon {
+	if amount <= 0 || b.PaidAmount+amount > b.Amount+Epsilon {
 		return false, ErrOverPay
 	}
 	no, err := s.seq.Next(ctx, tenantID, "RC")
@@ -225,7 +236,7 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 		return false, err
 	}
 	paid := b.PaidAmount + amount
-	fullyPaid := paid >= b.Amount-epsilon
+	fullyPaid := paid >= b.Amount-Epsilon
 	set := bson.M{"paid_amount": paid}
 	if fullyPaid {
 		set["status"] = BillPaid
