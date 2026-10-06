@@ -49,6 +49,19 @@
 - `repository`：`TenantRepo[T]` 基类，所有查询自动注入 `tenant_id` 过滤。
 - `model`：BSON 结构体与领域枚举。
 
+### 设计模式（写代码前先想模式，详见 AGENTS.md §0）
+
+| 场景 | 模式 | 落点 |
+|------|------|------|
+| 中间件链 | 责任链 + 装饰器 | `middleware`：Session → TenantResolver → CSRF → Auth → RequirePerm |
+| 租户隔离 | 模板方法 | `TenantRepo[T]`：读写自动注入 `tenant_id`，含 `UpdateWhere` 条件更新 |
+| 模板渲染 | 适配器 | `web.Render` 封装 `c.HTML`，统一装配 Page/菜单/标题 |
+| 状态展示 | 状态元数据表 | 预约/单据的中文名+徽章色收敛到一张表，加状态只改一处 |
+| 状态流转 | 条件更新守卫 | 先查后改一律改条件更新，命中 0 即报状态错（签到/开单/核销/作废） |
+| 审计记录 | 门面 Facade | `middleware.Audit` 统一入口，动作字符串用 `audit.Act*` 常量 |
+| 排序规则 | 比较器 Strategy | `auth.SortByWeight` 泛型比较器，门诊后台与患者端共用 |
+| 租户装配 | 构造注入 | `main.go` 直连装配，无全局单例（铁律） |
+
 ### 两类后台
 
 | | 系统管理后台 `/sysadmin/` | 门诊后台 `/admin/` + `/app/` | 患者端 `/p/{门诊ID}` |
@@ -71,7 +84,8 @@
 患者端实时看：候诊前面人数 / 正在就诊
 ```
 
-- 患者建档只收姓名电话，按电话自动认领老档案（有则报错防重），无则新建。
+- 患者建档只收姓名电话：电话可不填（儿童/老人常见），填了必须合法有效；
+  同电话已建过档案会报错，可去列表查找。
 - 价目是门诊主数据（名称租户内唯一，药品建分类=药品的条目，不走库存）。
 - 员工=用户：手机号+密码登录，后台建员工时设初始密码，本人可在
   `/app/password` 自助改密；入职/离职即账号启停，离职不影响历史单（快照名）。
@@ -89,25 +103,28 @@
 ```
 tenants      { _id, name, status, created_at }
 users        { _id, tenant_id, phone, password_hash, name, role_ids[],
-               can_practice, status, is_tenant_admin, last_login_at }  // 员工即用户
+               can_practice, bio, avatar, hide_home, home_order(权重，大在前),
+               status, is_tenant_admin, last_login_at }  // 员工即用户
 sys_admins   { _id, username, password_hash }          // 系统级，无 tenant_id
 roles        { _id, tenant_id, name, perm_codes[] }
-sessions     { _id(token), kind[tenant/sys/patient], user_id, tenant_id, expires_at, data }
-sequences    { _id: "tenantID:rule", prefix, date_part, value }
-audit_logs   { _id, tenant_id, user_id, action, target, detail, ip, at }
+sessions     { _id(token), kind[tenant/sys/patient], user_id, tenant_id, expires_at, csrf }
+sequences    { _id: "tenantID:rule:YYYYMM", value }  // CH/RG/RC 按月分段发号
+audit_logs   { _id, tenant_id, user_id, action(audit.Act* 常量), target, detail, ip, at }
 attachments  { _id, tenant_id, owner_type, owner_id, filename,
                path, size, mime, uploaded_by }
 notifications{ _id, tenant_id, user_id, type, title, link, read_at }
 patients     { _id, tenant_id, name, phone, password_hash, gender, birth,
-               allergy, history, note, teeth{} }
+               allergy, history, note }
 appointments { _id, tenant_id, patient_id, patient_name, doctor_id, doctor,
-               chair, date, slot, item, items[], status, charge, charge_no }
+               date, slot, item, items[], diagnosis, result, queue_no,
+               reg_fee, reg_paid, status, charge, charge_no }
 service_items{ _id, tenant_id, name, category, price, unit, status }
 bills        { _id, tenant_id, patient_id, patient_name, doc_no, amount,
                lines[], paid_amount, status, ref_id }
 payments     { _id, tenant_id, doc_no, bill_id, bill_doc_no,
                amount, method, paid_at }
-expenses     { _id, tenant_id, title, amount, category, at }
+sessions     { _id(token), kind[tenant/sys/patient], user_id, tenant_id,
+               expires_at(TTL 自动清), csrf }
 ```
 
 权限码固定目录（`rbac.Catalog`）：`patient/appt/catalog/billing` 各 `.read/.write`，
@@ -182,13 +199,13 @@ curl -sk -b jar https://erp.test.dokodemo.top/sysadmin/tenants | head -c 200
 
 - `[server].addr` 保持 `:8080`（compose 内网监听，由 caddy 反代）
 - `[mongo].uri` 用 compose 服务名 `mongodb://mongo:27017`（mongo 不暴露端口）
-- `[session].secret` 强随机值，HTTPS 下 `[session].secure = true`
+- HTTPS 下 `[session].secure = true`；`[session].secret` 已删除（会话 token 本身随机，无需签名），旧配置文件里残留会被忽略
 - 首次可开 `[seed]` 建超管，建好后改为 `enabled = false`
-- 测试环境 `[seed].enabled` 常开，含演示门诊
+- 测试环境 `[seed].enabled` 常开，空库自动建超管
 
 ### 当前实例
 
-- 主机：`23.249.19.239`（Ubuntu / x86_64），用户 `root`；私钥 `D:\ssh_key\id_rsa`（Windows 侧）/ `~/.ssh/erp_prod_key`（WSL 内副本，权限 600）
+- 主机：`23.249.19.239`（Ubuntu / x86_64），用户 `root`；私钥 WSL 侧 `~/.ssh/erp_prod_key`（权限 600，可直推 GitHub）
 
 ```bash
 ssh -i ~/.ssh/erp_prod_key root@23.249.19.239
