@@ -79,8 +79,9 @@
   → 签到（报手机号找到单；指定医生进其队列，无指定分空闲/最短队，取排号）
   → 叫号（播报“XXX请到前台分配就诊”，纯播报不流转）
   → 就诊（候诊转就诊中；开单后提示下一位去叫号）
-  → 完成（按明细重算，无明细用预约存量，再用手工额）
-  → 生成收费流水 CH-xxx → 财务应收 → 收款核销（RC-xxx）
+  → 开诊疗单（一张预约只开一张，并发/重试幂等）
+  → 建费用单（1:1，可分多笔多方式收款，凑满为止）
+  → 前台收款（RC-xxx）→ 收清诊疗单翻已收
 患者端实时看：候诊前面人数 / 正在就诊
 ```
 
@@ -116,13 +117,16 @@ notifications{ _id, tenant_id, user_id, type, title, link, read_at }
 patients     { _id, tenant_id, name, phone, password_hash, gender, birth,
                allergy, history, note }
 appointments { _id, tenant_id, patient_id, patient_name, doctor_id, doctor,
-               date, slot, item, items[], diagnosis, result, queue_no,
-               reg_fee, reg_paid, status, charge, charge_no }
+               date, slot, item, items[], queue_no,
+               reg_fee, reg_paid, status, charge, charge_no }  // 只管约号+显示快照
+treatments   { _id, tenant_id, appt_id(唯一，一约一单), patient_id, patient_name,
+               doctor, date, slot, item, items[], diagnosis, result,
+               total, bill_no, status[billed/paid/void] }      // 诊疗单：临床权威值
 service_items{ _id, tenant_id, name, category, price, unit, status }
 bills        { _id, tenant_id, patient_id, patient_name, doc_no, amount,
-               lines[], paid_amount, status, ref_id }
+               lines[], paid_amount, status, ref_id, treatment_id }  // 费用单：诊疗单 1:1
 payments     { _id, tenant_id, doc_no, bill_id, bill_doc_no,
-               amount, method, paid_at }
+               amount, method[cash/bank/other/mock], paid_at }  // 一单一对多，可分次收
 sessions     { _id(token), kind[tenant/sys/patient], user_id, tenant_id,
                expires_at(TTL 自动清), csrf }
 ```
