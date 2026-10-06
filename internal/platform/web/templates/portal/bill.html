@@ -13,8 +13,8 @@
         {{if eq .Data.B.Status "paid"}}已结清{{else}}待缴费{{end}}</span>
     </div>
     {{if .Data.A}}
-    {{if .Data.A.Diagnosis}}<div class="small mb-1"><span class="text-muted">病情分析：</span>{{.Data.A.Diagnosis}}</div>{{end}}
-    {{if .Data.A.Result}}<div class="small mb-1"><span class="text-muted">诊疗结果：</span>{{.Data.A.Result}}</div>{{end}}
+    <div class="small mb-1"><span class="text-muted">病情分析：</span>{{if .Data.A.Diagnosis}}{{.Data.A.Diagnosis}}{{else}}暂无{{end}}</div>
+    <div class="small mb-1"><span class="text-muted">诊疗结果：</span>{{if .Data.A.Result}}{{.Data.A.Result}}{{else}}暂无{{end}}</div>
     {{end}}
     <div class="table-responsive"><table class="table table-sm mb-0">
       <thead><tr><th>项目</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>

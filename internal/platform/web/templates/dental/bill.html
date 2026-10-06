@@ -26,8 +26,8 @@
           <tr><th class="w-25">患者</th><td>{{.Data.A.PatientName}}{{if .Data.P}}（{{.Data.P.Gender}} {{.Data.P.Phone}}）{{end}}</td></tr>
           <tr><th>医生</th><td>{{.Data.A.Doctor}}</td></tr>
           {{if .Data.A.Item}}<tr><th>就诊主诉</th><td>{{.Data.A.Item}}</td></tr>{{end}}
-          {{if .Data.A.Diagnosis}}<tr><th>病情分析</th><td>{{.Data.A.Diagnosis}}</td></tr>{{end}}
-          {{if .Data.A.Result}}<tr><th>诊疗结果</th><td>{{.Data.A.Result}}</td></tr>{{end}}
+          <tr><th>病情分析</th><td>{{if .Data.A.Diagnosis}}{{.Data.A.Diagnosis}}{{else}}<span class="text-muted">—</span>{{end}}</td></tr>
+          <tr><th>诊疗结果</th><td>{{if .Data.A.Result}}{{.Data.A.Result}}{{else}}<span class="text-muted">—</span>{{end}}</td></tr>
         </table>
         <table class="table table-sm">
           <thead><tr><th>诊疗项目</th><th>数量</th><th class="text-end">单价</th><th class="text-end">小计</th></tr></thead>
