@@ -139,6 +139,79 @@ func TestPayRegIdempotent(t *testing.T) {
 		t.Fatalf("RG bills = %d, want 1", n)
 	}
 }
+
+// TestCancelUnpaid 取待缴费单：未收单作废 + 预约取消；已结清单不动。
+func TestCancelUnpaid(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	mk := func(status string) bson.ObjectID {
+		res, err := db.Collection("appointments").InsertOne(ctx, bson.M{
+			"tenant_id": tid, "patient_id": pid, "patient_name": "取消测试",
+			"date": "2026-10-06", "slot": "12:00", "item": "测试",
+			"status": status, "created_at": time.Now(),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res.InsertedID.(bson.ObjectID)
+	}
+	mkBill := func(ref, docno, status string) {
+		if _, err := db.Collection("bills").InsertOne(ctx, bson.M{
+			"tenant_id": tid, "patient_id": pid, "patient_name": "取消测试",
+			"doc_no": docno, "amount": 100, "paid_amount": 0,
+			"status": status, "ref_id": ref, "created_at": time.Now(),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// unpaid + open → 取消 + 作废
+	a1 := mk(Unpaid)
+	mkBill(a1.Hex(), "CH-T-0010", "open")
+	voided, err := svc.CancelUnpaid(ctx, tid, a1)
+	if err != nil {
+		t.Fatalf("CancelUnpaid: %v", err)
+	}
+	if len(voided) != 1 || voided[0] != "CH-T-0010" {
+		t.Fatalf("voided = %v", voided)
+	}
+	var got struct {
+		Status string `bson:"status"`
+	}
+	if err := db.Collection("appointments").FindOne(ctx, bson.M{"_id": a1}).Decode(&got); err != nil || got.Status != Cancel {
+		t.Fatalf("appt status = %+v, %v", got, err)
+	}
+	var b struct {
+		Status string `bson:"status"`
+	}
+	if err := db.Collection("bills").FindOne(ctx, bson.M{"doc_no": "CH-T-0010"}).Decode(&b); err != nil || b.Status != "void" {
+		t.Fatalf("bill status = %+v, %v", b, err)
+	}
+
+	// unpaid + paid → 取消预约，已结清单不动
+	a2 := mk(Unpaid)
+	mkBill(a2.Hex(), "CH-T-0011", "paid")
+	if _, err := svc.CancelUnpaid(ctx, tid, a2); err != nil {
+		t.Fatalf("CancelUnpaid paid: %v", err)
+	}
+	if err := db.Collection("bills").FindOne(ctx, bson.M{"doc_no": "CH-T-0011"}).Decode(&b); err != nil || b.Status != "paid" {
+		t.Fatalf("paid bill touched: %+v, %v", b, err)
+	}
+
+	// booked 走普通取消
+	a3 := mk(Booked)
+	if _, err := svc.CancelUnpaid(ctx, tid, a3); err != nil {
+		t.Fatalf("CancelUnpaid booked: %v", err)
+	}
+
+	// serving 拒绝
+	a4 := mk(Serving)
+	if _, err := svc.CancelUnpaid(ctx, tid, a4); err == nil {
+		t.Fatal("CancelUnpaid serving should fail")
+	}
+}
+
 func TestCompleteConcurrent(t *testing.T) {
 	svc, db, ctx := testSvc(t)
 	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")

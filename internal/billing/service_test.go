@@ -33,7 +33,7 @@ func TestPayBadMethod(t *testing.T) {
 	svc, db, ctx := testSvc(t)
 	tid := mustOID(t, "6ac4bd23b33e9a18faace5ec")
 	if err := svc.CreateAR(ctx, tid, AR{
-		PatientID: mustOID(t, "6ac4bd23b33e9a18faace5ed"),
+		PatientID:   mustOID(t, "6ac4bd23b33e9a18faace5ed"),
 		PatientName: "方式测试", DocNo: "CH-T-0003", Amount: 100,
 	}); err != nil {
 		t.Fatal(err)
@@ -48,7 +48,8 @@ func TestPayBadMethod(t *testing.T) {
 	}
 }
 
-func TestDateFilter(t *testing.T) {	if len(dateFilter("created_at", "", "")) != 0 {
+func TestDateFilter(t *testing.T) {
+	if len(dateFilter("created_at", "", "")) != 0 {
 		t.Fatal("empty range should give empty filter")
 	}
 	f := dateFilter("created_at", "2026-10-05", "2026-10-06")

@@ -421,6 +421,33 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id bson.ObjectID) error 
 	return err
 }
 
+// CancelUnpaid 门诊后台取消待缴费单：先作废其名下所有未收单，再取消预约。
+// 未开单的走普通 Cancel；已结清的不动（收了的钱不退）；serving/done 等其他状态拒绝。
+// 返回被作废的单号（审计留痕）。患者端不调这个（防患者自助作废逃费），只调 Cancel。
+func (s *Service) CancelUnpaid(ctx context.Context, tenantID, id bson.ObjectID) ([]string, error) {
+	a, err := s.appts.FindByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	if a.Status != Unpaid {
+		return nil, s.Cancel(ctx, tenantID, id)
+	}
+	voided, err := s.billing.VoidOpenByRef(ctx, tenantID, id.Hex())
+	if err != nil {
+		return nil, err
+	}
+	// 作废与取消之间若被收清（matched=0）：钱已收，只取消预约，已结清单不动
+	matched, err := s.appts.UpdateWhere(ctx, tenantID,
+		bson.M{"_id": id, "status": Unpaid}, bson.M{"status": Cancel})
+	if err != nil {
+		return voided, err
+	}
+	if matched == 0 {
+		return voided, ErrBadStatus
+	}
+	return voided, nil
+}
+
 // Complete 开单：仅就诊中（serving）可开单，不许跳过叫号。
 // 优先按明细结算，否则沿用预约存量明细，再否则用手工 charge。
 // deduct 为真且已缴挂号费时，挂号费当定金抵扣（抵扣额=min(挂号费,小计)，明细列抵扣行）。

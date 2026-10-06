@@ -107,6 +107,16 @@
               <form method="post" action="/app/appointments/{{hex .ID}}/serve" class="m-0">
                 <input type="hidden" name="_csrf" value="{{$.CSRF}}">
                 <button class="btn btn-sm btn-outline-success">就诊</button></form>
+              <form method="post" action="/app/appointments/{{hex .ID}}/cancel" class="m-0"
+                    onsubmit="return confirm('确认取消该预约？')">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button class="btn btn-sm btn-outline-danger">取消</button></form>
+              {{end}}
+              {{if eq .Status "unpaid"}}
+              <form method="post" action="/app/appointments/{{hex .ID}}/cancel" class="m-0"
+                    onsubmit="return confirm('该单已开单待缴费，取消将同时作废未收单据，确认取消？')">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button class="btn btn-sm btn-outline-danger">取消</button></form>
               {{end}}
               {{if and (gt .RegFee 0.0) (not .RegPaid) (or (eq .Status "booked") (eq .Status "arrived"))}}
               <form method="post" action="/app/appointments/{{hex .ID}}/payreg" class="d-flex gap-1 align-items-center m-0"
@@ -158,6 +168,16 @@
             <form method="post" action="/app/appointments/{{hex .ID}}/serve" class="m-0">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
               <button class="btn btn-sm btn-outline-success">就诊</button></form>
+            <form method="post" action="/app/appointments/{{hex .ID}}/cancel" class="m-0"
+                  onsubmit="return confirm('确认取消该预约？')">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">取消</button></form>
+            {{end}}
+            {{if eq .Status "unpaid"}}
+            <form method="post" action="/app/appointments/{{hex .ID}}/cancel" class="m-0"
+                  onsubmit="return confirm('该单已开单待缴费，取消将同时作废未收单据，确认取消？')">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">取消</button></form>
             {{end}}
             {{if and (gt .RegFee 0.0) (not .RegPaid) (or (eq .Status "booked") (eq .Status "arrived"))}}
             <form method="post" action="/app/appointments/{{hex .ID}}/payreg" class="d-flex gap-1 align-items-center m-0 flex-grow-1"

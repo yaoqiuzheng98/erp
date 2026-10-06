@@ -129,6 +129,30 @@ func (s *Service) VoidBill(ctx context.Context, tenantID, billID bson.ObjectID) 
 	return nil
 }
 
+// VoidOpenByRef 作废某预约名下所有未收单（取消待缴费预约用）。
+// 只动 open 单：已结清的不动（收了的钱不退），已作废的不重复动。
+// 返回被作废的单号（审计留痕用）。注意不联动预约状态，调用方负责落预约。
+func (s *Service) VoidOpenByRef(ctx context.Context, tenantID bson.ObjectID, refID string) ([]string, error) {
+	list, err := s.bills.FindMany(ctx, tenantID,
+		bson.M{"ref_id": refID, "status": BillOpen})
+	if err != nil {
+		return nil, err
+	}
+	var voided []string
+	for _, b := range list {
+		matched, err := s.bills.UpdateWhere(ctx, tenantID,
+			bson.M{"_id": b.ID, "status": BillOpen}, bson.M{"status": BillVoid})
+		if err != nil {
+			return voided, err
+		}
+		if matched > 0 {
+			voided = append(voided, b.DocNo)
+		}
+		// 命中为 0 说明并发中被收掉了：只收不作废，跳过（钱已收，调用方取消预约即可）
+	}
+	return voided, nil
+}
+
 // ByRefPrefix 按来源预约+单号前缀查单（如 RG 挂号费），无则返回 nil,nil。
 func (s *Service) ByRefPrefix(ctx context.Context, tenantID bson.ObjectID, refID, prefix string) (*Bill, error) {
 	b, err := s.bills.FindOne(ctx, tenantID,

@@ -236,10 +236,16 @@ func (h *Handler) noshow(c *gin.Context) {
 
 func (h *Handler) cancel(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	if err := h.appts.Cancel(c.Request.Context(), mw.TenantID(c), id); err != nil {
+	// 门诊后台取消含待缴费：未收单作废后再取消（患者端只调 Cancel，动不了已开单的）
+	voided, err := h.appts.CancelUnpaid(c.Request.Context(), mw.TenantID(c), id)
+	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else {
-		h.audit(c, audit.ActApptCancel, id.Hex(), "")
+		detail := ""
+		if len(voided) > 0 {
+			detail = "作废: " + strings.Join(voided, ",")
+		}
+		h.audit(c, audit.ActApptCancel, id.Hex(), detail)
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
