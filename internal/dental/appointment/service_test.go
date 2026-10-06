@@ -69,7 +69,76 @@ func testSvc(t *testing.T) (*Service, *mongo.Database, context.Context) {
 	return svc, db, ctx
 }
 
-// TestCompleteConcurrent 并发开单：只能成功一次，不建重单。
+// TestCreateConcurrentDoubleBook 并发约同时段：只能成功一个，不重约。
+func TestCreateConcurrentDoubleBook(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	did, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ef")
+	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+		"_id": pid, "tenant_id": tid, "name": "重约测试", "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Collection("users").InsertOne(ctx, bson.M{
+		"_id": did, "tenant_id": tid, "name": "重约医生",
+		"status": "active", "can_practice": true, "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i := range errs {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			errs[i] = svc.Create(ctx, tid, &Appointment{
+				PatientID: pid, DoctorID: did,
+				Date: "2026-10-06", Slot: "10:00", Item: "测试",
+			})
+		}(i)
+	}
+	wg.Wait()
+	ok, fail := 0, 0
+	for _, err := range errs {
+		if err == nil {
+			ok++
+		} else if strings.Contains(err.Error(), "已约满") {
+			fail++
+		} else {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	if ok != 1 || fail != 1 {
+		t.Fatalf("ok=%d fail=%d, want 1/1", ok, fail)
+	}
+}
+
+// TestPayRegIdempotent 挂号费重复调：只建一张 RG 单，直接返回成功。
+func TestPayRegIdempotent(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	res, err := db.Collection("appointments").InsertOne(ctx, bson.M{
+		"tenant_id": tid, "patient_id": pid, "patient_name": "挂号测试",
+		"date": "2026-10-06", "slot": "11:00", "item": "测试",
+		"status": Booked, "reg_fee": 10, "created_at": time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	apptID := res.InsertedID.(bson.ObjectID)
+	if err := svc.PayReg(ctx, tid, apptID, "test"); err != nil {
+		t.Fatalf("first PayReg: %v", err)
+	}
+	if err := svc.PayReg(ctx, tid, apptID, "test"); err != nil {
+		t.Fatalf("second PayReg should be no-op: %v", err)
+	}
+	n, err := db.Collection("bills").CountDocuments(ctx, bson.M{"tenant_id": tid, "ref_id": apptID.Hex()})
+	if err != nil || n != 1 {
+		t.Fatalf("RG bills = %d, want 1", n)
+	}
+}
 func TestCompleteConcurrent(t *testing.T) {
 	svc, db, ctx := testSvc(t)
 	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")

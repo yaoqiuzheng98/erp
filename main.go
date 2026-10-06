@@ -97,6 +97,10 @@ func main() {
 		slog.Error("ensure appointment indexes", "err", err)
 		os.Exit(1)
 	}
+	if err := patSvc.EnsureIndexes(ctx); err != nil {
+		slog.Error("ensure patient indexes", "err", err)
+		os.Exit(1)
+	}
 
 	tpl, err := web.Build()
 	if err != nil {

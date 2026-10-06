@@ -22,6 +22,17 @@ func New(db *mongo.Database) *Service {
 	return &Service{pats: repo.NewTenantRepo[Patient](db, "patients")}
 }
 
+// EnsureIndexes 非空电话租户内唯一（防并发建档重号；空电话不限）。
+// 登录按电话定位，重号会随机登错人。
+func (s *Service) EnsureIndexes(ctx context.Context) error {
+	_, err := s.pats.Col.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "phone", Value: 1}},
+		Options: options.Index().SetUnique(true).
+			SetPartialFilterExpression(bson.M{"phone": bson.M{"$gt": ""}}),
+	})
+	return err
+}
+
 // List 姓名/电话模糊搜（输入按字面匹配，正则元字符已转义）。
 func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, q string, skip, limit int64) ([]Patient, int64, error) {
 	f := bson.M{}

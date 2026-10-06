@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"net/http"
 
 	"erp/internal/platform/audit"
@@ -107,7 +108,8 @@ func CSRF() gin.HandlerFunc {
 		if got == "" {
 			got = c.PostForm("_csrf")
 		}
-		if got != want {
+		// 常量时间比较，防时序攻击逐字节猜 token
+		if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "CSRF token 校验失败"})
 			return
 		}

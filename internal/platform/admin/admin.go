@@ -113,13 +113,15 @@ func (h *Handler) saveAvatar(c *gin.Context, id bson.ObjectID, oldAvatar string)
 	if err != nil {
 		return "大头照上传失败: " + err.Error()
 	}
+	// 先落库再删旧图：落库失败用户仍指向旧图（可用），只多一个孤儿文件；
+	// 反过来会先删旧图再失败，用户头像直接断链
+	if err := h.e.Auth.Update(ctx, tid, id, bson.M{"avatar": a.ID.Hex()}); err != nil {
+		return "大头照保存失败: " + err.Error()
+	}
 	if oldAvatar != "" {
 		if oldID, err := bson.ObjectIDFromHex(oldAvatar); err == nil {
 			_ = h.e.Attach.Delete(ctx, tid, oldID)
 		}
-	}
-	if err := h.e.Auth.Update(ctx, tid, id, bson.M{"avatar": a.ID.Hex()}); err != nil {
-		return "大头照保存失败: " + err.Error()
 	}
 	return ""
 }

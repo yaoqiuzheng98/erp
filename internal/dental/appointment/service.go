@@ -3,9 +3,11 @@ package appointment
 import (
 	"context"
 	"errors"
+	"hash/fnv"
 	"log/slog"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"erp/internal/billing"
@@ -34,6 +36,18 @@ type Service struct {
 	pats    *patient.Service
 	items   *catalog.Service
 	users   *auth.Service
+	// stripes 同键串行锁（防并发重约/挂号费重单）：key 越细粒度并发越高，
+	// 同 key 同时只进一个。单实例部署有效（compose 单副本），扩多副本换分布式锁。
+	stripes [64]sync.Mutex
+}
+
+// stripe 取 key 对应的条带锁，返回解锁函数（defer 用）。
+func (s *Service) stripe(key string) func() {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(key))
+	m := &s.stripes[h.Sum32()%uint32(len(s.stripes))]
+	m.Lock()
+	return m.Unlock
 }
 
 // New 装配预约服务；医生即"可接诊的在职员工"（用户）。
@@ -115,6 +129,9 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	if err != nil {
 		return errors.New("患者不存在")
 	}
+	// 同医生同时段串行化：查（有无占位）与写（插入）之间不许插并发，否则双人同 slot 重约
+	unlock := s.stripe("slot:" + a.DoctorID.Hex() + ":" + a.Date + ":" + a.Slot)
+	defer unlock()
 	// 日期时段只收合法格式，脏数据进库后筛选查不到
 	if _, ok := tz.DayStart(a.Date); !ok {
 		return errors.New("日期格式不正确")
@@ -320,6 +337,9 @@ func (s *Service) nextInLine(ctx context.Context, tenantID, doctorID bson.Object
 // PayReg 挂号费模拟支付：建应收并即时全额核销（method=mock），成功置 RegPaid。
 // 仅 booked/arrived 可缴；费用为0或已缴直接返回 nil。
 func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, by string) error {
+	// 同预约串行化：查（有无 RG 单）与建（新 RG 单）之间不许插并发，否则挂号费重单
+	unlock := s.stripe("payreg:" + id.Hex())
+	defer unlock()
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return err
