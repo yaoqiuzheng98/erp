@@ -26,7 +26,7 @@
         <tbody>
         {{range .Data.Bills}}
         <tr>
-          <td>{{.DocNo}}{{if .Lines}}<br>{{range .Lines}}<small class="text-muted">{{.Name}}x{{.Qty}} {{f2 .Amount}}</small><br>{{end}}{{end}}</td><td class="text-nowrap small text-muted">{{date .CreatedAt}}</td><td>{{.PatientName}}</td><td class="text-end {{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">{{f2 .Amount}}</td><td class="text-end {{if gt .PaidAmount 0.0}}amt-paid{{end}}">{{f2 .PaidAmount}}</td>
+          <td>{{.DocNo}}{{if .Lines}}<br>{{range .Lines}}<small class="text-muted">{{.Name}}x{{.Qty}} ¥{{f2 .Amount}}</small><br>{{end}}{{end}}</td><td class="text-nowrap small text-muted">{{date .CreatedAt}}</td><td>{{.PatientName}}</td><td class="text-end {{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">¥{{f2 .Amount}}</td><td class="text-end {{if gt .PaidAmount 0.0}}amt-paid{{end}}">{{f2 .PaidAmount}}</td>
           <td><span class="badge {{if eq .Status "paid"}}bg-success{{else if eq .Status "void"}}bg-secondary{{else}}bg-warning text-dark{{end}}">{{.StatusName}}</span></td>
           <td>
             {{if eq .Status "open"}}

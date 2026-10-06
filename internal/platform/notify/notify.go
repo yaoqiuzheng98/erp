@@ -42,14 +42,19 @@ func (s *Service) UnreadCount(ctx context.Context, tenantID, userID bson.ObjectI
 	return n
 }
 
-func (s *Service) List(ctx context.Context, tenantID, userID bson.ObjectID, limit int64) ([]Message, error) {
-	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}).SetLimit(limit)
+func (s *Service) List(ctx context.Context, tenantID, userID bson.ObjectID, skip, limit int64) ([]Message, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}).SetSkip(skip).SetLimit(limit)
 	cur, err := s.col.Find(ctx, bson.M{"tenant_id": tenantID, "user_id": userID}, opts)
 	if err != nil {
 		return nil, err
 	}
 	var out []Message
 	return out, cur.All(ctx, &out)
+}
+
+// Count 条件总数（分页用）。
+func (s *Service) Count(ctx context.Context, tenantID, userID bson.ObjectID) (int64, error) {
+	return s.col.CountDocuments(ctx, bson.M{"tenant_id": tenantID, "user_id": userID})
 }
 
 func (s *Service) MarkRead(ctx context.Context, tenantID, id bson.ObjectID) {

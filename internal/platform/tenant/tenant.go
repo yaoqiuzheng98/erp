@@ -8,6 +8,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // Tenant 门诊租户（一家门诊）。RegFee 挂号费（患者自助预约时收），0=不收。
@@ -53,13 +54,19 @@ func (s *Service) ByID(ctx context.Context, id bson.ObjectID) (*Tenant, error) {
 	return &t, nil
 }
 
-func (s *Service) List(ctx context.Context) ([]Tenant, error) {
-	cur, err := s.col.Find(ctx, bson.M{})
+func (s *Service) List(ctx context.Context, skip, limit int64) ([]Tenant, error) {
+	cur, err := s.col.Find(ctx, bson.M{},
+		options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}).SetSkip(skip).SetLimit(limit))
 	if err != nil {
 		return nil, err
 	}
 	var out []Tenant
 	return out, cur.All(ctx, &out)
+}
+
+// Count 门诊总数（分页/首页统计用）。
+func (s *Service) Count(ctx context.Context) (int64, error) {
+	return s.col.CountDocuments(ctx, bson.M{})
 }
 
 func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {

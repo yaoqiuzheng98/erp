@@ -6,6 +6,7 @@
 {{template "portal/nav" .}}
 <main class="p-3">
   {{template "partial/flash" .}}
+  <div class="mb-1"><a href="/p/{{.Data.Tid}}/" class="text-decoration-none small">&lt; 返回首页</a></div>
   <form method="post" action="/p/{{.Data.Tid}}/book">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div class="card portal-card mb-2"><div class="card-body">

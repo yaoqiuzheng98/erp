@@ -40,7 +40,7 @@
             <form method="post" action="/admin/home/gallery/{{.}}/delete" class="m-0"
                   onsubmit="return confirm('确认删除这张门诊图？')">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <button class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1">×</button>
+              <button class="btn btn-sm btn-danger position-absolute top-0 end-0 px-2 py-1">×</button>
             </form>
           </div>
           {{end}}
@@ -87,7 +87,7 @@
         {{$mid := print "m-home-" (hex .ID)}}
         <div class="card mb-2"><div class="card-body py-2">
           <div class="d-flex justify-content-between align-items-center mb-1">
-            <b>{{.Name}}</b>
+            <b>{{.Name}}</b><br><small class="text-muted">{{.Phone}}</small>
             <small class="text-muted">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</small>
           </div>
           <div class="small text-muted mb-1">{{if .Bio}}{{.Bio}}{{else}}暂无简介，去员工页编辑{{end}}</div>

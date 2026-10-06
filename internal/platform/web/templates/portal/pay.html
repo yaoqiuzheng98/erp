@@ -6,6 +6,7 @@
 {{template "portal/nav" .}}
 <main class="p-3">
   {{template "partial/flash" .}}
+  <div class="mb-1"><a href="/p/{{.Data.Tid}}/appointments" class="text-decoration-none small">&lt; 返回预约</a></div>
   <div class="card portal-card mb-2"><div class="card-body text-center">
     <div class="text-muted small">{{.Data.Clinic}} · 预约挂号费</div>
     <div class="display-5 my-2">¥{{printf "%.2f" .Data.A.RegFee}}</div>

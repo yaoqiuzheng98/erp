@@ -62,6 +62,19 @@ var adminMenu = []menu.Item{
 	}},
 }
 
+// sysMenu 系统后台导航（标题与 sysnav 模板保持一致）。
+var sysMenu = []menu.Item{
+	{ID: "sys.home", Title: "概览", Path: "/sysadmin"},
+	{ID: "sys.tenants", Title: "门诊管理", Path: "/sysadmin/tenants"},
+	{ID: "sys.audit", Title: "全局审计", Path: "/sysadmin/audit"},
+}
+
+// allMenu 顶栏标题查找用全量菜单（不过滤权限，只取标题）。
+func allMenu() []menu.Item {
+	out := make([]menu.Item, 0, len(appMenu)+len(adminMenu)+len(sysMenu))
+	return append(append(append(out, appMenu...), adminMenu...), sysMenu...)
+}
+
 func funcMap() template.FuncMap {
 	return template.FuncMap{
 		"date": func(t time.Time) string {
@@ -112,7 +125,7 @@ func StaticFS() (http.FileSystem, error) {
 // buildPage 从 gin context 装配 Page。
 func buildPage(c *gin.Context, e *env.Env, data any) *Page {
 	p := &Page{
-		Title: "",
+		Title: menu.TitleFor(allMenu(), c.Request.URL.Path),
 		Path:  c.Request.URL.Path,
 		Data:  data,
 		CSRF:  c.GetString(middleware.CtxCSRF),

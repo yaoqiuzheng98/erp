@@ -17,7 +17,7 @@
         <form method="post" action="/sysadmin/tenants" class="modal-content">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="modal-header"><h5 class="modal-title">新建门诊</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button></div>
           <div class="modal-body">
             <div class="mb-2"><label class="form-label">门诊名称</label>
               <input class="form-control form-control-sm" name="name" required placeholder="如 康健口腔门诊"></div>
@@ -37,7 +37,7 @@
         <tr>
           <td>{{.Name}}</td>
           <td class="small text-muted">/p/{{hex .ID}}</td>
-          <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span></td>
+          <td><span class="badge {{if eq .Status "active"}}bg-success{{else}}bg-secondary{{end}}">{{if eq .Status "active"}}正常{{else}}停用{{end}}</span></td>
           <td>{{date .CreatedAt}}</td>
           <td class="text-nowrap">
             <form method="post" action="/sysadmin/tenants/{{hex .ID}}/toggle" class="d-inline m-0">
@@ -56,6 +56,7 @@
         {{end}}
         </tbody>
       </table></div>
+      {{template "partial/pager" .}}
     </main>
   </div>
 </div>

@@ -35,12 +35,17 @@ func (s *Service) Log(ctx context.Context, e Entry) {
 	_, _ = s.col.InsertOne(ctx, e)
 }
 
-func (s *Service) List(ctx context.Context, filter bson.M, limit int64) ([]Entry, error) {
-	opts := options.Find().SetSort(bson.D{{Key: "at", Value: -1}}).SetLimit(limit)
+func (s *Service) List(ctx context.Context, filter bson.M, skip, limit int64) ([]Entry, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "at", Value: -1}}).SetSkip(skip).SetLimit(limit)
 	cur, err := s.col.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
 	}
 	var out []Entry
 	return out, cur.All(ctx, &out)
+}
+
+// Count 条件总数（分页用）。
+func (s *Service) Count(ctx context.Context, filter bson.M) (int64, error) {
+	return s.col.CountDocuments(ctx, filter)
 }

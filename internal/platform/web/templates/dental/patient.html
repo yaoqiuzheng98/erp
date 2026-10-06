@@ -19,7 +19,7 @@
           <div class="card"><div class="card-body">
             <h6>病历信息</h6>
             <table class="table table-sm mb-0">
-              <tr><th class="w-25">过敏史</th><td class="{{if .Data.P.Allergy}}text-danger fw-bold{{end}}">{{.Data.P.Allergy}}</td></tr>
+              <tr><th class="w-25">过敏史</th><td class="{{if .Data.P.Allergy}}text-danger fw-bold{{end}}">{{if .Data.P.Allergy}}{{.Data.P.Allergy}}{{else}}<span class="text-muted">—</span>{{end}}</td></tr>
               <tr><th>既往史</th><td>{{.Data.P.History}}</td></tr>
               <tr><th>备注</th><td>{{.Data.P.Note}}</td></tr>
             </table>

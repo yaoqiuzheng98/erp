@@ -51,7 +51,7 @@
                          type="number" min="1" step="1" value="1" style="width:4em" title="数量">
                 </label>
                 {{else}}
-                <span class="text-muted small">价目表为空，先去<a href="/app/services">价目表</a>维护</span>
+                <span class="text-muted small">暂无价目，先去<a href="/app/services">价目表</a>维护</span>
                 {{end}}
               </div></div>
             <div class="mt-2"><label class="form-label">备注/临时项目</label>
@@ -69,7 +69,7 @@
           <option value="">全部医生</option>
           {{range .Data.Doctors}}<option value="{{hex .ID}}" {{if eq (hex .ID) $.Data.DoctorID}}selected{{end}}>{{.Name}}</option>{{end}}
         </select>
-        <input class="form-control form-control-sm flex-grow-1" name="phone" value="{{.Data.Phone}}" placeholder="报手机号签到" inputmode="tel" style="min-width:8em;flex-basis:0">
+        <input class="form-control form-control-sm flex-grow-1" name="phone" value="{{.Data.Phone}}" placeholder="报手机号签到" aria-label="报手机号签到" inputmode="tel" style="min-width:8em;flex-basis:0">
         <div class="d-flex gap-2 flex-shrink-0">
           <button class="btn btn-sm btn-outline-secondary">筛选</button>
           <a class="btn btn-sm btn-outline-secondary" href="/app/appointments?date=all">全部</a>
@@ -129,7 +129,8 @@
           </div>
           <div class="small mt-1"><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>
             <span class="text-muted">{{.Doctor}} · {{.DisplayItem}}</span>{{if .QueueNo}} <span class="badge bg-info text-dark">排{{.QueueNo}}号</span>{{end}}</div>
-          {{if .Charge}}<div class="small">收费 ¥{{printf "%.2f" .Charge}} <span class="text-muted">{{.ChargeNo}}</span></div>{{end}}
+          {{if .Items}}<div class="small text-muted">{{range .Items}}{{.Name}}x{{.Qty}} ¥{{printf "%.2f" .Amount}}<br>{{end}}</div>{{end}}
+          {{if .Charge}}<div class="small"><a href="/app/appointments/{{hex .ID}}/bill">收费 ¥{{printf "%.2f" .Charge}}</a> <span class="text-muted">{{.ChargeNo}}</span></div>{{end}}
           <div class="d-flex flex-wrap gap-1 mt-2">
             {{if eq .Status "booked"}}
             <form method="post" action="/app/appointments/{{hex .ID}}/checkin" class="m-0">

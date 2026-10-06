@@ -387,6 +387,10 @@ func (h *Handler) deleteGalleryPhoto(c *gin.Context) {
 // ---------- 审计 ----------
 
 func (h *Handler) auditPage(c *gin.Context) {
-	list, _ := h.e.Audit.List(c.Request.Context(), bson.M{"tenant_id": mw.TenantID(c)}, 200)
-	web.Render(c, h.e, "admin/audit", gin.H{"Logs": list})
+	skip, limit, pager := web.ParsePager(c, 50)
+	filter := bson.M{"tenant_id": mw.TenantID(c)}
+	list, _ := h.e.Audit.List(c.Request.Context(), filter, skip, limit)
+	total, _ := h.e.Audit.Count(c.Request.Context(), filter)
+	pager.Total = total
+	web.Render(c, h.e, "admin/audit", gin.H{"Logs": list, "Pager": pager})
 }

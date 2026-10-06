@@ -73,8 +73,11 @@ func logout(e *env.Env, cookieName string) gin.HandlerFunc {
 func notifications(e *env.Env) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		t, u := mw.Tenant(c), mw.User(c)
-		list, _ := e.Notify.List(c.Request.Context(), t.ID, u.ID, 100)
-		web.Render(c, e, "notifications", gin.H{"List": list})
+		skip, limit, pager := web.ParsePager(c, 20)
+		list, _ := e.Notify.List(c.Request.Context(), t.ID, u.ID, skip, limit)
+		total, _ := e.Notify.Count(c.Request.Context(), t.ID, u.ID)
+		pager.Total = total
+		web.Render(c, e, "notifications", gin.H{"List": list, "Pager": pager})
 	}
 }
 

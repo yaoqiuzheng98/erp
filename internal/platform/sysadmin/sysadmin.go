@@ -30,17 +30,20 @@ func Register(g *gin.RouterGroup, e *env.Env) {
 
 func (h *Handler) home(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenants, _ := h.e.Tenants.List(ctx)
+	tenantCount, _ := h.e.Tenants.Count(ctx)
 	userCount, _ := h.e.DB.C("users").EstimatedDocumentCount(ctx)
 	web.Render(c, h.e, "sys/home", gin.H{
-		"TenantCount": len(tenants),
+		"TenantCount": tenantCount,
 		"UserCount":   userCount,
 	})
 }
 
 func (h *Handler) tenants(c *gin.Context) {
-	list, _ := h.e.Tenants.List(c.Request.Context())
-	web.Render(c, h.e, "sys/tenants", gin.H{"Tenants": list})
+	skip, limit, pager := web.ParsePager(c, 20)
+	list, _ := h.e.Tenants.List(c.Request.Context(), skip, limit)
+	total, _ := h.e.Tenants.Count(c.Request.Context())
+	pager.Total = total
+	web.Render(c, h.e, "sys/tenants", gin.H{"Tenants": list, "Pager": pager})
 }
 
 // createTenant 创建租户，初始化管理员账号与默认角色。
@@ -147,6 +150,9 @@ func (h *Handler) deleteTenant(c *gin.Context) {
 }
 
 func (h *Handler) auditLog(c *gin.Context) {
-	list, _ := h.e.Audit.List(c.Request.Context(), bson.M{}, 300)
-	web.Render(c, h.e, "sys/audit", gin.H{"Logs": list})
+	skip, limit, pager := web.ParsePager(c, 50)
+	list, _ := h.e.Audit.List(c.Request.Context(), bson.M{}, skip, limit)
+	total, _ := h.e.Audit.Count(c.Request.Context(), bson.M{})
+	pager.Total = total
+	web.Render(c, h.e, "sys/audit", gin.H{"Logs": list, "Pager": pager})
 }

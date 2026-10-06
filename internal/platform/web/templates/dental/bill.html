@@ -52,7 +52,7 @@
         {{end}}
         {{if eq .Data.A.Status "serving"}}
         <hr>
-        <h6>医生开单 <span class="text-muted small">添加本次诊疗项目/药品后点完成，直接生成收费单</span></h6>
+        <h6>医生开单 <span class="text-muted small">添加本次诊疗项目/药品后点完成，直接生成诊疗单</span></h6>
         <form method="post" action="/app/appointments/{{hex .Data.A.ID}}/done" id="billForm"
               onsubmit="return confirm('确认开单并完成就诊？')">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
@@ -94,7 +94,7 @@
             <div class="modal-header"><h5 class="modal-title">添加项目/药品</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
-              <input class="form-control form-control-sm mb-2" id="pickSearch" placeholder="搜索项目名">
+              <input class="form-control form-control-sm mb-2" id="pickSearch" placeholder="搜索项目名" aria-label="搜索项目名">
               <div id="pickOptions" class="d-flex flex-column gap-1" style="max-height:50vh;overflow:auto">
                 {{range .Data.Services}}
                 <label class="border rounded px-2 py-1 bg-light m-0 d-flex align-items-center gap-2">

@@ -6,6 +6,7 @@
 {{template "portal/nav" .}}
 <main class="p-2">
   {{template "partial/flash" .}}
+  <div class="mb-1"><a href="/p/{{.Data.Tid}}/bills" class="text-decoration-none small">&lt; 返回诊疗单</a></div>
   <div class="card portal-card mb-2"><div class="card-body">
     <div class="d-flex justify-content-between align-items-center mb-1">
       <span class="text-muted small">{{.Data.B.DocNo}}</span>
@@ -20,7 +21,7 @@
       <thead><tr><th>项目</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
       <tbody>
       {{range .Data.B.Lines}}
-      <tr><td>{{.Name}}</td><td>{{.Qty}}</td><td>{{f2 .Price}}</td><td>{{f2 .Amount}}</td></tr>
+      <tr><td>{{.Name}}</td><td>{{.Qty}}</td><td>¥{{f2 .Price}}</td><td>¥{{f2 .Amount}}</td></tr>
       {{else}}
       <tr><td colspan="4" class="text-muted">暂无明细</td></tr>
       {{end}}

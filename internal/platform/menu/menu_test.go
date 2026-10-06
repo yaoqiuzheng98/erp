@@ -23,3 +23,27 @@ func TestFilter(t *testing.T) {
 		t.Fatalf("perm-less item should always pass")
 	}
 }
+
+func TestTitleFor(t *testing.T) {
+	items := []Item{
+		{ID: "d", Title: "门诊", Children: []Item{
+			{ID: "p", Title: "患者", Path: "/app/patients"},
+			{ID: "a", Title: "预约", Path: "/app/appointments"},
+		}},
+		{ID: "sys", Title: "概览", Path: "/sysadmin"},
+	}
+	cases := map[string]string{
+		"/app/patients":        "患者",
+		"/app/patients/abc123": "患者",
+		"/sysadmin":            "概览",
+		"/sysadmin/tenants":    "概览", // 无精确项时回退到最长前缀
+		"/login":               "",
+		"/app/patientsx":       "",
+		"/app/appointments":    "预约",
+	}
+	for path, want := range cases {
+		if got := TitleFor(items, path); got != want {
+			t.Fatalf("TitleFor(%q) = %q, want %q", path, got, want)
+		}
+	}
+}

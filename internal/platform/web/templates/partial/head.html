@@ -35,9 +35,20 @@
     /* 金额语义色：欠费红 / 已收绿 */
     .amt-unpaid { color: #dc3545; font-weight: 700; }
     .amt-paid { color: #198754; font-weight: 700; }
+    /* 必填项红星（label 紧邻必填输入时自动标） */
+    label:has(+ input[required])::after, label:has(+ select[required])::after,
+    label:has(+ textarea[required])::after { content: " *"; color: #dc3545; }
     /* 回顶按钮 */
     #backTop { position: fixed; right: 1rem; bottom: 1.5rem; z-index: 1040; display: none;
       width: 2.75rem; height: 2.75rem; border-radius: 50%; padding: 0; font-size: 1.25rem; }
+    @media print {
+      /* 打印只留内容：导航/底栏/按钮/表单控件/弹窗/提示全部隐藏 */
+      .sidebar, .topbar, .portal-topbar, .portal-tabbar, .no-print, .modal, .alert,
+      button, input, select, textarea, #backTop { display: none !important; }
+      body { background: #fff; }
+      .card { border: 0; box-shadow: none; }
+      main { padding: 0 !important; }
+    }
     @media (max-width: 767.98px) {
       /* 手机端操作按钮放大，触控更稳 */
       main .btn-sm { padding: .5rem .8rem; font-size: .95rem; }
