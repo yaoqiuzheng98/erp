@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"hash/fnv"
-	"log/slog"
 	"regexp"
 	"strings"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"erp/internal/billing"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
+	"erp/internal/dental/treatment"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/repo"
 	"erp/internal/platform/seqno"
@@ -29,13 +29,14 @@ var ErrBadStatus = errors.New("状态不允许该操作")
 var slotRe = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
 
 type Service struct {
-	db      *mongo.Database
-	seq     *seqno.Generator
-	billing *billing.Service
-	appts   *repo.TenantRepo[Appointment]
-	pats    *patient.Service
-	items   *catalog.Service
-	users   *auth.Service
+	db         *mongo.Database
+	seq        *seqno.Generator
+	billing    *billing.Service
+	appts      *repo.TenantRepo[Appointment]
+	pats       *patient.Service
+	items      *catalog.Service
+	users      *auth.Service
+	treatments *treatment.Service
 	// stripes 同键串行锁（防并发重约/挂号费重单）：key 越细粒度并发越高，
 	// 同 key 同时只进一个。单实例部署有效（compose 单副本），扩多副本换分布式锁。
 	stripes [64]sync.Mutex
@@ -52,10 +53,10 @@ func (s *Service) stripe(key string) func() {
 
 // New 装配预约服务；医生即"可接诊的在职员工"（用户）。
 func New(db *mongo.Database, seq *seqno.Generator, b *billing.Service,
-	pats *patient.Service, items *catalog.Service, users *auth.Service) *Service {
+	pats *patient.Service, items *catalog.Service, users *auth.Service, treats *treatment.Service) *Service {
 	return &Service{
 		db: db, seq: seq, billing: b, appts: repo.NewTenantRepo[Appointment](db, "appointments"),
-		pats: pats, items: items, users: users,
+		pats: pats, items: items, users: users, treatments: treats,
 	}
 }
 
@@ -360,7 +361,7 @@ func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, method
 		if eb.Status != billing.BillPaid {
 			rest := eb.Amount - eb.PaidAmount
 			if rest > 0 {
-				if err := s.billing.Pay(ctx, tenantID, eb.ID, rest, method, by); err != nil {
+				if _, err := s.billing.Pay(ctx, tenantID, eb.ID, rest, method, by); err != nil {
 					return err
 				}
 			}
@@ -385,7 +386,7 @@ func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, method
 		}
 		return err
 	}
-	if err := s.billing.Pay(ctx, tenantID, b.ID, a.RegFee, method, by); err != nil {
+	if _, err := s.billing.Pay(ctx, tenantID, b.ID, a.RegFee, method, by); err != nil {
 		return err
 	}
 	return s.appts.Update(ctx, tenantID, id, bson.M{"reg_paid": true})
@@ -451,12 +452,21 @@ func (s *Service) CancelUnpaid(ctx context.Context, tenantID, id bson.ObjectID) 
 // Complete 开单：仅就诊中（serving）可开单，不许跳过叫号。
 // 优先按明细结算，否则沿用预约存量明细，再否则用手工 charge。
 // deduct 为真且已缴挂号费时，挂号费当定金抵扣（抵扣额=min(挂号费,小计)，明细列抵扣行）。
-// 生成财务应收，预约落为待缴费（前台收清后才翻已完成）；同时自动叫同医生下一位。
+// 开诊疗单 + 建费用单（1:1）+ 预约落已接诊；前台分次收款收清后诊疗单翻已收。
+// 幂等：并发第二人/崩溃重试命中诊疗单唯一索引后走修复（补单补翻），直接成功。
 // 返回下一位患者姓名（无则空）。
 func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, items []ApptItem, charge float64, deduct bool, diagnosis, result, by string) (string, error) {
+	// 同预约串行化：查（状态）算（总额）写（诊疗单+费用单+翻转）一气呵成，
+	// 并发第二人等第一人落完再读到 done，直接幂等成功
+	unlock := s.stripe("complete:" + id.Hex())
+	defer unlock()
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return "", err
+	}
+	if a.Status == Done {
+		// 已开过：幂等成功（刷新/双击/重试）
+		return "", nil
 	}
 	if a.Status != Serving {
 		return "", ErrBadStatus
@@ -489,50 +499,58 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, item
 		summary += "、挂号费抵扣"
 		total -= d
 	}
-	set := bson.M{"status": Unpaid, "charge": total, "items": finalItems, "item": summary,
-		"diagnosis": diagnosis, "result": result}
+	tItems := make([]treatment.Item, 0, len(finalItems))
+	lines := make([]billing.BillLine, 0, len(finalItems))
+	for _, it := range finalItems {
+		tItems = append(tItems, treatment.Item{
+			ServiceID: it.ServiceID, Name: it.Name, Qty: it.Qty, Price: it.Price, Amount: it.Amount,
+		})
+		lines = append(lines, billing.BillLine{
+			Name: it.Name, Qty: it.Qty, Price: it.Price, Amount: it.Amount,
+		})
+	}
+	tStatus := treatment.Billed
+	billNo := ""
 	if total == 0 {
 		// 零收费直接完结，不走应收
-		set["status"] = Done
+		tStatus = treatment.Paid
+	} else {
+		var err error
+		billNo, err = s.seq.Next(ctx, tenantID, "CH")
+		if err != nil {
+			return "", err
+		}
 	}
-	// 先落预约（仅就诊中可落，并发第二人直接失败，不建孤儿单）
-	matched, err := s.appts.UpdateWhere(ctx, tenantID,
-		bson.M{"_id": id, "status": Serving}, set)
-	if err != nil {
+	t := &treatment.Treatment{
+		ApptID: a.ID, PatientID: a.PatientID, PatientName: a.PatientName,
+		DoctorID: a.DoctorID, Doctor: a.Doctor, Date: a.Date, Slot: a.Slot,
+		Item: summary, Items: tItems, Diagnosis: diagnosis, Result: result,
+		Total: total, BillNo: billNo, Status: tStatus,
+	}
+	if err := s.treatments.Insert(ctx, tenantID, t); err != nil {
+		if err == treatment.ErrExists {
+			// 并发第二人/崩溃重试：补齐费用单和预约翻转，直接成功
+			return "", s.repairComplete(ctx, tenantID, a)
+		}
 		return "", err
 	}
-	if matched == 0 {
-		return "", ErrBadStatus
-	}
 	if total > 0 {
-		no, err := s.seq.Next(ctx, tenantID, "CH")
-		if err != nil {
-			// 建号失败就回滚预约，允许重试
-			_, _ = s.appts.UpdateWhere(ctx, tenantID,
-				bson.M{"_id": id}, bson.M{"status": Serving})
-			return "", err
-		}
-		set["charge_no"] = no
-		lines := make([]billing.BillLine, 0, len(finalItems))
-		for _, it := range finalItems {
-			lines = append(lines, billing.BillLine{
-				Name: it.Name, Qty: it.Qty, Price: it.Price, Amount: it.Amount,
-			})
-		}
 		if err := s.billing.CreateAR(ctx, tenantID, billing.AR{
 			PatientID: a.PatientID, PatientName: a.PatientName,
-			DocNo: no, Amount: total, Lines: lines, RefID: id.Hex(), By: by,
+			DocNo: billNo, Amount: total, Lines: lines,
+			RefID: id.Hex(), TreatmentID: t.ID, By: by,
 		}); err != nil {
-			// 建单失败回滚预约（最佳努力+日志），不留"已开单无应收"的半提交
-			if _, rerr := s.appts.UpdateWhere(ctx, tenantID,
-				bson.M{"_id": id}, bson.M{"status": Serving}); rerr != nil {
-				slog.Error("complete rollback failed", "appt", id.Hex(), "err", rerr)
-			}
+			// 建单失败删诊疗单回滚（最佳努力），预约仍是 serving，可重试
+			s.treatments.DeleteByAppt(ctx, tenantID, id)
 			return "", err
 		}
-		// 应收单号落回预约（失败不影响主流程，只影响展示）
-		_, _ = s.appts.UpdateWhere(ctx, tenantID,
-			bson.M{"_id": id}, bson.M{"charge_no": no})
+	}
+	// 预约落已接诊 + 显示快照（列表/旧读数用，权威值在诊疗单）
+	snap := bson.M{"status": Done, "charge": total, "charge_no": billNo,
+		"items": finalItems, "item": summary, "diagnosis": diagnosis, "result": result}
+	if _, err := s.appts.UpdateWhere(ctx, tenantID,
+		bson.M{"_id": id, "status": Serving}, snap); err != nil {
+		return "", err
 	}
 	// 下一位只提示、不自动流转：前台点叫号播报后再点就诊
 	next, err := s.nextInLine(ctx, tenantID, a.DoctorID, a.Date)
@@ -540,4 +558,45 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, item
 		return "", nil
 	}
 	return next.PatientName, nil
+}
+
+// repairComplete 开单修复：诊疗单已存在时补齐费用单和预约翻转（幂等）。
+func (s *Service) repairComplete(ctx context.Context, tenantID bson.ObjectID, a *Appointment) error {
+	t, err := s.treatments.ByAppt(ctx, tenantID, a.ID)
+	if err != nil || t == nil {
+		return ErrBadStatus
+	}
+	if t.Total > 0 && t.BillNo != "" {
+		if b, _ := s.billing.BillByRef(ctx, tenantID, a.ID.Hex()); b == nil {
+			lines := make([]billing.BillLine, 0, len(t.Items))
+			for _, it := range t.Items {
+				lines = append(lines, billing.BillLine{
+					Name: it.Name, Qty: it.Qty, Price: it.Price, Amount: it.Amount,
+				})
+			}
+			if err := s.billing.CreateAR(ctx, tenantID, billing.AR{
+				PatientID: t.PatientID, PatientName: t.PatientName,
+				DocNo: t.BillNo, Amount: t.Total, Lines: lines,
+				RefID: a.ID.Hex(), TreatmentID: t.ID, By: "",
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	snap := bson.M{"status": Done, "charge": t.Total, "charge_no": t.BillNo,
+		"items": a.Items, "item": t.Item, "diagnosis": t.Diagnosis, "result": t.Result}
+	matched, err := s.appts.UpdateWhere(ctx, tenantID,
+		bson.M{"_id": a.ID, "status": Serving}, snap)
+	if err != nil {
+		return err
+	}
+	if matched == 0 {
+		// 预约已不在 serving：done 即成功，其他状态报状态错
+		if cur, ferr := s.appts.FindByID(ctx, tenantID, a.ID); ferr != nil {
+			return ferr
+		} else if cur.Status != Done {
+			return ErrBadStatus
+		}
+	}
+	return nil
 }

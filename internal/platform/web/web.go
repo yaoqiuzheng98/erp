@@ -99,6 +99,7 @@ func funcMap() template.FuncMap {
 			return false
 		},
 		"mul": func(a, b float64) string { return fmt.Sprintf("%.2f", a*b) },
+		"sub": func(a, b float64) string { return fmt.Sprintf("%.2f", a-b) },
 		"f2":  func(a float64) string { return fmt.Sprintf("%.2f", a) },
 	}
 }

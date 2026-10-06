@@ -2,6 +2,7 @@ package billing
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -39,7 +40,7 @@ func TestPayBadMethod(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := svc.ByDocNo(ctx, tid, "CH-T-0003")
-	if err := svc.Pay(ctx, tid, b.ID, 100, "alipay", "test"); err == nil {
+	if _, err := svc.Pay(ctx, tid, b.ID, 100, "alipay", "test"); err == nil {
 		t.Fatal("Pay with bad method should fail")
 	}
 	n, _ := db.Collection("payments").CountDocuments(ctx, bson.M{"tenant_id": tid})
@@ -130,7 +131,11 @@ func TestPayConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			errs[i] = svc.Pay(ctx, tid, b.ID, 100, "cash", "test")
+			fully, err := svc.Pay(ctx, tid, b.ID, 100, "cash", "test")
+			if err == nil && !fully {
+				err = errors.New("expected fully paid")
+			}
+			errs[i] = err
 		}(i)
 	}
 	wg.Wait()
@@ -153,6 +158,43 @@ func TestPayConcurrent(t *testing.T) {
 	n, err := db.Collection("payments").CountDocuments(ctx, bson.M{"tenant_id": tid})
 	if err != nil || n != 1 {
 		t.Fatalf("payments = %d, want 1", n)
+	}
+}
+
+// TestPayPartial 分次收款：400 现金 + 600 银行凑满，收清才翻状态。
+func TestPayPartial(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid := mustOID(t, "6ac4bd23b33e9a18faace5ec")
+	if err := svc.CreateAR(ctx, tid, AR{
+		PatientID:   mustOID(t, "6ac4bd23b33e9a18faace5ed"),
+		PatientName: "分次测试", DocNo: "CH-T-0004", Amount: 1000,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := svc.ByDocNo(ctx, tid, "CH-T-0004")
+	fully, err := svc.Pay(ctx, tid, b.ID, 400, "cash", "test")
+	if err != nil || fully {
+		t.Fatalf("part1: fully=%v err=%v", fully, err)
+	}
+	b, _ = svc.ByDocNo(ctx, tid, "CH-T-0004")
+	if b.Status != BillOpen || b.PaidAmount != 400 {
+		t.Fatalf("bill = %+v", b)
+	}
+	fully, err = svc.Pay(ctx, tid, b.ID, 600, "bank", "test")
+	if err != nil || !fully {
+		t.Fatalf("part2: fully=%v err=%v", fully, err)
+	}
+	b, _ = svc.ByDocNo(ctx, tid, "CH-T-0004")
+	if b.Status != BillPaid {
+		t.Fatalf("bill status = %s", b.Status)
+	}
+	n, _ := db.Collection("payments").CountDocuments(ctx, bson.M{"tenant_id": tid})
+	if n != 2 {
+		t.Fatalf("payments = %d, want 2", n)
+	}
+	// 超收拒绝
+	if _, err := svc.Pay(ctx, tid, b.ID, 1, "cash", "test"); err == nil {
+		t.Fatal("overpay should fail")
 	}
 }
 

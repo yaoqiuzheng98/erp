@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strconv"
 
 	"erp/internal/platform/audit"
 	"erp/internal/platform/env"
@@ -63,13 +64,22 @@ func (h *Handler) pay(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/app/billing/receivables")
 		return
 	}
-	// 按单全额收清，金额不可改
+	// 分次收款：金额默认剩余全额，可改小分多笔多方式收，凑满为止
 	amount := b.Amount - b.PaidAmount
-	if err := h.svc.Pay(ctx, tid, id, amount, c.PostForm("method"), mw.User(c).Name); err != nil {
+	if v := c.PostForm("amount"); v != "" {
+		if a, err := strconv.ParseFloat(v, 64); err == nil {
+			amount = a
+		}
+	}
+	fully, err := h.svc.Pay(ctx, tid, id, amount, c.PostForm("method"), mw.User(c).Name)
+	if err != nil {
 		web.SetFlash(c, "核销失败: "+err.Error())
+	} else if fully {
+		h.audit(c, audit.ActBillingPay, b.DocNo, fmt.Sprintf("%.2f", amount))
+		web.SetFlash(c, "已结清")
 	} else {
 		h.audit(c, audit.ActBillingPay, b.DocNo, fmt.Sprintf("%.2f", amount))
-		web.SetFlash(c, "已核销")
+		web.SetFlash(c, "已收部分，还差结清")
 	}
 	c.Redirect(http.StatusFound, "/app/billing/receivables")
 }

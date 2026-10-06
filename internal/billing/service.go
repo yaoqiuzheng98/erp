@@ -69,7 +69,7 @@ func (s *Service) CreateAR(ctx context.Context, tenantID bson.ObjectID, ar AR) e
 	b := &Bill{
 		PatientID: ar.PatientID, PatientName: ar.PatientName,
 		DocNo: ar.DocNo, Amount: ar.Amount, Lines: ar.Lines,
-		Status: BillOpen, RefID: ar.RefID,
+		Status: BillOpen, RefID: ar.RefID, TreatmentID: ar.TreatmentID,
 	}
 	b.TenantID, b.CreatedAt, b.CreatedBy = tenantID, time.Now(), ar.By
 	_, err := s.bills.Insert(ctx, tenantID, b)
@@ -116,6 +116,12 @@ func (s *Service) VoidBill(ctx context.Context, tenantID, billID bson.ObjectID) 
 	b, err := s.bills.FindByID(ctx, tenantID, billID)
 	if err != nil {
 		return err
+	}
+	// 作废联动：诊疗单 billed→void；预约翻已完成只翻待缴费态（传统链路兼容，幂等）
+	if !b.TreatmentID.IsZero() {
+		_, _ = s.db.Collection("treatments").UpdateOne(ctx,
+			bson.M{"tenant_id": tenantID, "_id": b.TreatmentID, "status": "billed"},
+			bson.M{"$set": bson.M{"status": "void", "updated_at": time.Now()}})
 	}
 	if b.RefID != "" {
 		if apptID, err := bson.ObjectIDFromHex(b.RefID); err == nil {
@@ -175,7 +181,8 @@ func (s *Service) PayMock(ctx context.Context, tenantID, billID bson.ObjectID, b
 	if b.Status == BillPaid {
 		return nil
 	}
-	return s.Pay(ctx, tenantID, billID, b.Amount-b.PaidAmount, "mock", by)
+	_, err = s.Pay(ctx, tenantID, billID, b.Amount-b.PaidAmount, "mock", by)
+	return err
 }
 
 func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, from, to string, skip, limit int64) ([]Bill, int64, error) {
@@ -196,25 +203,26 @@ func (s *Service) Mine(ctx context.Context, tenantID, patientID bson.ObjectID) (
 }
 
 // Pay 核销：生成收款单并累加已核销额，足额标记 paid。
+// 支持部分收款（现金一部分+微信一部分，凑满为止），返回本次是否收清。
 // 并发安全：先用「状态 open + 已核销额未变」条件落账，抢到的才算；
 // 落账成功后记收款单，记单失败则回滚账单（最佳努力+日志），不留半提交。
-func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amount float64, method string, by string) error {
+func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amount float64, method string, by string) (bool, error) {
 	b, err := s.bills.FindByID(ctx, tenantID, billID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if b.Status != BillOpen {
-		return errors.New("单据已结清或已作废")
+		return false, errors.New("单据已结清或已作废")
 	}
 	if !ValidMethod(method) {
-		return errors.New("未知收款方式")
+		return false, errors.New("未知收款方式")
 	}
 	if amount <= 0 || b.PaidAmount+amount > b.Amount+epsilon {
-		return ErrOverPay
+		return false, ErrOverPay
 	}
 	no, err := s.seq.Next(ctx, tenantID, "RC")
 	if err != nil {
-		return err
+		return false, err
 	}
 	paid := b.PaidAmount + amount
 	fullyPaid := paid >= b.Amount-epsilon
@@ -225,10 +233,10 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 	matched, err := s.bills.UpdateWhere(ctx, tenantID,
 		bson.M{"_id": billID, "status": BillOpen, "paid_amount": b.PaidAmount}, set)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if matched == 0 {
-		return errors.New("单据状态已变化，请刷新后重试")
+		return false, errors.New("单据状态已变化，请刷新后重试")
 	}
 	p := &Payment{
 		DocNo: no, BillID: billID, BillDocNo: b.DocNo,
@@ -241,19 +249,26 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 			bson.M{"paid_amount": b.PaidAmount, "status": BillOpen}); rerr != nil {
 			slog.Error("pay rollback failed", "bill", billID.Hex(), "err", rerr)
 		}
-		return err
+		return false, err
 	}
-	if fullyPaid && b.RefID != "" {
-		// 收清联动：对应预约从待缴费翻已完成（只翻待缴费态，幂等）
-		if apptID, err := bson.ObjectIDFromHex(b.RefID); err == nil {
-			if _, err := s.db.Collection("appointments").UpdateOne(ctx,
-				bson.M{"tenant_id": tenantID, "_id": apptID, "status": "unpaid"},
-				bson.M{"$set": bson.M{"status": "done", "updated_at": time.Now()}}); err != nil {
-				return fmt.Errorf("已收款但预约状态联动失败，请联系管理员处理: %w", err)
+	if fullyPaid {
+		// 收清联动：诊疗单 billed→paid；预约翻已完成（只翻待缴费态，幂等，传统链路兼容）
+		if !b.TreatmentID.IsZero() {
+			_, _ = s.db.Collection("treatments").UpdateOne(ctx,
+				bson.M{"tenant_id": tenantID, "_id": b.TreatmentID, "status": "billed"},
+				bson.M{"$set": bson.M{"status": "paid", "updated_at": time.Now()}})
+		}
+		if b.RefID != "" {
+			if apptID, err := bson.ObjectIDFromHex(b.RefID); err == nil {
+				if _, err := s.db.Collection("appointments").UpdateOne(ctx,
+					bson.M{"tenant_id": tenantID, "_id": apptID, "status": "unpaid"},
+					bson.M{"$set": bson.M{"status": "done", "updated_at": time.Now()}}); err != nil {
+					return true, fmt.Errorf("已收款但预约状态联动失败，请联系管理员处理: %w", err)
+				}
 			}
 		}
 	}
-	return nil
+	return fullyPaid, nil
 }
 
 func (s *Service) ListPayments(ctx context.Context, tenantID bson.ObjectID, from, to string, skip, limit int64) ([]Payment, int64, error) {

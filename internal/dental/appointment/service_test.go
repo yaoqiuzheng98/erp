@@ -11,6 +11,7 @@ import (
 	"erp/internal/billing"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
+	"erp/internal/dental/treatment"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/seqno"
 
@@ -60,9 +61,12 @@ func testSvc(t *testing.T) (*Service, *mongo.Database, context.Context) {
 	seq := seqno.New(db)
 	bsvc := billing.New(db, seq)
 	if err := bsvc.EnsureIndexes(ctx); err != nil {
+		t.Fatalf("ensure billing indexes: %v", err)
+	}
+	if err := bsvc.EnsureIndexes(ctx); err != nil {
 		t.Fatalf("ensure indexes: %v", err)
 	}
-	svc := New(db, seq, bsvc, patient.New(db), catalog.New(db), auth.NewService(db))
+	svc := New(db, seq, bsvc, patient.New(db), catalog.New(db), auth.NewService(db), treatment.New(db))
 	if err := svc.EnsureIndexes(ctx); err != nil {
 		t.Fatalf("ensure appt indexes: %v", err)
 	}
@@ -213,6 +217,7 @@ func TestCancelUnpaid(t *testing.T) {
 }
 
 func TestCompleteConcurrent(t *testing.T) {
+	// 并发开单幂等：两边都成功，但只建一张诊疗单/费用单。
 	svc, db, ctx := testSvc(t)
 	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
 	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
@@ -245,11 +250,15 @@ func TestCompleteConcurrent(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	}
-	if ok != 1 || fail != 1 {
-		t.Fatalf("ok=%d fail=%d, want 1/1", ok, fail)
+	if ok != 2 || fail != 0 {
+		t.Fatalf("ok=%d fail=%d, want 2/0", ok, fail)
 	}
 	n, err := db.Collection("bills").CountDocuments(ctx, bson.M{"tenant_id": tid, "ref_id": apptID.Hex()})
 	if err != nil || n != 1 {
 		t.Fatalf("bills for appt = %d, want 1", n)
+	}
+	tn, err := db.Collection("treatments").CountDocuments(ctx, bson.M{"tenant_id": tid, "appt_id": apptID})
+	if err != nil || tn != 1 {
+		t.Fatalf("treatments for appt = %d, want 1", tn)
 	}
 }

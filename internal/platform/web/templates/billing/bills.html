@@ -26,16 +26,17 @@
         <tbody>
         {{range .Data.Bills}}
         <tr>
-          <td>{{.DocNo}}{{if .Lines}}<br>{{range .Lines}}<small class="text-muted">{{.Name}}x{{.Qty}} ¥{{f2 .Amount}}</small><br>{{end}}{{end}}</td><td class="text-nowrap small text-muted">{{date .CreatedAt}}</td><td>{{.PatientName}}</td><td class="text-end {{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">¥{{f2 .Amount}}</td><td class="text-end {{if gt .PaidAmount 0.0}}amt-paid{{end}}">{{f2 .PaidAmount}}</td>
+          <td>{{.DocNo}}{{if .Lines}}<br>{{range .Lines}}<small class="text-muted">{{.Name}}x{{.Qty}} ¥{{f2 .Amount}}</small><br>{{end}}{{end}}</td><td class="text-nowrap small text-muted">{{date .CreatedAt}}</td><td>{{.PatientName}}</td><td class="text-end {{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">¥{{f2 .Amount}}</td><td class="text-end {{if gt .PaidAmount 0.0}}amt-paid{{end}}">{{f2 .PaidAmount}}{{if eq .Status "open"}}<br><small class="text-muted">剩{{sub .Amount .PaidAmount}}</small>{{end}}</td>
           <td><span class="badge {{if eq .Status "paid"}}bg-success{{else if eq .Status "void"}}bg-secondary{{else}}bg-warning text-dark{{end}}">{{.StatusName}}</span></td>
           <td>
             {{if eq .Status "open"}}
             <div class="d-flex gap-1 align-items-center">
               <form method="post" action="/app/billing/bills/{{hex .ID}}/pay" class="d-flex gap-1 align-items-center m-0"
-                    onsubmit="return confirm('确认收款 ¥{{f2 .Amount}}？')">
+                    onsubmit="return confirm('确认收款？')">
                 <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <input class="form-control form-control-sm text-end" name="amount" type="number" min="0.01" step="0.01" value="{{sub .Amount .PaidAmount}}" title="本次收款金额，可分多笔" style="width:6.5em">
                 <select class="form-select form-select-sm" name="method">
-                  <option value="bank">银行</option><option value="cash">现金</option><option value="other">其他</option>
+                  <option value="cash">现金</option><option value="bank">银行</option><option value="other">其他</option>
                 </select>
                 <button class="btn btn-sm btn-primary text-nowrap">收款</button>
               </form>
@@ -62,18 +63,19 @@
           </div>
           {{if .Lines}}<div class="small text-muted mt-1">{{range .Lines}}{{.Name}}x{{.Qty}} {{f2 .Amount}}<br>{{end}}</div>{{end}}
           <div class="d-flex justify-content-between align-items-center mt-1">
-            <span class="small text-muted">{{.PatientName}} · {{date .CreatedAt}} · 已核销{{f2 .PaidAmount}}</span>
+            <span class="small text-muted">{{.PatientName}} · {{date .CreatedAt}} · 已核销{{f2 .PaidAmount}}{{if eq .Status "open"}}，剩{{sub .Amount .PaidAmount}}{{end}}</span>
             <span class="{{if eq .Status "paid"}}amt-paid{{else}}amt-unpaid{{end}}">¥{{f2 .Amount}}</span>
           </div>
           {{if eq .Status "open"}}
           <div class="d-flex gap-1 mt-2">
             <form method="post" action="/app/billing/bills/{{hex .ID}}/pay" class="d-flex gap-1 flex-grow-1 m-0"
-                  onsubmit="return confirm('确认收款 ¥{{f2 .Amount}}？')">
+                  onsubmit="return confirm('确认收款？')">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <input class="form-control form-control-sm text-end flex-grow-1" name="amount" type="number" min="0.01" step="0.01" value="{{sub .Amount .PaidAmount}}" title="本次收款金额，可分多笔">
               <select class="form-select form-select-sm flex-shrink-0" name="method" style="width:5.5em">
-                <option value="bank">银行</option><option value="cash">现金</option><option value="other">其他</option>
+                <option value="cash">现金</option><option value="bank">银行</option><option value="other">其他</option>
               </select>
-              <button class="btn btn-sm btn-primary flex-grow-1">收款 ¥{{f2 .Amount}}</button>
+              <button class="btn btn-sm btn-primary flex-shrink-0">收款</button>
             </form>
             <form method="post" action="/app/billing/bills/{{hex .ID}}/void" class="m-0 flex-shrink-0"
                   onsubmit="return confirm('确认作废 {{.DocNo}}？作废后移出未收，不可恢复。')">

@@ -31,8 +31,9 @@ type Bill struct {
 	Amount      float64       `bson:"amount"`
 	Lines       []BillLine    `bson:"lines,omitempty"`
 	PaidAmount  float64       `bson:"paid_amount"`
-	Status      string        `bson:"status"` // open / paid / void
-	RefID       string        `bson:"ref_id"` // 来源预约 hex
+	Status      string        `bson:"status"`                 // open / paid / void
+	RefID       string        `bson:"ref_id"`                 // 来源预约 hex
+	TreatmentID bson.ObjectID `bson:"treatment_id,omitempty"` // 对应诊疗单（挂号费单无）
 }
 
 // billStatusNames 单据状态中文名（与预约状态表同构，加状态只改这里）。
@@ -68,5 +69,6 @@ type AR struct {
 	Amount      float64
 	Lines       []BillLine
 	RefID       string
+	TreatmentID bson.ObjectID // 对应诊疗单（挂号费单为空）
 	By          string
 }
