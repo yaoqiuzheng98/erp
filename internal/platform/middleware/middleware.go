@@ -67,7 +67,11 @@ func TenantResolver(e *env.Env) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		user := u.(*auth.User)
+		user, ok := u.(*auth.User)
+		if !ok {
+			c.Next()
+			return
+		}
 		t, err := e.Tenants.ByID(c.Request.Context(), user.TenantID)
 		if err != nil || t.Status != "active" {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "租户不可用"})
@@ -92,7 +96,12 @@ func CSRF() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		want := sess.(*session.Session).CSRF
+		s, ok := sess.(*session.Session)
+		if !ok {
+			c.Next()
+			return
+		}
+		want := s.CSRF
 		got := c.GetHeader("X-CSRF-Token")
 		if got == "" {
 			got = c.PostForm("_csrf")
@@ -146,17 +155,21 @@ func RequirePerm(code string) gin.HandlerFunc {
 	}
 }
 
-// Helpers 供 handler 取上下文对象。
+// Helpers 供 handler 取上下文对象（类型不对一律返回零值，不 panic）。
 func User(c *gin.Context) *auth.User {
 	if v, ok := c.Get(CtxUser); ok {
-		return v.(*auth.User)
+		if u, ok := v.(*auth.User); ok {
+			return u
+		}
 	}
 	return nil
 }
 
 func Tenant(c *gin.Context) *tenant.Tenant {
 	if v, ok := c.Get(CtxTenant); ok {
-		return v.(*tenant.Tenant)
+		if t, ok := v.(*tenant.Tenant); ok {
+			return t
+		}
 	}
 	return nil
 }
@@ -170,7 +183,9 @@ func TenantID(c *gin.Context) bson.ObjectID {
 
 func Perms(c *gin.Context) map[string]bool {
 	if v, ok := c.Get(CtxPerms); ok {
-		return v.(map[string]bool)
+		if m, ok := v.(map[string]bool); ok {
+			return m
+		}
 	}
 	return map[string]bool{}
 }

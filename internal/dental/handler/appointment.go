@@ -48,7 +48,7 @@ func (h *Handler) appointments(c *gin.Context) {
 		return
 	}
 	pager.Total = total
-	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 500)
+	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
 	items, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
 	doctors, _ := h.users.ListPractitioners(c.Request.Context(), mw.TenantID(c))
 	web.Render(c, h.e, "dental/appointments", gin.H{
@@ -131,6 +131,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 			"date", a.Date, "slot", a.Slot, "err", err)
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
+		h.audit(c, "appt.create", a.PatientName+" "+a.Date+" "+a.Slot, "")
 		web.SetFlash(c, "已预约")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
@@ -158,6 +159,7 @@ func (h *Handler) checkin(c *gin.Context) {
 	if err != nil {
 		web.SetFlash(c, "签到失败: "+err.Error())
 	} else {
+		h.audit(c, "appt.checkin", doc+" "+queueNo(no), "")
 		web.SetFlash(c, "签到成功 → "+doc+" "+queueNo(no))
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
@@ -176,6 +178,7 @@ func (h *Handler) serve(c *gin.Context) {
 	if err := h.appts.StartServe(c.Request.Context(), mw.TenantID(c), id); err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else {
+		h.audit(c, "appt.serve", id.Hex(), "")
 		web.SetFlash(c, "已开始就诊")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
@@ -194,8 +197,10 @@ func (h *Handler) done(c *gin.Context) {
 	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else if next != "" {
+		h.audit(c, "appt.complete", id.Hex(), "")
 		web.SetFlash(c, "已开单（待缴费），下一位："+next+"，请叫号")
 	} else {
+		h.audit(c, "appt.complete", id.Hex(), "")
 		web.SetFlash(c, "已开单（待缴费）")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
@@ -205,6 +210,8 @@ func (h *Handler) noshow(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	if err := h.appts.NoShow(c.Request.Context(), mw.TenantID(c), id); err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
+	} else {
+		h.audit(c, "appt.noshow", id.Hex(), "")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
@@ -213,6 +220,8 @@ func (h *Handler) cancel(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	if err := h.appts.Cancel(c.Request.Context(), mw.TenantID(c), id); err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
+	} else {
+		h.audit(c, "appt.cancel", id.Hex(), "")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }

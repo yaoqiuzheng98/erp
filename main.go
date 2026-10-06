@@ -70,6 +70,11 @@ func main() {
 	// 唯一索引（幂等）
 	usersCol := d.Database.Collection("users")
 	_ = usersCol.Indexes().DropOne(ctx, "tenant_id_1_username_1") // 老用户名索引（改手机号登录）
+	// 会话过期自动清（TTL 按 expires_at 秒级回收，约一分钟延迟）
+	_, _ = d.Database.Collection("sessions").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "expires_at", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(0),
+	})
 	for _, ix := range []struct {
 		col  string
 		keys bson.D
@@ -118,18 +123,21 @@ func main() {
 
 // seed 初始化系统超管（幂等：已存在则跳过）。
 func seed(ctx context.Context, e *env.Env, cfg *config.Config) error {
-	if n, _ := e.DB.C("sys_admins").EstimatedDocumentCount(ctx); n == 0 {
-		hash, err := auth.HashPassword(cfg.Seed.SysadminPass)
-		if err != nil {
-			return err
-		}
-		_, err = e.DB.C("sys_admins").InsertOne(ctx, &auth.SysAdmin{
-			Username: cfg.Seed.SysadminUser, PasswordHash: hash,
-		})
-		if err != nil {
-			return err
-		}
-		slog.Info("seeded sysadmin", "user", cfg.Seed.SysadminUser)
+	var existing auth.SysAdmin
+	if err := e.DB.C("sys_admins").FindOne(ctx,
+		bson.M{"username": cfg.Seed.SysadminUser}).Decode(&existing); err == nil {
+		return nil
 	}
+	hash, err := auth.HashPassword(cfg.Seed.SysadminPass)
+	if err != nil {
+		return err
+	}
+	_, err = e.DB.C("sys_admins").InsertOne(ctx, &auth.SysAdmin{
+		Username: cfg.Seed.SysadminUser, PasswordHash: hash,
+	})
+	if err != nil {
+		return err
+	}
+	slog.Info("seeded sysadmin", "user", cfg.Seed.SysadminUser)
 	return nil
 }

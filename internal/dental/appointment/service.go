@@ -3,6 +3,8 @@ package appointment
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"erp/internal/platform/auth"
 	"erp/internal/platform/repo"
 	"erp/internal/platform/seqno"
+	"erp/internal/platform/tz"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -19,6 +22,9 @@ import (
 )
 
 var ErrBadStatus = errors.New("状态不允许该操作")
+
+// slotRe HH:MM 24小时制。
+var slotRe = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
 
 type Service struct {
 	db      *mongo.Database
@@ -109,6 +115,13 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	if err != nil {
 		return errors.New("患者不存在")
 	}
+	// 日期时段只收合法格式，脏数据进库后筛选查不到
+	if _, ok := tz.DayStart(a.Date); !ok {
+		return errors.New("日期格式不正确")
+	}
+	if !slotRe.MatchString(a.Slot) {
+		return errors.New("时间格式不正确")
+	}
 	a.PatientName = p.Name
 	// 医生可选：不选则签到时分配；选了则校验并快照
 	if !a.DoctorID.IsZero() {
@@ -154,8 +167,11 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, date string,
 		f["doctor_id"] = doctorID
 	}
 	if phone != "" {
-		// 按患者电话筛：先找出匹配患者
-		pats, _, _ := s.pats.List(ctx, tenantID, phone, 0, 100)
+		// 按患者电话筛：先找出匹配患者（上限放宽，超大门诊也够用）
+		pats, _, err := s.pats.List(ctx, tenantID, phone, 0, 2000)
+		if err != nil {
+			return nil, 0, err
+		}
 		ids := make([]bson.ObjectID, 0, len(pats))
 		for _, p := range pats {
 			ids = append(ids, p.ID)
@@ -166,7 +182,7 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, date string,
 	if err != nil {
 		return nil, 0, err
 	}
-	list, err := s.appts.FindMany(ctx, tenantID, f)
+	list, err := s.appts.FindMany(ctx, tenantID, f, options.Find().SetSkip(skip).SetLimit(limit))
 	return list, total, err
 }
 
@@ -189,11 +205,6 @@ func (s *Service) setStatus(ctx context.Context, tenantID, id bson.ObjectID, fro
 		return nil, ErrBadStatus
 	}
 	return a, s.appts.Update(ctx, tenantID, id, bson.M{"status": to})
-}
-
-func (s *Service) Arrive(ctx context.Context, tenantID, id bson.ObjectID) error {
-	_, err := s.setStatus(ctx, tenantID, id, []string{Booked}, Arrived)
-	return err
 }
 
 // activeLoad 当天某医生手上未完结的单数（候诊+就诊中）。
@@ -266,9 +277,10 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (stri
 	// 排号带一次重试（防并发签到同号，唯一索引兜底）。
 	var lastErr error
 	for i := 0; i < 3; i++ {
-		set["queue_no"] = s.nextQueueNo(ctx, tenantID, docID, a.Date)
+		qno := s.nextQueueNo(ctx, tenantID, docID, a.Date)
+		set["queue_no"] = qno
 		if err := s.appts.Update(ctx, tenantID, id, set); err == nil {
-			return docName, set["queue_no"].(int), nil
+			return docName, qno, nil
 		} else {
 			lastErr = err
 		}
@@ -310,6 +322,20 @@ func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, by str
 	}
 	if a.RegFee <= 0 || a.RegPaid {
 		return nil
+	}
+	// 幂等修复：之前建了 RG 单但没置位（崩溃/重试），直接续上不重单
+	if eb, err := s.billing.ByRefPrefix(ctx, tenantID, id.Hex(), "RG"); err != nil {
+		return err
+	} else if eb != nil {
+		if eb.Status != billing.BillPaid {
+			rest := eb.Amount - eb.PaidAmount
+			if rest > 0 {
+				if err := s.billing.Pay(ctx, tenantID, eb.ID, rest, "mock", by); err != nil {
+					return err
+				}
+			}
+		}
+		return s.appts.Update(ctx, tenantID, id, bson.M{"reg_paid": true})
 	}
 	no, err := s.seq.Next(ctx, tenantID, "RG")
 	if err != nil {
@@ -412,9 +438,21 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, item
 		// 零收费直接完结，不走应收
 		set["status"] = Done
 	}
+	// 先落预约（仅就诊中可落，并发第二人直接失败，不建孤儿单）
+	matched, err := s.appts.UpdateWhere(ctx, tenantID,
+		bson.M{"_id": id, "status": Serving}, set)
+	if err != nil {
+		return "", err
+	}
+	if matched == 0 {
+		return "", ErrBadStatus
+	}
 	if total > 0 {
 		no, err := s.seq.Next(ctx, tenantID, "CH")
 		if err != nil {
+			// 建号失败就回滚预约，允许重试
+			_, _ = s.appts.UpdateWhere(ctx, tenantID,
+				bson.M{"_id": id}, bson.M{"status": Serving})
 			return "", err
 		}
 		set["charge_no"] = no
@@ -428,11 +466,16 @@ func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, item
 			PatientID: a.PatientID, PatientName: a.PatientName,
 			DocNo: no, Amount: total, Lines: lines, RefID: id.Hex(), By: by,
 		}); err != nil {
+			// 建单失败回滚预约（最佳努力+日志），不留"已开单无应收"的半提交
+			if _, rerr := s.appts.UpdateWhere(ctx, tenantID,
+				bson.M{"_id": id}, bson.M{"status": Serving}); rerr != nil {
+				slog.Error("complete rollback failed", "appt", id.Hex(), "err", rerr)
+			}
 			return "", err
 		}
-	}
-	if err := s.appts.Update(ctx, tenantID, id, set); err != nil {
-		return "", err
+		// 应收单号落回预约（失败不影响主流程，只影响展示）
+		_, _ = s.appts.UpdateWhere(ctx, tenantID,
+			bson.M{"_id": id}, bson.M{"charge_no": no})
 	}
 	// 下一位只提示、不自动流转：前台点叫号播报后再点就诊
 	next, err := s.nextInLine(ctx, tenantID, a.DoctorID, a.Date)

@@ -2,12 +2,15 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+var errInvalidID = errors.New("写入失败: 非法 ID")
 
 // TenantRepo 模板方法基类：写路径注入 tenant_id，读路径强制过滤。
 type TenantRepo[T any] struct {
@@ -67,7 +70,10 @@ func (r *TenantRepo[T]) Insert(ctx context.Context, tenantID bson.ObjectID, doc 
 	if err != nil {
 		return bson.NilObjectID, err
 	}
-	id, _ := res.InsertedID.(bson.ObjectID)
+	id, ok := res.InsertedID.(bson.ObjectID)
+	if !ok {
+		return bson.NilObjectID, errInvalidID
+	}
 	return id, nil
 }
 
@@ -80,6 +86,17 @@ func (r *TenantRepo[T]) Update(ctx context.Context, tenantID, id bson.ObjectID, 
 func (r *TenantRepo[T]) Delete(ctx context.Context, tenantID, id bson.ObjectID) error {
 	_, err := r.Col.DeleteOne(ctx, scoped(bson.M{"_id": id}, tenantID))
 	return err
+}
+
+// UpdateWhere 条件更新（状态机流转/乐观并发防竞态），返回命中数。
+// 命中 0 表示条件已不成立（被别人先处理了），调用方应报错而非继续。
+func (r *TenantRepo[T]) UpdateWhere(ctx context.Context, tenantID bson.ObjectID, filter bson.M, set bson.M) (int64, error) {
+	set["updated_at"] = time.Now()
+	res, err := r.Col.UpdateOne(ctx, scoped(filter, tenantID), bson.M{"$set": set})
+	if err != nil {
+		return 0, err
+	}
+	return res.MatchedCount, nil
 }
 
 func (r *TenantRepo[T]) Count(ctx context.Context, tenantID bson.ObjectID, filter bson.M) (int64, error) {

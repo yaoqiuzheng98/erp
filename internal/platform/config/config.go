@@ -12,7 +12,6 @@ type Config struct {
 	Mongo   MongoConfig   `toml:"mongo"`
 	Session SessionConfig `toml:"session"`
 	Storage StorageConfig `toml:"storage"`
-	Log     LogConfig     `toml:"log"`
 	Seed    SeedConfig    `toml:"seed"`
 }
 
@@ -29,7 +28,6 @@ type SessionConfig struct {
 	TTLHours      int    `toml:"ttl_hours"`
 	CookieName    string `toml:"cookie_name"`
 	SysCookieName string `toml:"sys_cookie_name"`
-	Secret        string `toml:"secret"`
 	Secure        bool   `toml:"secure"` // HTTPS 部署时置 true，cookie 加 Secure 标记
 }
 
@@ -37,17 +35,10 @@ type StorageConfig struct {
 	MaxImageMB int `toml:"max_image_mb"` // 图片上传上限（MB），<=0 则默认 10
 }
 
-type LogConfig struct {
-	Level string `toml:"level"`
-}
-
 type SeedConfig struct {
-	Enabled       bool   `toml:"enabled"`
-	SysadminUser  string `toml:"sysadmin_user"`
-	SysadminPass  string `toml:"sysadmin_pass"`
-	DemoTenant    bool   `toml:"demo_tenant"`
-	DemoAdminUser string `toml:"demo_admin_user"`
-	DemoAdminPass string `toml:"demo_admin_pass"`
+	Enabled      bool   `toml:"enabled"`
+	SysadminUser string `toml:"sysadmin_user"`
+	SysadminPass string `toml:"sysadmin_pass"`
 }
 
 func Load(path string) (*Config, error) {

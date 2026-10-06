@@ -47,6 +47,9 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 		r.StaticFS("/static", staticFS)
 	}
 
+	// 限流守卫：桶按「限额+IP」隔离，一个实例可同时用于浏览(300)与登录(20)
+	loginGuard := portal.NewGuard(e, svc.Patients)
+
 	r.GET("/", func(c *gin.Context) {
 		if _, err := c.Cookie(e.Cfg.Session.CookieName); err == nil {
 			c.Redirect(http.StatusFound, "/app/appointments")
@@ -55,7 +58,7 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 		}
 	})
 
-	// ---------- 租户认证 ----------
+	// ---------- 租户认证（登录防爆破：同 IP 每分钟 20 次） ----------
 	r.GET("/login", mw.Session(e), func(c *gin.Context) {
 		if mw.User(c) != nil {
 			c.Redirect(http.StatusFound, "/app/appointments")
@@ -63,14 +66,14 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 		}
 		web.Render(c, e, "login", nil)
 	})
-	r.POST("/login", mw.Session(e), loginTenant(e))
+	r.POST("/login", mw.Session(e), loginGuard.RateLimit(20), loginTenant(e))
 	r.POST("/logout", logout(e, e.Cfg.Session.CookieName))
 
 	// ---------- 系统后台认证 ----------
 	r.GET("/sysadmin/login", mw.SysSession(e), func(c *gin.Context) {
 		web.Render(c, e, "sys/login", nil)
 	})
-	r.POST("/sysadmin/login", mw.SysSession(e), loginSys(e))
+	r.POST("/sysadmin/login", mw.SysSession(e), loginGuard.RateLimit(20), loginSys(e))
 	r.POST("/sysadmin/logout", logout(e, e.Cfg.Session.SysCookieName))
 
 	// ---------- 门诊业务 /app（首页即今日预约） ----------

@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -90,7 +91,9 @@ func (g *Guard) PatientAuth() gin.HandlerFunc {
 // Patient 取当前患者，未登录返回 nil。
 func Patient(c *gin.Context) *patient.Patient {
 	if v, ok := c.Get(CtxPatient); ok {
-		return v.(*patient.Patient)
+		if p, ok := v.(*patient.Patient); ok {
+			return p
+		}
 	}
 	return nil
 }
@@ -104,7 +107,8 @@ func (g *Guard) RateLimit(n int) gin.HandlerFunc {
 			g.window = now
 			g.hits = map[string]int{}
 		}
-		ip := c.ClientIP()
+		// 桶按「限额+IP」隔离：浏览(300)与登录(20)互不污染，登录刷爆不影响正常浏览
+		ip := fmt.Sprintf("%d:%s", n, c.ClientIP())
 		g.hits[ip]++
 		over := g.hits[ip] > n
 		g.mu.Unlock()

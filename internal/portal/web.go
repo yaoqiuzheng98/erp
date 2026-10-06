@@ -15,6 +15,7 @@ import (
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/session"
+	"erp/internal/platform/tz"
 	"erp/internal/platform/web"
 
 	"github.com/gin-gonic/gin"
@@ -240,11 +241,19 @@ func (h *Web) bookPage(c *gin.Context) {
 	doctors, _ := h.e.Auth.ListPractitioners(c.Request.Context(), mw.TenantID(c))
 	web.Render(c, h.e, "portal/book", gin.H{
 		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "book", "Doctors": doctors,
+		"Today": tz.Today(),
 	})
 }
 
 func (h *Web) book(c *gin.Context) {
 	p := Patient(c)
+	// 患者自助约诊不收过去日期（后台补录走门诊端，那边不限）
+	today, _ := tz.DayStart(tz.Today())
+	if d, ok := tz.DayStart(c.PostForm("date")); !ok || d.Before(today) {
+		web.SetFlash(c, "预约日期不能早于今天")
+		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/book")
+		return
+	}
 	docID, _ := bson.ObjectIDFromHex(c.PostForm("doctor_id"))
 	a := &appointment.Appointment{
 		PatientID: p.ID, DoctorID: docID,

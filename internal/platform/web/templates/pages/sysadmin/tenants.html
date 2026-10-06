@@ -22,7 +22,7 @@
             <div class="mb-2"><label class="form-label">门诊名称</label>
               <input class="form-control form-control-sm" name="name" required placeholder="如 康健口腔门诊"></div>
             <div class="mb-2"><label class="form-label">管理员手机号</label>
-              <input class="form-control form-control-sm" name="admin_phone" inputmode="tel" required placeholder="11 位手机号，员工登录名"></div>
+              <input class="form-control form-control-sm" name="admin_phone" inputmode="tel" required pattern="1[3-9][0-9]{9}" title="11 位大陆手机号" placeholder="11 位手机号，员工登录名"></div>
             <div class="mb-2"><label class="form-label">管理员密码</label>
               <input class="form-control form-control-sm" name="admin_pass" type="password" required minlength="6"></div>
             <div class="form-text">创建后自动生成默认角色（医生/护士/前台），管理员可在门诊后台调整。</div>

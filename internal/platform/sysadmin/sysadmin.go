@@ -79,7 +79,11 @@ func (h *Handler) createTenant(c *gin.Context) {
 	if err := h.e.Auth.Create(ctx, t.ID, &auth.User{
 		Name: "管理员", Phone: phone, IsTenantAdm: true,
 	}, pass); err != nil {
-		web.SetFlash(c, "租户已创建，但管理员创建失败: "+err.Error())
+		// 管理员建失败则整个门诊回滚，不留无主租户
+		if rerr := h.e.Tenants.Purge(ctx, t.ID); rerr != nil {
+			slog.Error("tenant rollback failed", "tenant", t.Name, "err", rerr)
+		}
+		web.SetFlash(c, "租户已创建，但管理员创建失败，已回滚: "+err.Error())
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
 		return
 	}

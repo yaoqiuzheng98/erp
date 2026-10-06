@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // UnitOptions 单位预设（框里可直接打字，不限于此）。
@@ -40,8 +42,11 @@ func (s *Service) ensure(ctx context.Context, tenantID bson.ObjectID) {
 
 // EnsureSeed 建名称唯一索引 + 空表时种子默认价目（幂等）。
 func (s *Service) EnsureSeed(ctx context.Context, tenantID bson.ObjectID) error {
+	// 老版本非唯一索引先删，否则同名不同选项报 IndexOptionsConflict。
+	_ = s.items.Col.Indexes().DropOne(ctx, "tenant_id_1_name_1")
 	if _, err := s.items.Col.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "name", Value: 1}},
+		Keys:    bson.D{{Key: "tenant_id", Value: 1}, {Key: "name", Value: 1}},
+		Options: options.Index().SetUnique(true),
 	}); err != nil {
 		return err
 	}
@@ -113,6 +118,13 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, it *Servic
 
 func (s *Service) Update(ctx context.Context, tenantID, id bson.ObjectID, set bson.M) error {
 	s.ensure(ctx, tenantID)
+	// 与 Create 同口径：名称不能为空，单价不能为负（handler 只清洗了 status）
+	if v, ok := set["name"].(string); ok && strings.TrimSpace(v) == "" {
+		return errors.New("项目名称必填")
+	}
+	if v, ok := set["price"].(float64); ok && v < 0 {
+		return errors.New("单价不能为负")
+	}
 	return s.items.Update(ctx, tenantID, id, set)
 }
 

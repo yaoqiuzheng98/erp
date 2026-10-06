@@ -1,9 +1,11 @@
 package billing
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
 
+	"erp/internal/platform/audit"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/tz"
@@ -20,6 +22,15 @@ type Handler struct {
 
 func NewHandler(e *env.Env, svc *Service) *Handler {
 	return &Handler{e: e, svc: svc}
+}
+
+// audit 记财务操作审计（核销/作废必留痕）。
+func (h *Handler) audit(c *gin.Context, action, target, detail string) {
+	u := mw.User(c)
+	h.e.Audit.Log(c.Request.Context(), audit.Entry{
+		TenantID: mw.TenantID(c), UserID: u.ID, Username: u.Phone,
+		Action: action, Target: target, Detail: detail, IP: c.ClientIP(),
+	})
 }
 
 func (h *Handler) Register(g *gin.RouterGroup) {
@@ -61,6 +72,7 @@ func (h *Handler) pay(c *gin.Context) {
 	if err := h.svc.Pay(ctx, tid, id, amount, c.PostForm("method"), mw.User(c).Name); err != nil {
 		web.SetFlash(c, "核销失败: "+err.Error())
 	} else {
+		h.audit(c, "billing.pay", b.DocNo, fmt.Sprintf("%.2f", amount))
 		web.SetFlash(c, "已核销")
 	}
 	c.Redirect(http.StatusFound, "/app/billing/receivables")
@@ -69,9 +81,16 @@ func (h *Handler) pay(c *gin.Context) {
 // void 作废应收（免单/坏账），移出未收。
 func (h *Handler) void(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	if err := h.svc.VoidBill(c.Request.Context(), mw.TenantID(c), id); err != nil {
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
+	docNo := id.Hex()
+	if b, err := h.svc.BillByID(ctx, tid, id); err == nil {
+		docNo = b.DocNo
+	}
+	if err := h.svc.VoidBill(ctx, tid, id); err != nil {
 		web.SetFlash(c, "作废失败: "+err.Error())
 	} else {
+		h.audit(c, "billing.void", docNo, "")
 		web.SetFlash(c, "单据已作废")
 	}
 	c.Redirect(http.StatusFound, "/app/billing/receivables")

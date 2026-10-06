@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 
 	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
@@ -138,13 +139,28 @@ func (h *Handler) updateUser(c *gin.Context) {
 	if u, err := h.e.Auth.UserByID(c.Request.Context(), mw.TenantID(c), id); err == nil {
 		oldAvatar = u.Avatar
 	}
+	isAdm := c.PostForm("is_admin") == "on"
+	// 护栏：不能取消自己的管理员身份，也不能取消最后一个管理员
+	if me := mw.User(c); me != nil && id == me.ID && !isAdm {
+		web.SetFlash(c, "不能取消自己的管理员身份")
+		c.Redirect(http.StatusFound, "/admin/users")
+		return
+	}
+	if !isAdm {
+		if n, _ := h.e.Auth.CountAdmins(c.Request.Context(), mw.TenantID(c)); n <= 1 {
+			web.SetFlash(c, "至少保留一位门诊管理员")
+			c.Redirect(http.StatusFound, "/admin/users")
+			return
+		}
+	}
 	set := bson.M{
-		"name":         c.PostForm("name"),
-		"phone":        c.PostForm("phone"),
-		"bio":          c.PostForm("bio"),
-		"role_ids":     roleIDsOf(c),
-		"can_practice": c.PostForm("can_practice") == "on",
-		"status":       status,
+		"name":            c.PostForm("name"),
+		"phone":           c.PostForm("phone"),
+		"bio":             c.PostForm("bio"),
+		"role_ids":        roleIDsOf(c),
+		"can_practice":    c.PostForm("can_practice") == "on",
+		"status":          status,
+		"is_tenant_admin": isAdm,
 	}
 	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
@@ -349,11 +365,23 @@ func (h *Handler) deleteGalleryPhoto(c *gin.Context) {
 	tid := mw.TenantID(c)
 	fid := c.Param("id")
 	if oid, err := bson.ObjectIDFromHex(fid); err == nil {
-		_ = h.e.Attach.Delete(ctx, tid, oid)
+		if err := h.e.Attach.Delete(ctx, tid, oid); err != nil {
+			web.SetFlash(c, "删除图片失败: "+err.Error())
+			c.Redirect(http.StatusFound, "/admin/settings")
+			return
+		}
 	}
-	_ = h.e.Tenants.RemoveGalleryPhoto(ctx, tid, fid)
-	web.SetFlash(c, "门诊图已删除")
-	c.Redirect(http.StatusFound, "/admin/settings")
+	if err := h.e.Tenants.RemoveGalleryPhoto(ctx, tid, fid); err != nil {
+		web.SetFlash(c, "删除失败: "+err.Error())
+	} else {
+		web.SetFlash(c, "门诊图已删除")
+	}
+	// 两个入口复用：首页配置来的回首页，门诊设置来的回设置
+	back := "/admin/settings"
+	if strings.Contains(c.Request.URL.Path, "/home/gallery/") {
+		back = "/admin/home"
+	}
+	c.Redirect(http.StatusFound, back)
 }
 
 // ---------- 审计 ----------

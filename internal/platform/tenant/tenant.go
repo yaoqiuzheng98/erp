@@ -18,7 +18,7 @@ type Tenant struct {
 	Name      string        `bson:"name"`
 	RegFee    float64       `bson:"reg_fee"`
 	RegDeduct bool          `bson:"reg_deduct,omitempty"` // 挂号费抵扣最终诊疗费（开时已缴挂号费当定金抵）
-	Status    string        `bson:"status"` // active / suspended
+	Status    string        `bson:"status"`               // active / suspended
 	Intro     string        `bson:"intro,omitempty"`
 	Address   string        `bson:"address,omitempty"`
 	Phone     string        `bson:"phone,omitempty"`
@@ -33,8 +33,7 @@ var ErrSuspended = errors.New("租户已停用")
 // tenantCollections 带 tenant_id 的租户级集合；新增集合时同步维护。
 var tenantCollections = []string{
 	"users", "roles", "patients", "appointments", "service_items",
-	"bills", "payments", "expenses", "sessions", "notifications", "audit_logs",
-	"staff", "staff_roles", // 历史遗留集合（员工模块已并入用户）
+	"bills", "payments", "sessions", "notifications", "audit_logs",
 }
 
 type Service struct {
@@ -69,16 +68,12 @@ func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {
 	if err != nil {
 		return nil, err
 	}
-	t.ID = res.InsertedID.(bson.ObjectID)
-	return t, nil
-}
-
-func (s *Service) SetFee(ctx context.Context, id bson.ObjectID, fee float64) error {
-	if fee < 0 {
-		fee = 0
+	oid, ok := res.InsertedID.(bson.ObjectID)
+	if !ok {
+		return nil, errors.New("创建失败: 非法 ID")
 	}
-	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"reg_fee": fee}})
-	return err
+	t.ID = oid
+	return t, nil
 }
 
 // SetBilling 挂号费与抵扣开关一起存（门诊设置）。

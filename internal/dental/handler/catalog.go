@@ -41,6 +41,7 @@ func (h *Handler) createService(c *gin.Context) {
 	if err := h.items.Create(c.Request.Context(), mw.TenantID(c), it); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
+		h.audit(c, "catalog.create", it.Name, "")
 		web.SetFlash(c, "价目已创建: "+it.Name)
 	}
 	c.Redirect(http.StatusFound, "/app/services")
@@ -59,6 +60,7 @@ func (h *Handler) updateService(c *gin.Context) {
 	if err := h.items.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "更新失败: "+err.Error())
 	} else {
+		h.audit(c, "catalog.update", c.PostForm("name"), "")
 		web.SetFlash(c, "价目已更新")
 	}
 	c.Redirect(http.StatusFound, "/app/services")
@@ -69,6 +71,7 @@ func (h *Handler) deleteService(c *gin.Context) {
 	if err := h.items.Delete(c.Request.Context(), mw.TenantID(c), id); err != nil {
 		web.SetFlash(c, "删除失败: "+err.Error())
 	} else {
+		h.audit(c, "catalog.delete", id.Hex(), "")
 		web.SetFlash(c, "价目已删除")
 	}
 	c.Redirect(http.StatusFound, "/app/services")

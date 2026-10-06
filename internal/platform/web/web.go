@@ -123,7 +123,9 @@ func buildPage(c *gin.Context, e *env.Env, data any) *Page {
 		p.User = u
 	}
 	if v, ok := c.Get(middleware.CtxSys); ok {
-		p.Sys = v.(*auth.SysAdmin)
+		if s, ok := v.(*auth.SysAdmin); ok {
+			p.Sys = s
+		}
 	}
 	if t := middleware.Tenant(c); t != nil {
 		p.Tenant = t

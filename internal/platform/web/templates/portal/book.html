@@ -16,7 +16,7 @@
         </select></div>
       <div class="row g-2">
         <div class="col-6"><label class="form-label">日期</label>
-          <input class="form-control form-control-lg" name="date" type="date" required></div>
+          <input class="form-control form-control-lg" name="date" type="date" required min="{{.Data.Today}}"></div>
         <div class="col-6"><label class="form-label">时间</label>
           <input class="form-control form-control-lg" name="slot" type="time" required></div>
       </div>

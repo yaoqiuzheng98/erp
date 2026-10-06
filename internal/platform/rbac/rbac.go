@@ -28,7 +28,7 @@ type PermissionDef struct {
 func Catalog() []PermissionDef {
 	return []PermissionDef{
 		{Code: "patient.read", Desc: "患者查看"},
-		{Code: "patient.write", Desc: "患者建档/牙位"},
+		{Code: "patient.write", Desc: "患者建档"},
 		{Code: "appt.read", Desc: "预约查看"},
 		{Code: "appt.write", Desc: "预约操作/收费"},
 		{Code: "catalog.read", Desc: "价目查看"},
@@ -157,7 +157,11 @@ func (s *Service) Create(ctx context.Context, r *Role) error {
 		}
 		return err
 	}
-	r.ID = res.InsertedID.(bson.ObjectID)
+	oid, ok := res.InsertedID.(bson.ObjectID)
+	if !ok {
+		return errors.New("创建失败: 非法 ID")
+	}
+	r.ID = oid
 	return nil
 }
 

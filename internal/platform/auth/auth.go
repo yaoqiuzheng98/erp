@@ -122,6 +122,11 @@ func (s *Service) UserByID(ctx context.Context, tenantID, id bson.ObjectID) (*Us
 	return &u, nil
 }
 
+// CountAdmins 门诊管理员人数（取消管理员身份前的护栏）。
+func (s *Service) CountAdmins(ctx context.Context, tenantID bson.ObjectID) (int64, error) {
+	return s.users.CountDocuments(ctx, bson.M{"tenant_id": tenantID, "is_tenant_admin": true})
+}
+
 // List 员工名册（含离职），按入职顺序。
 func (s *Service) List(ctx context.Context, tenantID bson.ObjectID) ([]User, error) {
 	cur, err := s.users.Find(ctx, bson.M{"tenant_id": tenantID},
@@ -179,7 +184,11 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, u *User, p
 		}
 		return err
 	}
-	u.ID = res.InsertedID.(bson.ObjectID)
+	oid, ok := res.InsertedID.(bson.ObjectID)
+	if !ok {
+		return errors.New("创建失败: 非法 ID")
+	}
+	u.ID = oid
 	return nil
 }
 

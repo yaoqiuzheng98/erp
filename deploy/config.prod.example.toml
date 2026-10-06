@@ -10,19 +10,12 @@ database = "erp"
 ttl_hours = 12
 cookie_name = "erp_sid"
 sys_cookie_name = "erp_sys"
-secret = "REPLACE-WITH-STRONG-RANDOM"   # 生产强随机值，勿与开发共用
 secure = true                           # HTTPS 下必须 true
 
 [storage]
 max_image_mb = 10                   # 图片上传上限（MB），文件本体存 MongoDB GridFS，随库备份
 
-[log]
-level = "info"
-
 [seed]
 enabled = true                # 首次启动建超管后改 false 并重启
 sysadmin_user = "admin"
 sysadmin_pass = "REPLACE-ME"
-demo_tenant = false           # 生产不建演示租户
-demo_admin_user = "admin"
-demo_admin_pass = "admin123"

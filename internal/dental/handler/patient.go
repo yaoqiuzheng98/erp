@@ -38,10 +38,12 @@ func (h *Handler) createPatient(c *gin.Context) {
 		Name: c.PostForm("name"), Phone: c.PostForm("phone"),
 		Gender: c.PostForm("gender"), Birth: c.PostForm("birth"),
 		Allergy: c.PostForm("allergy"), History: c.PostForm("history"),
+		Note: c.PostForm("note"),
 	}
 	if err := h.pats.Create(c.Request.Context(), mw.TenantID(c), p); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
+		h.audit(c, "patient.create", p.Name+" "+p.Phone, "")
 		web.SetFlash(c, "患者已建档")
 	}
 	c.Redirect(http.StatusFound, "/app/patients")

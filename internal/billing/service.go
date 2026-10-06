@@ -3,6 +3,8 @@ package billing
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"erp/internal/platform/repo"
@@ -11,6 +13,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var ErrOverPay = errors.New("核销金额超过未付余额")
@@ -32,8 +35,11 @@ func New(db *mongo.Database, seq *seqno.Generator) *Service {
 
 // EnsureIndexes doc_no 租户内唯一（防重复收费）。
 func (s *Service) EnsureIndexes(ctx context.Context) error {
+	// 老版本非唯一索引先删，否则同名不同选项报 IndexOptionsConflict。
+	_ = s.bills.Col.Indexes().DropOne(ctx, "tenant_id_1_doc_no_1")
 	_, err := s.bills.Col.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "doc_no", Value: 1}},
+		Keys:    bson.D{{Key: "tenant_id", Value: 1}, {Key: "doc_no", Value: 1}},
+		Options: options.Index().SetUnique(true),
 	})
 	return err
 }
@@ -87,24 +93,41 @@ func (s *Service) BillByID(ctx context.Context, tenantID, id bson.ObjectID) (*Bi
 // VoidBill 作废应收：收不回来的单（免单/坏账）移出未收；
 // 若关联预约还在待缴费，一并翻已完成（幂等，只翻待缴费态）。
 func (s *Service) VoidBill(ctx context.Context, tenantID, billID bson.ObjectID) error {
+	matched, err := s.bills.UpdateWhere(ctx, tenantID,
+		bson.M{"_id": billID, "status": BillOpen}, bson.M{"status": BillVoid})
+	if err != nil {
+		return err
+	}
+	if matched == 0 {
+		return errors.New("单据已结清或已作废")
+	}
 	b, err := s.bills.FindByID(ctx, tenantID, billID)
 	if err != nil {
 		return err
 	}
-	if b.Status != BillOpen {
-		return errors.New("单据已结清或已作废")
-	}
-	if err := s.bills.Update(ctx, tenantID, billID, bson.M{"status": BillVoid}); err != nil {
-		return err
-	}
 	if b.RefID != "" {
 		if apptID, err := bson.ObjectIDFromHex(b.RefID); err == nil {
-			_, _ = s.db.Collection("appointments").UpdateOne(ctx,
+			if _, err := s.db.Collection("appointments").UpdateOne(ctx,
 				bson.M{"tenant_id": tenantID, "_id": apptID, "status": "unpaid"},
-				bson.M{"$set": bson.M{"status": "done", "updated_at": time.Now()}})
+				bson.M{"$set": bson.M{"status": "done", "updated_at": time.Now()}}); err != nil {
+				return fmt.Errorf("已作废但预约状态联动失败，请联系管理员处理: %w", err)
+			}
 		}
 	}
 	return nil
+}
+
+// ByRefPrefix 按来源预约+单号前缀查单（如 RG 挂号费），无则返回 nil,nil。
+func (s *Service) ByRefPrefix(ctx context.Context, tenantID bson.ObjectID, refID, prefix string) (*Bill, error) {
+	b, err := s.bills.FindOne(ctx, tenantID,
+		bson.M{"ref_id": refID, "doc_no": bson.M{"$regex": "^" + prefix + "-"}})
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return b, nil
 }
 
 // PayMock 模拟全额代收（患者端/演示用，真支付接入时换这一处）。
@@ -125,7 +148,7 @@ func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, from, t
 	if err != nil {
 		return nil, 0, err
 	}
-	list, err := s.bills.FindMany(ctx, tenantID, filter)
+	list, err := s.bills.FindMany(ctx, tenantID, filter, options.Find().SetSkip(skip).SetLimit(limit))
 	return list, total, err
 }
 
@@ -137,6 +160,8 @@ func (s *Service) Mine(ctx context.Context, tenantID, patientID bson.ObjectID) (
 }
 
 // Pay 核销：生成收款单并累加已核销额，足额标记 paid。
+// 并发安全：先用「状态 open + 已核销额未变」条件落账，抢到的才算；
+// 落账成功后记收款单，记单失败则回滚账单（最佳努力+日志），不留半提交。
 func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amount float64, method string, by string) error {
 	b, err := s.bills.FindByID(ctx, tenantID, billID)
 	if err != nil {
@@ -152,29 +177,41 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 	if err != nil {
 		return err
 	}
+	paid := b.PaidAmount + amount
+	fullyPaid := paid >= b.Amount-1e-9
+	set := bson.M{"paid_amount": paid}
+	if fullyPaid {
+		set["status"] = BillPaid
+	}
+	matched, err := s.bills.UpdateWhere(ctx, tenantID,
+		bson.M{"_id": billID, "status": BillOpen, "paid_amount": b.PaidAmount}, set)
+	if err != nil {
+		return err
+	}
+	if matched == 0 {
+		return errors.New("单据状态已变化，请刷新后重试")
+	}
 	p := &Payment{
 		DocNo: no, BillID: billID, BillDocNo: b.DocNo,
 		Amount: amount, Method: method, PaidAt: time.Now(),
 	}
 	p.TenantID, p.CreatedAt, p.CreatedBy = tenantID, time.Now(), by
 	if _, err := s.payments.Insert(ctx, tenantID, p); err != nil {
-		return err
-	}
-	paid := b.PaidAmount + amount
-	set := bson.M{"paid_amount": paid}
-	fullyPaid := paid >= b.Amount-1e-9
-	if fullyPaid {
-		set["status"] = BillPaid
-	}
-	if err := s.bills.Update(ctx, tenantID, billID, set); err != nil {
+		if _, rerr := s.bills.UpdateWhere(ctx, tenantID,
+			bson.M{"_id": billID, "paid_amount": paid},
+			bson.M{"paid_amount": b.PaidAmount, "status": BillOpen}); rerr != nil {
+			slog.Error("pay rollback failed", "bill", billID.Hex(), "err", rerr)
+		}
 		return err
 	}
 	if fullyPaid && b.RefID != "" {
 		// 收清联动：对应预约从待缴费翻已完成（只翻待缴费态，幂等）
 		if apptID, err := bson.ObjectIDFromHex(b.RefID); err == nil {
-			_, _ = s.db.Collection("appointments").UpdateOne(ctx,
+			if _, err := s.db.Collection("appointments").UpdateOne(ctx,
 				bson.M{"tenant_id": tenantID, "_id": apptID, "status": "unpaid"},
-				bson.M{"$set": bson.M{"status": "done", "updated_at": time.Now()}})
+				bson.M{"$set": bson.M{"status": "done", "updated_at": time.Now()}}); err != nil {
+				return fmt.Errorf("已收款但预约状态联动失败，请联系管理员处理: %w", err)
+			}
 		}
 	}
 	return nil
@@ -186,7 +223,7 @@ func (s *Service) ListPayments(ctx context.Context, tenantID bson.ObjectID, from
 	if err != nil {
 		return nil, 0, err
 	}
-	list, err := s.payments.FindMany(ctx, tenantID, filter)
+	list, err := s.payments.FindMany(ctx, tenantID, filter, options.Find().SetSkip(skip).SetLimit(limit))
 	return list, total, err
 }
 
