@@ -94,7 +94,7 @@ func (h *Handler) createTenant(c *gin.Context) {
 		slog.Error("seed tenant roles", "tenant", t.Name, "err", err)
 	}
 	h.e.Audit.Log(ctx, audit.Entry{
-		Username: "sysadmin", Action: "tenant.create", Target: t.Name,
+		Username: "sysadmin", Action: audit.ActTenantCreate, Target: t.Name,
 		IP: c.ClientIP(),
 	})
 	web.SetFlash(c, "租户已创建")
@@ -115,7 +115,7 @@ func (h *Handler) toggleTenant(c *gin.Context) {
 	}
 	_ = h.e.Tenants.SetStatus(ctx, id, status)
 	h.e.Audit.Log(ctx, audit.Entry{
-		Username: "sysadmin", Action: "tenant.toggle", Target: t.Name, Detail: status,
+		Username: "sysadmin", Action: audit.ActTenantToggle, Target: t.Name, Detail: status,
 		IP: c.ClientIP(),
 	})
 	c.Redirect(http.StatusFound, "/sysadmin/tenants")
@@ -142,7 +142,7 @@ func (h *Handler) deleteTenant(c *gin.Context) {
 		return
 	}
 	h.e.Audit.Log(ctx, audit.Entry{
-		Username: "sysadmin", Action: "tenant.delete", Target: t.Name,
+		Username: "sysadmin", Action: audit.ActTenantDelete, Target: t.Name,
 		IP: c.ClientIP(),
 	})
 	web.SetFlash(c, "门诊已删除: "+t.Name)

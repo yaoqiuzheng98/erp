@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"erp/internal/dental/appointment"
+	"erp/internal/platform/audit"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/tz"
 	"erp/internal/platform/web"
@@ -131,7 +132,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 			"date", a.Date, "slot", a.Slot, "err", err)
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		h.audit(c, "appt.create", a.PatientName+" "+a.Date+" "+a.Slot, "")
+		h.audit(c, audit.ActApptCreate, a.PatientName+" "+a.Date+" "+a.Slot, "")
 		web.SetFlash(c, "已预约")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
@@ -159,7 +160,7 @@ func (h *Handler) checkin(c *gin.Context) {
 	if err != nil {
 		web.SetFlash(c, "签到失败: "+err.Error())
 	} else {
-		h.audit(c, "appt.checkin", doc+" "+queueNo(no), "")
+		h.audit(c, audit.ActApptCheckin, doc+" "+queueNo(no), "")
 		web.SetFlash(c, "签到成功 → "+doc+" "+queueNo(no))
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
@@ -178,7 +179,7 @@ func (h *Handler) serve(c *gin.Context) {
 	if err := h.appts.StartServe(c.Request.Context(), mw.TenantID(c), id); err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else {
-		h.audit(c, "appt.serve", id.Hex(), "")
+		h.audit(c, audit.ActApptServe, id.Hex(), "")
 		web.SetFlash(c, "已开始就诊")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
@@ -197,10 +198,10 @@ func (h *Handler) done(c *gin.Context) {
 	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else if next != "" {
-		h.audit(c, "appt.complete", id.Hex(), "")
+		h.audit(c, audit.ActApptComplete, id.Hex(), "")
 		web.SetFlash(c, "已开单（待缴费），下一位："+next+"，请叫号")
 	} else {
-		h.audit(c, "appt.complete", id.Hex(), "")
+		h.audit(c, audit.ActApptComplete, id.Hex(), "")
 		web.SetFlash(c, "已开单（待缴费）")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
@@ -211,7 +212,7 @@ func (h *Handler) noshow(c *gin.Context) {
 	if err := h.appts.NoShow(c.Request.Context(), mw.TenantID(c), id); err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else {
-		h.audit(c, "appt.noshow", id.Hex(), "")
+		h.audit(c, audit.ActApptNoshow, id.Hex(), "")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
@@ -221,7 +222,7 @@ func (h *Handler) cancel(c *gin.Context) {
 	if err := h.appts.Cancel(c.Request.Context(), mw.TenantID(c), id); err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else {
-		h.audit(c, "appt.cancel", id.Hex(), "")
+		h.audit(c, audit.ActApptCancel, id.Hex(), "")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }

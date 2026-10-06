@@ -4,6 +4,7 @@ package middleware
 import (
 	"net/http"
 
+	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
 	"erp/internal/platform/rbac"
@@ -188,4 +189,18 @@ func Perms(c *gin.Context) map[string]bool {
 		}
 	}
 	return map[string]bool{}
+}
+
+// Audit handler 层记审计的统一入口（Facade：三个 handler 的同款 helper 收敛到这里，
+// 动作字符串用 audit.Act* 常量，防手写拼错导致审计查不到）。
+func Audit(c *gin.Context, e *env.Env, action, target, detail string) {
+	var uid bson.ObjectID
+	phone := "?"
+	if u := User(c); u != nil {
+		uid, phone = u.ID, u.Phone
+	}
+	e.Audit.Log(c.Request.Context(), audit.Entry{
+		TenantID: TenantID(c), UserID: uid, Username: phone,
+		Action: action, Target: target, Detail: detail, IP: c.ClientIP(),
+	})
 }

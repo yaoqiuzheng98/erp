@@ -29,7 +29,7 @@ func loginTenant(e *env.Env) gin.HandlerFunc {
 		c.SetCookie(e.Cfg.Session.CookieName, s.ID, int(e.Cfg.Session.TTLHours)*3600, "/", "", e.Cfg.Session.Secure, true)
 		e.Audit.Log(c.Request.Context(), audit.Entry{
 			TenantID: u.TenantID, UserID: u.ID, Username: u.Phone,
-			Action: "login", IP: c.ClientIP(),
+			Action: audit.ActLogin, IP: c.ClientIP(),
 		})
 		c.Redirect(http.StatusFound, "/app/appointments")
 	}
@@ -50,7 +50,7 @@ func loginSys(e *env.Env) gin.HandlerFunc {
 		}
 		c.SetCookie(e.Cfg.Session.SysCookieName, s.ID, int(e.Cfg.Session.TTLHours)*3600, "/", "", e.Cfg.Session.Secure, true)
 		e.Audit.Log(c.Request.Context(), audit.Entry{
-			UserID: a.ID, Username: a.Username, Action: "sys.login", IP: c.ClientIP(),
+			UserID: a.ID, Username: a.Username, Action: audit.ActSysLogin, IP: c.ClientIP(),
 		})
 		c.Redirect(http.StatusFound, "/sysadmin")
 	}
@@ -161,7 +161,7 @@ func passwordChange(e *env.Env) gin.HandlerFunc {
 		} else {
 			e.Audit.Log(c.Request.Context(), audit.Entry{
 				TenantID: u.TenantID, UserID: u.ID, Username: u.Phone,
-				Action: "user.change_password", IP: c.ClientIP(),
+				Action: audit.ActChangePassword, IP: c.ClientIP(),
 			})
 			web.SetFlash(c, "密码已修改")
 		}

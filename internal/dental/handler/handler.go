@@ -5,7 +5,6 @@ import (
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
-	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
@@ -36,9 +35,5 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 
 // audit 记门诊操作审计（开单/核销/建档等），与 admin 侧同格式。
 func (h *Handler) audit(c *gin.Context, action, target, detail string) {
-	u := mw.User(c)
-	h.e.Audit.Log(c.Request.Context(), audit.Entry{
-		TenantID: mw.TenantID(c), UserID: u.ID, Username: u.Phone,
-		Action: action, Target: target, Detail: detail, IP: c.ClientIP(),
-	})
+	mw.Audit(c, h.e, action, target, detail)
 }

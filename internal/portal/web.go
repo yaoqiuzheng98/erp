@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
+	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/session"
@@ -150,12 +150,9 @@ func (h *Web) teamMembers(ctx context.Context, tid bson.ObjectID) []teamMember {
 		}
 		team = append(team, teamMember{Name: u.Name, Roles: strings.Join(rn, "·"), Bio: u.Bio, Avatar: u.Avatar, Order: u.HomeOrder})
 	}
-	sort.Slice(team, func(i, j int) bool {
-		if team[i].Order != team[j].Order {
-			return team[i].Order > team[j].Order
-		}
-		return team[i].Name < team[j].Name
-	})
+	auth.SortByWeight(team,
+		func(m teamMember) int { return m.Order },
+		func(m teamMember) string { return m.Name })
 	return team
 }
 

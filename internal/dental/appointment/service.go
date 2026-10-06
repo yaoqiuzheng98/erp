@@ -191,20 +191,19 @@ func (s *Service) OfPatient(ctx context.Context, tenantID, patID bson.ObjectID) 
 }
 
 func (s *Service) setStatus(ctx context.Context, tenantID, id bson.ObjectID, from []string, to string) (*Appointment, error) {
-	a, err := s.appts.FindByID(ctx, tenantID, id)
+	// 条件更新一步到位：并发第二人命中为 0，直接报状态错，不会把别人的流转覆盖掉
+	matched, err := s.appts.UpdateWhere(ctx, tenantID,
+		bson.M{"_id": id, "status": bson.M{"$in": from}}, bson.M{"status": to})
 	if err != nil {
 		return nil, err
 	}
-	ok := false
-	for _, f := range from {
-		if a.Status == f {
-			ok = true
+	if matched == 0 {
+		if _, ferr := s.appts.FindByID(ctx, tenantID, id); ferr != nil {
+			return nil, ferr
 		}
-	}
-	if !ok {
 		return nil, ErrBadStatus
 	}
-	return a, s.appts.Update(ctx, tenantID, id, bson.M{"status": to})
+	return s.appts.FindByID(ctx, tenantID, id)
 }
 
 // activeLoad 当天某医生手上未完结的单数（候诊+就诊中）。
@@ -274,16 +273,24 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (stri
 		docName = name
 	}
 	set := bson.M{"status": Arrived, "doctor_id": docID, "doctor": docName}
-	// 排号带一次重试（防并发签到同号，唯一索引兜底）。
+	// 排号带重试：同号撞唯一索引则重取；状态被人动过（matched=0）则报状态错，不重试
 	var lastErr error
 	for i := 0; i < 3; i++ {
 		qno := s.nextQueueNo(ctx, tenantID, docID, a.Date)
 		set["queue_no"] = qno
-		if err := s.appts.Update(ctx, tenantID, id, set); err == nil {
-			return docName, qno, nil
-		} else {
+		matched, err := s.appts.UpdateWhere(ctx, tenantID,
+			bson.M{"_id": id, "status": Booked}, set)
+		if err != nil {
+			if !mongo.IsDuplicateKeyError(err) {
+				return "", 0, err
+			}
 			lastErr = err
+			continue
 		}
+		if matched == 0 {
+			return "", 0, ErrBadStatus
+		}
+		return docName, qno, nil
 	}
 	return "", 0, lastErr
 }

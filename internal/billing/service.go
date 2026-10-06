@@ -18,6 +18,9 @@ import (
 
 var ErrOverPay = errors.New("核销金额超过未付余额")
 
+// epsilon 金额浮点比较容差（分以下抹零误差）。
+const epsilon = 1e-9
+
 type Service struct {
 	db       *mongo.Database
 	seq      *seqno.Generator
@@ -170,7 +173,7 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 	if b.Status != BillOpen {
 		return errors.New("单据已结清或已作废")
 	}
-	if amount <= 0 || b.PaidAmount+amount > b.Amount+1e-9 {
+	if amount <= 0 || b.PaidAmount+amount > b.Amount+epsilon {
 		return ErrOverPay
 	}
 	no, err := s.seq.Next(ctx, tenantID, "RC")
@@ -178,7 +181,7 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 		return err
 	}
 	paid := b.PaidAmount + amount
-	fullyPaid := paid >= b.Amount-1e-9
+	fullyPaid := paid >= b.Amount-epsilon
 	set := bson.M{"paid_amount": paid}
 	if fullyPaid {
 		set["status"] = BillPaid

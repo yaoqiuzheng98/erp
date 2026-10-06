@@ -26,11 +26,7 @@ func NewHandler(e *env.Env, svc *Service) *Handler {
 
 // audit 记财务操作审计（核销/作废必留痕）。
 func (h *Handler) audit(c *gin.Context, action, target, detail string) {
-	u := mw.User(c)
-	h.e.Audit.Log(c.Request.Context(), audit.Entry{
-		TenantID: mw.TenantID(c), UserID: u.ID, Username: u.Phone,
-		Action: action, Target: target, Detail: detail, IP: c.ClientIP(),
-	})
+	mw.Audit(c, h.e, action, target, detail)
 }
 
 func (h *Handler) Register(g *gin.RouterGroup) {
@@ -72,7 +68,7 @@ func (h *Handler) pay(c *gin.Context) {
 	if err := h.svc.Pay(ctx, tid, id, amount, c.PostForm("method"), mw.User(c).Name); err != nil {
 		web.SetFlash(c, "核销失败: "+err.Error())
 	} else {
-		h.audit(c, "billing.pay", b.DocNo, fmt.Sprintf("%.2f", amount))
+		h.audit(c, audit.ActBillingPay, b.DocNo, fmt.Sprintf("%.2f", amount))
 		web.SetFlash(c, "已核销")
 	}
 	c.Redirect(http.StatusFound, "/app/billing/receivables")
@@ -90,7 +86,7 @@ func (h *Handler) void(c *gin.Context) {
 	if err := h.svc.VoidBill(ctx, tid, id); err != nil {
 		web.SetFlash(c, "作废失败: "+err.Error())
 	} else {
-		h.audit(c, "billing.void", docNo, "")
+		h.audit(c, audit.ActBillingVoid, docNo, "")
 		web.SetFlash(c, "单据已作废")
 	}
 	c.Redirect(http.StatusFound, "/app/billing/receivables")

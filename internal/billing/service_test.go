@@ -82,7 +82,7 @@ func TestPayConcurrent(t *testing.T) {
 	svc, db, ctx := testSvc(t)
 	tid := mustOID(t, "6ac4bd23b33e9a18faace5ec")
 	if err := svc.CreateAR(ctx, tid, AR{
-		PatientID: mustOID(t, "6ac4bd23b33e9a18faace5ed"),
+		PatientID:   mustOID(t, "6ac4bd23b33e9a18faace5ed"),
 		PatientName: "并发测试", DocNo: "CH-T-0001", Amount: 100,
 	}); err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestVoidTwice(t *testing.T) {
 	svc, _, ctx := testSvc(t)
 	tid := mustOID(t, "6ac4bd23b33e9a18faace5ec")
 	if err := svc.CreateAR(ctx, tid, AR{
-		PatientID: mustOID(t, "6ac4bd23b33e9a18faace5ed"),
+		PatientID:   mustOID(t, "6ac4bd23b33e9a18faace5ed"),
 		PatientName: "作废测试", DocNo: "CH-T-0002", Amount: 50,
 	}); err != nil {
 		t.Fatal(err)

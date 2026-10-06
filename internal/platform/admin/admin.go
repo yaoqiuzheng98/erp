@@ -3,7 +3,6 @@ package admin
 
 import (
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -50,11 +49,7 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 }
 
 func (h *Handler) audit(c *gin.Context, action, target, detail string) {
-	u := mw.User(c)
-	h.e.Audit.Log(c.Request.Context(), audit.Entry{
-		TenantID: mw.TenantID(c), UserID: u.ID, Username: u.Phone,
-		Action: action, Target: target, Detail: detail, IP: c.ClientIP(),
-	})
+	mw.Audit(c, h.e, action, target, detail)
 }
 
 func roleIDsOf(c *gin.Context) []bson.ObjectID {
@@ -89,7 +84,7 @@ func (h *Handler) createUser(c *gin.Context) {
 	if err := h.e.Auth.Create(c.Request.Context(), mw.TenantID(c), u, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		h.audit(c, "user.create", u.Name+" "+u.Phone, "")
+		h.audit(c, audit.ActUserCreate, u.Name+" "+u.Phone, "")
 		if msg := h.saveAvatar(c, u.ID, ""); msg != "" {
 			web.SetFlash(c, "员工已创建，但"+msg)
 		} else {
@@ -167,7 +162,7 @@ func (h *Handler) updateUser(c *gin.Context) {
 	} else if msg := h.saveAvatar(c, id, oldAvatar); msg != "" {
 		web.SetFlash(c, "员工已保存，但"+msg)
 	} else {
-		h.audit(c, "user.update", c.PostForm("name"), "")
+		h.audit(c, audit.ActUserUpdate, c.PostForm("name"), "")
 		web.SetFlash(c, "员工已保存")
 	}
 	c.Redirect(http.StatusFound, "/admin/users")
@@ -185,7 +180,7 @@ func (h *Handler) resetPassword(c *gin.Context) {
 	if err := h.e.Auth.SetPassword(ctx, mw.TenantID(c), id, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "重置失败: "+err.Error())
 	} else {
-		h.audit(c, "user.reset_password", u.Name+" "+u.Phone, "")
+		h.audit(c, audit.ActUserResetPwd, u.Name+" "+u.Phone, "")
 		web.SetFlash(c, "已重置 "+u.Name+" 的密码")
 	}
 	c.Redirect(http.StatusFound, "/admin/users")
@@ -216,7 +211,7 @@ func (h *Handler) createRole(c *gin.Context) {
 	if err := h.e.RBAC.Create(c.Request.Context(), &r); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		h.audit(c, "role.create", r.Name, r.Name)
+		h.audit(c, audit.ActRoleCreate, r.Name, r.Name)
 		web.SetFlash(c, "角色已创建")
 	}
 	c.Redirect(http.StatusFound, "/admin/roles")
@@ -235,7 +230,7 @@ func (h *Handler) saveSettings(c *gin.Context) {
 	if err := h.e.Tenants.SetBilling(c.Request.Context(), mw.TenantID(c), fee, deduct); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
-		h.audit(c, "tenant.settings", "reg_fee+deduct", c.PostForm("reg_fee"))
+		h.audit(c, audit.ActTenantSettings, "reg_fee+deduct", c.PostForm("reg_fee"))
 		web.SetFlash(c, "门诊设置已保存")
 	}
 	c.Redirect(http.StatusFound, "/admin/settings")
@@ -248,13 +243,8 @@ func (h *Handler) homePage(c *gin.Context) {
 	tid := mw.TenantID(c)
 	users, _ := h.e.Auth.List(ctx, tid)
 	roles, _ := h.e.RBAC.List(ctx, tid)
-	// 与患者端首页同序：权重（大在前）→ 姓名，改完立即所见即所得。
-	sort.Slice(users, func(i, j int) bool {
-		if users[i].HomeOrder != users[j].HomeOrder {
-			return users[i].HomeOrder > users[j].HomeOrder
-		}
-		return users[i].Name < users[j].Name
-	})
+	// 与患者端首页同序（比较器见 auth.SortByWeight），改完立即所见即所得。
+	auth.SortUsersForHome(users)
 	web.Render(c, h.e, "admin/home", gin.H{
 		"Tenant": mw.Tenant(c), "Users": users, "Roles": roles,
 	})
@@ -269,7 +259,7 @@ func (h *Handler) saveHomeProfile(c *gin.Context) {
 		c.PostForm("hours"), c.PostForm("notice")); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
-		h.audit(c, "tenant.home", "profile", "")
+		h.audit(c, audit.ActTenantHome, "profile", "")
 		web.SetFlash(c, "诊所介绍已保存")
 	}
 	c.Redirect(http.StatusFound, "/admin/home")
@@ -315,7 +305,7 @@ func (h *Handler) uploadGallery(c *gin.Context) {
 	} else if n == 0 {
 		web.SetFlash(c, "请选择图片")
 	} else {
-		h.audit(c, "tenant.home", "gallery.add", strconv.Itoa(n))
+		h.audit(c, audit.ActTenantHome, "gallery.add", strconv.Itoa(n))
 		web.SetFlash(c, "门诊图已上传")
 	}
 	c.Redirect(http.StatusFound, "/admin/home")
@@ -332,7 +322,7 @@ func (h *Handler) saveHomeStaff(c *gin.Context) {
 	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
-		h.audit(c, "tenant.home", "staff", id.Hex())
+		h.audit(c, audit.ActTenantHome, "staff", id.Hex())
 		web.SetFlash(c, "人员展示已保存")
 	}
 	c.Redirect(http.StatusFound, "/admin/home")
@@ -353,7 +343,7 @@ func (h *Handler) topHomeStaff(c *gin.Context) {
 	if err := h.e.Auth.Update(ctx, tid, id, bson.M{"home_order": max + 1}); err != nil {
 		web.SetFlash(c, "置顶失败: "+err.Error())
 	} else {
-		h.audit(c, "tenant.home", "staff.top", id.Hex())
+		h.audit(c, audit.ActTenantHome, "staff.top", id.Hex())
 		web.SetFlash(c, "已置顶")
 	}
 	c.Redirect(http.StatusFound, "/admin/home")

@@ -86,44 +86,32 @@ func (a Appointment) Total() float64 {
 	return a.Charge
 }
 
+// statusMeta 状态元数据（State 模式的数据驱动版）：中文名与徽章色收敛到一张表，
+// 加状态只改这里，模板/流转天然同步，不会出现"名对了色错了"。
+type statusMeta struct{ Name, Badge string }
+
+var statusMetas = map[string]statusMeta{
+	Booked:  {"已预约", "bg-primary"},
+	Arrived: {"候诊中", "bg-info text-dark"},
+	Serving: {"就诊中", "bg-success"},
+	Unpaid:  {"待缴费", "bg-warning text-dark"},
+	Done:    {"已完成", "bg-secondary"},
+	NoShow:  {"爽约", "bg-warning text-dark"},
+	Cancel:  {"已取消", "bg-secondary"},
+}
+
 // StatusName 状态中文名（模板调用）。
 func (a Appointment) StatusName() string {
-	switch a.Status {
-	case Booked:
-		return "已预约"
-	case Arrived:
-		return "候诊中"
-	case Serving:
-		return "就诊中"
-	case Unpaid:
-		return "待缴费"
-	case Done:
-		return "已完成"
-	case NoShow:
-		return "爽约"
-	case Cancel:
-		return "已取消"
+	if m, ok := statusMetas[a.Status]; ok {
+		return m.Name
 	}
 	return a.Status
 }
 
 // Badge Bootstrap 颜色类（模板调用）。
 func (a Appointment) Badge() string {
-	switch a.Status {
-	case Booked:
-		return "bg-primary"
-	case Arrived:
-		return "bg-info text-dark"
-	case Serving:
-		return "bg-success"
-	case Unpaid:
-		return "bg-warning text-dark"
-	case Done:
-		return "bg-secondary"
-	case NoShow:
-		return "bg-warning text-dark"
-	case Cancel:
-		return "bg-secondary"
+	if m, ok := statusMetas[a.Status]; ok {
+		return m.Badge
 	}
 	return "bg-secondary"
 }

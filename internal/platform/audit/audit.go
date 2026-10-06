@@ -9,6 +9,36 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+// Action 审计动作常量：字符串即入库值，handler 一律用常量，防手写拼错导致查不到。
+// 注意改名等于改历史数据语义，新增只增不改。
+const (
+	ActLogin          = "login"
+	ActSysLogin       = "sys.login"
+	ActChangePassword = "user.change_password"
+	ActUserCreate     = "user.create"
+	ActUserUpdate     = "user.update"
+	ActUserResetPwd   = "user.reset_password"
+	ActRoleCreate     = "role.create"
+	ActTenantCreate   = "tenant.create"
+	ActTenantToggle   = "tenant.toggle"
+	ActTenantDelete   = "tenant.delete"
+	ActTenantSettings = "tenant.settings"
+	ActTenantHome     = "tenant.home"
+	ActStaffTop       = "staff.top"
+	ActPatientCreate  = "patient.create"
+	ActApptCreate     = "appt.create"
+	ActApptCheckin    = "appt.checkin"
+	ActApptServe      = "appt.serve"
+	ActApptComplete   = "appt.complete"
+	ActApptNoshow     = "appt.noshow"
+	ActApptCancel     = "appt.cancel"
+	ActCatalogCreate  = "catalog.create"
+	ActCatalogUpdate  = "catalog.update"
+	ActCatalogDelete  = "catalog.delete"
+	ActBillingPay     = "billing.pay"
+	ActBillingVoid    = "billing.void"
+)
+
 // Entry 审计日志。
 type Entry struct {
 	ID       bson.ObjectID `bson:"_id,omitempty"`

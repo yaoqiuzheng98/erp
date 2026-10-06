@@ -5,6 +5,7 @@ import (
 
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/patient"
+	"erp/internal/platform/audit"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/web"
 
@@ -43,7 +44,7 @@ func (h *Handler) createPatient(c *gin.Context) {
 	if err := h.pats.Create(c.Request.Context(), mw.TenantID(c), p); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		h.audit(c, "patient.create", p.Name+" "+p.Phone, "")
+		h.audit(c, audit.ActPatientCreate, p.Name+" "+p.Phone, "")
 		web.SetFlash(c, "患者已建档")
 	}
 	c.Redirect(http.StatusFound, "/app/patients")

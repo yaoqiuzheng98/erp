@@ -35,16 +35,18 @@ type Bill struct {
 	RefID       string        `bson:"ref_id"` // 来源预约 hex
 }
 
-// StatusName 状态中文名（模板调用）。
+// billStatusNames 单据状态中文名（与预约状态表同构，加状态只改这里）。
+var billStatusNames = map[string]string{
+	BillPaid: "已结清",
+	BillVoid: "已作废",
+}
+
+// StatusName 状态中文名（模板调用），默认待收款。
 func (b Bill) StatusName() string {
-	switch b.Status {
-	case BillPaid:
-		return "已结清"
-	case BillVoid:
-		return "已作废"
-	default:
-		return "待收款"
+	if n, ok := billStatusNames[b.Status]; ok {
+		return n
 	}
+	return "待收款"
 }
 
 // Payment 收款单（核销应收）。
