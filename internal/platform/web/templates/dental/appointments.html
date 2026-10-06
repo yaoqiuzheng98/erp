@@ -108,6 +108,16 @@
                 <input type="hidden" name="_csrf" value="{{$.CSRF}}">
                 <button class="btn btn-sm btn-outline-success">就诊</button></form>
               {{end}}
+              {{if and (gt .RegFee 0.0) (not .RegPaid) (or (eq .Status "booked") (eq .Status "arrived"))}}
+              <form method="post" action="/app/appointments/{{hex .ID}}/payreg" class="d-flex gap-1 align-items-center m-0"
+                    onsubmit="return confirm('确认收挂号费 ¥{{printf "%.2f" .RegFee}}？')">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <select class="form-select form-select-sm" name="method" style="width:5em">
+                  <option value="cash">现金</option><option value="bank">银行</option><option value="other">其他</option>
+                </select>
+                <button class="btn btn-sm btn-warning text-nowrap">收挂号费</button>
+              </form>
+              {{end}}
             </div>
             {{if eq .Status "serving"}}
             <div class="mt-1"><a class="btn btn-sm btn-outline-success" href="/app/appointments/{{hex .ID}}/bill">开单</a></div>
@@ -148,6 +158,16 @@
             <form method="post" action="/app/appointments/{{hex .ID}}/serve" class="m-0">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
               <button class="btn btn-sm btn-outline-success">就诊</button></form>
+            {{end}}
+            {{if and (gt .RegFee 0.0) (not .RegPaid) (or (eq .Status "booked") (eq .Status "arrived"))}}
+            <form method="post" action="/app/appointments/{{hex .ID}}/payreg" class="d-flex gap-1 align-items-center m-0 flex-grow-1"
+                  onsubmit="return confirm('确认收挂号费 ¥{{printf "%.2f" .RegFee}}？')">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <select class="form-select form-select-sm flex-shrink-0" name="method" style="width:5em">
+                <option value="cash">现金</option><option value="bank">银行</option><option value="other">其他</option>
+              </select>
+              <button class="btn btn-sm btn-warning text-nowrap">收挂号费</button>
+            </form>
             {{end}}
           </div>
           {{if eq .Status "serving"}}

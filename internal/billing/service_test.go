@@ -15,8 +15,40 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-func TestDateFilter(t *testing.T) {
-	if len(dateFilter("created_at", "", "")) != 0 {
+func TestValidMethod(t *testing.T) {
+	for _, m := range []string{"cash", "bank", "other", "mock"} {
+		if !ValidMethod(m) {
+			t.Fatalf("ValidMethod(%q) = false", m)
+		}
+	}
+	for _, m := range []string{"", "CASH", "cash ", "alipay", "xx"} {
+		if ValidMethod(m) {
+			t.Fatalf("ValidMethod(%q) = true", m)
+		}
+	}
+}
+
+// TestPayBadMethod 非法收款方式直接拒绝，不记收款单。
+func TestPayBadMethod(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid := mustOID(t, "6ac4bd23b33e9a18faace5ec")
+	if err := svc.CreateAR(ctx, tid, AR{
+		PatientID: mustOID(t, "6ac4bd23b33e9a18faace5ed"),
+		PatientName: "方式测试", DocNo: "CH-T-0003", Amount: 100,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := svc.ByDocNo(ctx, tid, "CH-T-0003")
+	if err := svc.Pay(ctx, tid, b.ID, 100, "alipay", "test"); err == nil {
+		t.Fatal("Pay with bad method should fail")
+	}
+	n, _ := db.Collection("payments").CountDocuments(ctx, bson.M{"tenant_id": tid})
+	if n != 0 {
+		t.Fatalf("payments = %d, want 0", n)
+	}
+}
+
+func TestDateFilter(t *testing.T) {	if len(dateFilter("created_at", "", "")) != 0 {
 		t.Fatal("empty range should give empty filter")
 	}
 	f := dateFilter("created_at", "2026-10-05", "2026-10-06")

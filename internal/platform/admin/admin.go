@@ -62,6 +62,22 @@ func roleIDsOf(c *gin.Context) []bson.ObjectID {
 	return out
 }
 
+// scopedRoleIDs 只保留本门诊的角色（防跨租户 role_id 污染入库；权限计算本就按租户过滤）。
+func (h *Handler) scopedRoleIDs(c *gin.Context) []bson.ObjectID {
+	roles, _ := h.e.RBAC.List(c.Request.Context(), mw.TenantID(c))
+	valid := map[bson.ObjectID]bool{}
+	for _, r := range roles {
+		valid[r.ID] = true
+	}
+	var out []bson.ObjectID
+	for _, id := range roleIDsOf(c) {
+		if valid[id] {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 // ---------- 员工 ----------
 
 func (h *Handler) usersPage(c *gin.Context) {
@@ -76,7 +92,7 @@ func (h *Handler) createUser(c *gin.Context) {
 	u := &auth.User{
 		Name:        c.PostForm("name"),
 		Phone:       c.PostForm("phone"),
-		RoleIDs:     roleIDsOf(c),
+		RoleIDs:     h.scopedRoleIDs(c),
 		CanPractice: c.PostForm("can_practice") == "on",
 		IsTenantAdm: c.PostForm("is_admin") == "on",
 		Bio:         c.PostForm("bio"),
@@ -154,7 +170,7 @@ func (h *Handler) updateUser(c *gin.Context) {
 		"name":            c.PostForm("name"),
 		"phone":           c.PostForm("phone"),
 		"bio":             c.PostForm("bio"),
-		"role_ids":        roleIDsOf(c),
+		"role_ids":        h.scopedRoleIDs(c),
 		"can_practice":    c.PostForm("can_practice") == "on",
 		"status":          status,
 		"is_tenant_admin": isAdm,

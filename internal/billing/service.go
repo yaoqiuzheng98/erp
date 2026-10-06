@@ -21,6 +21,15 @@ var ErrOverPay = errors.New("核销金额超过未付余额")
 // epsilon 金额浮点比较容差（分以下抹零误差）。
 const epsilon = 1e-9
 
+// ValidMethod 收款方式白名单（表单手填非法值直接拒绝，不进库）。
+func ValidMethod(m string) bool {
+	switch m {
+	case "cash", "bank", "other", "mock":
+		return true
+	}
+	return false
+}
+
 type Service struct {
 	db       *mongo.Database
 	seq      *seqno.Generator
@@ -151,7 +160,7 @@ func (s *Service) ListBills(ctx context.Context, tenantID bson.ObjectID, from, t
 	if err != nil {
 		return nil, 0, err
 	}
-	list, err := s.bills.FindMany(ctx, tenantID, filter, options.Find().SetSkip(skip).SetLimit(limit))
+	list, err := s.bills.FindMany(ctx, tenantID, filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetSkip(skip).SetLimit(limit))
 	return list, total, err
 }
 
@@ -172,6 +181,9 @@ func (s *Service) Pay(ctx context.Context, tenantID, billID bson.ObjectID, amoun
 	}
 	if b.Status != BillOpen {
 		return errors.New("单据已结清或已作废")
+	}
+	if !ValidMethod(method) {
+		return errors.New("未知收款方式")
 	}
 	if amount <= 0 || b.PaidAmount+amount > b.Amount+epsilon {
 		return ErrOverPay
@@ -226,7 +238,7 @@ func (s *Service) ListPayments(ctx context.Context, tenantID bson.ObjectID, from
 	if err != nil {
 		return nil, 0, err
 	}
-	list, err := s.payments.FindMany(ctx, tenantID, filter, options.Find().SetSkip(skip).SetLimit(limit))
+	list, err := s.payments.FindMany(ctx, tenantID, filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetSkip(skip).SetLimit(limit))
 	return list, total, err
 }
 

@@ -296,7 +296,7 @@ func (h *Web) pay(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/appointments")
 		return
 	}
-	if err := h.appts.PayReg(c.Request.Context(), p.TenantID, id, p.Name); err != nil {
+	if err := h.appts.PayReg(c.Request.Context(), p.TenantID, id, "mock", p.Name); err != nil {
 		web.SetFlash(c, "支付失败: "+err.Error())
 		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/pay/"+id.Hex())
 		return

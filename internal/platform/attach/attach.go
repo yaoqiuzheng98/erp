@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -28,6 +29,22 @@ type Attachment struct {
 	Mime       string        `bson:"mime"`
 	UploadedBy string        `bson:"uploaded_by"`
 	CreatedAt  time.Time     `bson:"created_at"`
+}
+
+// SafeFilename 下载头安全的文件名：取基名，剥引号/反斜杠/控制字符（防 Content-Disposition 断头），
+// 中文保留（下载时另拼 filename*=UTF-8）。历史脏数据在下载处同样过一遍。
+func SafeFilename(name string) string {
+	name = filepath.Base(name)
+	name = strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' || unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, name)
+	if name == "" || name == "." {
+		return "image"
+	}
+	return name
 }
 
 // fileMeta 存在 GridFS 文件文档 metadata 里的业务字段。
@@ -80,6 +97,9 @@ func (s *Service) Save(ctx context.Context, tenantID bson.ObjectID, ownerType st
 	if name == "" || name == "." {
 		name = "image"
 	}
+	// 文件名消毒：下载头 filename="..." 里的引号/控制字符可断头注入，
+	// 入库前剥掉；展示与下载共用消毒后的名字
+	name = SafeFilename(name)
 	id, err := s.bucket.UploadFromStream(ctx, name, bytes.NewReader(data),
 		options.GridFSUpload().SetMetadata(fileMeta{
 			TenantID: tenantID, OwnerType: ownerType, OwnerID: ownerID,

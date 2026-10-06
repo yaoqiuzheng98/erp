@@ -2,7 +2,9 @@ package httpserver
 
 import (
 	"net/http"
+	"net/url"
 
+	"erp/internal/platform/attach"
 	"erp/internal/platform/audit"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
@@ -127,12 +129,13 @@ func attachDownload(e *env.Env) gin.HandlerFunc {
 		if mime == "" {
 			mime = "application/octet-stream"
 		}
-		// 图片 inline 直接预览，其余走附件下载
+		// 图片 inline 直接预览，其余走附件下载；文件名消毒 + UTF-8 双写，防断头与中文乱码
 		disp := "attachment"
 		if len(mime) >= 6 && mime[:6] == "image/" {
 			disp = "inline"
 		}
-		c.Header("Content-Disposition", disp+"; filename=\""+a.Filename+"\"")
+		name := attach.SafeFilename(a.Filename)
+		c.Header("Content-Disposition", disp+"; filename=\""+name+"\"; filename*=UTF-8''"+url.PathEscape(name))
 		c.DataFromReader(http.StatusOK, a.Size, mime, stream, nil)
 	}
 }

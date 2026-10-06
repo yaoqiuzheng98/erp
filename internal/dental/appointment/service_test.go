@@ -128,10 +128,10 @@ func TestPayRegIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	apptID := res.InsertedID.(bson.ObjectID)
-	if err := svc.PayReg(ctx, tid, apptID, "test"); err != nil {
+	if err := svc.PayReg(ctx, tid, apptID, "cash", "test"); err != nil {
 		t.Fatalf("first PayReg: %v", err)
 	}
-	if err := svc.PayReg(ctx, tid, apptID, "test"); err != nil {
+	if err := svc.PayReg(ctx, tid, apptID, "cash", "test"); err != nil {
 		t.Fatalf("second PayReg should be no-op: %v", err)
 	}
 	n, err := db.Collection("bills").CountDocuments(ctx, bson.M{"tenant_id": tid, "ref_id": apptID.Hex()})

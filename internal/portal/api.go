@@ -207,7 +207,7 @@ func (h *API) payAppointment(c *gin.Context) {
 		fail(c, http.StatusNotFound, "预约不存在")
 		return
 	}
-	if err := h.appts.PayReg(c.Request.Context(), p.TenantID, id, p.Name); err != nil {
+	if err := h.appts.PayReg(c.Request.Context(), p.TenantID, id, "mock", p.Name); err != nil {
 		fail(c, http.StatusBadRequest, err.Error())
 		return
 	}

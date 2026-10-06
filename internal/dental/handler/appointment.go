@@ -31,6 +31,23 @@ func (h *Handler) registerAppointment(g *gin.RouterGroup) {
 	g.POST("/appointments/:id/done", mw.RequirePerm("appt.write"), h.done)
 	g.POST("/appointments/:id/noshow", mw.RequirePerm("appt.write"), h.noshow)
 	g.POST("/appointments/:id/cancel", mw.RequirePerm("appt.write"), h.cancel)
+	g.POST("/appointments/:id/payreg", mw.RequirePerm("appt.write"), h.payReg)
+}
+
+// payReg 前台收挂号费（现金/银行现场收，患者端走模拟支付；重复点幂等不重单）。
+func (h *Handler) payReg(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	method := c.PostForm("method")
+	if method == "" {
+		method = "cash"
+	}
+	if err := h.appts.PayReg(c.Request.Context(), mw.TenantID(c), id, method, mw.User(c).Name); err != nil {
+		web.SetFlash(c, "收费失败: "+err.Error())
+	} else {
+		h.audit(c, "billing.pay", "挂号费 "+id.Hex(), method)
+		web.SetFlash(c, "挂号费已收")
+	}
+	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
 func (h *Handler) appointments(c *gin.Context) {

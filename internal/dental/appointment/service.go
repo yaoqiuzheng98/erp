@@ -199,7 +199,7 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, date string,
 	if err != nil {
 		return nil, 0, err
 	}
-	list, err := s.appts.FindMany(ctx, tenantID, f, options.Find().SetSkip(skip).SetLimit(limit))
+	list, err := s.appts.FindMany(ctx, tenantID, f, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetSkip(skip).SetLimit(limit))
 	return list, total, err
 }
 
@@ -336,7 +336,7 @@ func (s *Service) nextInLine(ctx context.Context, tenantID, doctorID bson.Object
 
 // PayReg 挂号费模拟支付：建应收并即时全额核销（method=mock），成功置 RegPaid。
 // 仅 booked/arrived 可缴；费用为0或已缴直接返回 nil。
-func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, by string) error {
+func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, method, by string) error {
 	// 同预约串行化：查（有无 RG 单）与建（新 RG 单）之间不许插并发，否则挂号费重单
 	unlock := s.stripe("payreg:" + id.Hex())
 	defer unlock()
@@ -350,6 +350,9 @@ func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, by str
 	if a.RegFee <= 0 || a.RegPaid {
 		return nil
 	}
+	if !billing.ValidMethod(method) {
+		return errors.New("未知收款方式")
+	}
 	// 幂等修复：之前建了 RG 单但没置位（崩溃/重试），直接续上不重单
 	if eb, err := s.billing.ByRefPrefix(ctx, tenantID, id.Hex(), "RG"); err != nil {
 		return err
@@ -357,7 +360,7 @@ func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, by str
 		if eb.Status != billing.BillPaid {
 			rest := eb.Amount - eb.PaidAmount
 			if rest > 0 {
-				if err := s.billing.Pay(ctx, tenantID, eb.ID, rest, "mock", by); err != nil {
+				if err := s.billing.Pay(ctx, tenantID, eb.ID, rest, method, by); err != nil {
 					return err
 				}
 			}
@@ -382,7 +385,7 @@ func (s *Service) PayReg(ctx context.Context, tenantID, id bson.ObjectID, by str
 		}
 		return err
 	}
-	if err := s.billing.Pay(ctx, tenantID, b.ID, a.RegFee, "mock", by); err != nil {
+	if err := s.billing.Pay(ctx, tenantID, b.ID, a.RegFee, method, by); err != nil {
 		return err
 	}
 	return s.appts.Update(ctx, tenantID, id, bson.M{"reg_paid": true})

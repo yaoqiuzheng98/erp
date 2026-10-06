@@ -47,7 +47,7 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, q string, sk
 	if err != nil {
 		return nil, 0, err
 	}
-	list, err := s.pats.FindMany(ctx, tenantID, f, options.Find().SetSkip(skip).SetLimit(limit))
+	list, err := s.pats.FindMany(ctx, tenantID, f, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetSkip(skip).SetLimit(limit))
 	return list, total, err
 }
 
