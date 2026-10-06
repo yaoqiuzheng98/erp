@@ -84,6 +84,9 @@ WSL 侧 key 可直推 GitHub；Windows 侧 GoLand 推不动时，把
 - 改了 `deploy/Caddyfile` 后用 `docker exec erp-caddy caddy reload --config /etc/caddy/Caddyfile`，不要重建 caddy（零停机）。
 - 种子幂等：改 `config.*.toml` 的密码不影响已有账号；要重置先删对应集合文档再重启容器。
 - 业务服务直连装配（`main.go` 构造注入），不许加全局单例、不许跨模块直连 Mongo（走 service/repo）。
+- 并发按单实例设计：`compose.yaml` 只起 1 个 app 副本，钱路/约号用进程内条带锁串行化；
+  扩到多副本前必须换 Redis 分布式锁，否则重单。单实例内也优先用条件更新（`UpdateWhere`），
+  锁只兜"先查后建"（约号查重、挂号费查单）这种索引表达不了的间隙。
 - 临时会话只删自己建的（按 `_id` 精确删），不许按 `user_id` 批量删（会踢掉用户登录）。
 - 经 ssh 取 Mongo `_id` 会带 `ObjectId('...')`，用 `sed "s/ObjectId('//;s/')//;s/[^0-9a-f]//g"` 剥掉；远端命令用单引号，`$set` 等要写成 `\$set` 防远端 shell 展开。
 - 加唯一索引前先查全库有无重复；改索引选项（加 `SetUnique`）必须先 `DropOne` 旧索引，否则 `IndexOptionsConflict` 起不来。
