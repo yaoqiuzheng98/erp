@@ -21,16 +21,16 @@ type Tenant struct {
 	RegDeduct bool          `bson:"reg_deduct,omitempty"` // 挂号费抵扣最终诊疗费（开时已缴挂号费当定金抵）
 	// 放号配置：SlotMinutes 每 N 分钟一档（15/30/60，0=默认30），
 	// SlotCapacity 每档可约人数（0=默认1）。改配置只影响之后的新预约。
-	SlotMinutes  int `bson:"slot_minutes,omitempty"`
-	SlotCapacity int `bson:"slot_capacity,omitempty"`
-	Status       string        `bson:"status"`               // active / suspended
-	Intro     string        `bson:"intro,omitempty"`
-	Address   string        `bson:"address,omitempty"`
-	Phone     string        `bson:"phone,omitempty"`
-	Hours     string        `bson:"hours,omitempty"`
-	Notice    string        `bson:"notice,omitempty"`
-	Gallery   []string      `bson:"gallery,omitempty"`
-	CreatedAt time.Time     `bson:"created_at"`
+	SlotMinutes  int       `bson:"slot_minutes,omitempty"`
+	SlotCapacity int       `bson:"slot_capacity,omitempty"`
+	Status       string    `bson:"status"` // active / suspended
+	Intro        string    `bson:"intro,omitempty"`
+	Address      string    `bson:"address,omitempty"`
+	Phone        string    `bson:"phone,omitempty"`
+	Hours        string    `bson:"hours,omitempty"`
+	Notice       string    `bson:"notice,omitempty"`
+	Gallery      []string  `bson:"gallery,omitempty"`
+	CreatedAt    time.Time `bson:"created_at"`
 }
 
 var ErrSuspended = errors.New("租户已停用")
