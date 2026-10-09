@@ -170,12 +170,17 @@ func (h *Handler) appointments(c *gin.Context) {
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
 	items, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
 	doctors, _ := h.users.ListPractitioners(c.Request.Context(), mw.TenantID(c))
+	slotMinutes := appointment.DefaultSlotMinutes
+	if t := mw.Tenant(c); t != nil {
+		slotMinutes, _ = t.SlotConfig()
+	}
 	web.Render(c, h.e, "dental/appointments", gin.H{
 		"Days": cols, "Rows": rows, "WeekStart": days[0], "WeekEnd": days[6],
 		"WeekTotal": len(list), "WeekMonday": days[0],
 		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
 		"DoctorID": doctorHex, "Phone": phone,
 		"Patients": pats, "Services": items, "Doctors": doctors,
+		"Slots": appointment.DaySlots(slotMinutes),
 	})
 }
 
@@ -240,14 +245,16 @@ func (h *Handler) createAppt(c *gin.Context) {
 	docID, _ := bson.ObjectIDFromHex(c.PostForm("doctor_id"))
 	a := &appointment.Appointment{
 		PatientID: patID, DoctorID: docID,
-		Date:  c.PostForm("date"), Slot: c.PostForm("slot"),
-		Item: c.PostForm("item"), // 老单自由文本兜底；新单以明细为准
+		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
+		Item:  c.PostForm("item"), // 老单自由文本兜底；新单以明细为准
 		Items: parseApptItems(c),
 	}
+	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {
 		a.RegFee = t.RegFee
+		slotMinutes, slotCapacity = t.SlotConfig()
 	}
-	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a); err != nil {
+	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a, slotMinutes, slotCapacity); err != nil {
 		slog.Error("backoffice appt failed", "tenant", mw.TenantID(c).Hex(),
 			"patient", a.PatientID.Hex(), "doctor", a.DoctorID.Hex(),
 			"date", a.Date, "slot", a.Slot, "err", err)

@@ -19,7 +19,11 @@ type Tenant struct {
 	Name      string        `bson:"name"`
 	RegFee    float64       `bson:"reg_fee"`
 	RegDeduct bool          `bson:"reg_deduct,omitempty"` // 挂号费抵扣最终诊疗费（开时已缴挂号费当定金抵）
-	Status    string        `bson:"status"`               // active / suspended
+	// 放号配置：SlotMinutes 每 N 分钟一档（15/30/60，0=默认30），
+	// SlotCapacity 每档可约人数（0=默认1）。改配置只影响之后的新预约。
+	SlotMinutes  int `bson:"slot_minutes,omitempty"`
+	SlotCapacity int `bson:"slot_capacity,omitempty"`
+	Status       string        `bson:"status"`               // active / suspended
 	Intro     string        `bson:"intro,omitempty"`
 	Address   string        `bson:"address,omitempty"`
 	Phone     string        `bson:"phone,omitempty"`
@@ -30,6 +34,33 @@ type Tenant struct {
 }
 
 var ErrSuspended = errors.New("租户已停用")
+
+// 放号默认值：半小时一档，每档 1 人。
+const (
+	DefaultSlotMinutes  = 30
+	DefaultSlotCapacity = 1
+)
+
+// SlotMinutesAllowed 放号粒度档位（改档加这里，下拉与校验共用一处）。
+var SlotMinutesAllowed = []int{15, 30, 60}
+
+// SlotConfig 生效的放号配置（未配回落默认；非法值也回落，不炸老数据）。
+func (t *Tenant) SlotConfig() (minutes, capacity int) {
+	minutes, capacity = t.SlotMinutes, t.SlotCapacity
+	allowed := false
+	for _, m := range SlotMinutesAllowed {
+		if minutes == m {
+			allowed = true
+		}
+	}
+	if !allowed {
+		minutes = DefaultSlotMinutes
+	}
+	if capacity < 1 || capacity > 10 {
+		capacity = DefaultSlotCapacity
+	}
+	return minutes, capacity
+}
 
 // tenantCollections 带 tenant_id 的租户级集合；新增集合时同步维护。
 var tenantCollections = []string{
@@ -90,6 +121,25 @@ func (s *Service) SetBilling(ctx context.Context, id bson.ObjectID, fee float64,
 	}
 	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id},
 		bson.M{"$set": bson.M{"reg_fee": fee, "reg_deduct": deduct}})
+	return err
+}
+
+// SetSchedule 放号粒度与每档人数一起存（门诊设置）：非法值直接报错，不落库。
+func (s *Service) SetSchedule(ctx context.Context, id bson.ObjectID, minutes, capacity int) error {
+	allowed := false
+	for _, m := range SlotMinutesAllowed {
+		if minutes == m {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return errors.New("放号粒度只能选 15/30/60 分钟")
+	}
+	if capacity < 1 || capacity > 10 {
+		return errors.New("每档人数只能填 1~10")
+	}
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id},
+		bson.M{"$set": bson.M{"slot_minutes": minutes, "slot_capacity": capacity}})
 	return err
 }
 

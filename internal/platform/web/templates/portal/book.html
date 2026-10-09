@@ -18,8 +18,11 @@
       <div class="row g-2">
         <div class="col-6"><label class="form-label">日期</label>
           <input class="form-control form-control-lg" name="date" type="date" required min="{{.Data.Today}}"></div>
-        <div class="col-6"><label class="form-label">时间</label>
-          <input class="form-control form-control-lg" name="slot" type="time" required></div>
+        <div class="col-6"><label class="form-label">时段</label>
+          <select class="form-control form-control-lg" name="slot" required>
+            <option value="">选择时段</option>
+            {{range .Data.Slots}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+          </select></div>
       </div>
     </div></div>
     <div class="card portal-card mb-2"><div class="card-body">

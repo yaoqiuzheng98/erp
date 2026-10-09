@@ -23,6 +23,17 @@
             <input class="form-check-input" type="checkbox" name="reg_deduct" id="reg-deduct" {{if .Data.Tenant.RegDeduct}}checked{{end}}>
             <label class="form-check-label" for="reg-deduct">挂号费抵扣最终诊疗费 <span class="text-muted">（开单时已缴挂号费当定金抵，开单明细会列抵扣行）</span></label>
           </div></div>
+          <div class="mb-2"><label class="form-label">放号粒度</label>
+            <select class="form-select form-select-sm" name="slot_minutes">
+              <option value="15" {{if eq .Data.SlotMinutes 15}}selected{{end}}>15 分钟一号（每小时 4 档）</option>
+              <option value="30" {{if eq .Data.SlotMinutes 30}}selected{{end}}>30 分钟一号（每小时 2 档，如 9:00-9:30）</option>
+              <option value="60" {{if eq .Data.SlotMinutes 60}}selected{{end}}>60 分钟一号（每小时 1 档）</option>
+            </select>
+            <div class="form-text">改粒度只影响之后的新预约，已约的不变。</div></div>
+          <div class="mb-2"><label class="form-label">每档人数</label>
+            <input class="form-control form-control-sm" name="slot_capacity" type="number" min="1" max="10" step="1"
+                   value="{{.Data.SlotCapacity}}">
+            <div class="form-text">同一医生同时段可约人数，默认 1 人。</div></div>
           <div class="form-text mb-2">诊所介绍、门诊图、人员展示请到「<a href="/admin/home">首页配置</a>」维护。</div>
           <button class="btn btn-sm btn-primary">保存</button>
         </form>

@@ -43,6 +43,7 @@ func (h *API) Register(g *gin.RouterGroup) {
 	g.POST("/login", h.guard.RateLimit(20), h.login)
 	g.POST("/logout", h.logout)
 	g.GET("/services", h.services)
+	g.GET("/slots", h.slots)
 	g.GET("/appointments", h.requirePatient, h.myAppointments)
 	g.POST("/appointments", h.requirePatient, h.createAppointment)
 	g.POST("/appointments/:id/cancel", h.requirePatient, h.cancelAppointment)
@@ -116,6 +117,18 @@ func (h *API) services(c *gin.Context) {
 	ok(c, out)
 }
 
+// slots 放号档位（小程序排班用）：粒度+每档人数+当天档位。
+func (h *API) slots(c *gin.Context) {
+	minutes, capacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
+	if t := mw.Tenant(c); t != nil {
+		minutes, capacity = t.SlotConfig()
+	}
+	ok(c, gin.H{
+		"slot_minutes": minutes, "slot_capacity": capacity,
+		"slots": appointment.DaySlots(minutes),
+	})
+}
+
 func (h *API) myAppointments(c *gin.Context) {
 	p := Patient(c)
 	list, err := h.appts.OfPatient(c.Request.Context(), p.TenantID, p.ID)
@@ -167,8 +180,10 @@ func (h *API) createAppointment(c *gin.Context) {
 		PatientID: p.ID, DoctorID: docID,
 		Date: in.Date, Slot: in.Slot, Item: in.Item,
 	}
+	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {
 		a.RegFee = t.RegFee
+		slotMinutes, slotCapacity = t.SlotConfig()
 	}
 	for _, l := range in.Lines {
 		sid, err := bson.ObjectIDFromHex(l.ServiceID)
@@ -177,7 +192,7 @@ func (h *API) createAppointment(c *gin.Context) {
 		}
 		a.Items = append(a.Items, appointment.ApptItem{ServiceID: sid, Qty: l.Qty})
 	}
-	if err := h.appts.Create(c.Request.Context(), p.TenantID, a); err != nil {
+	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity); err != nil {
 		fail(c, http.StatusBadRequest, err.Error())
 		return
 	}

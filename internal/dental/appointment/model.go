@@ -1,6 +1,7 @@
 package appointment
 
 import (
+	"fmt"
 	"strconv"
 
 	"erp/internal/platform/model"
@@ -84,6 +85,45 @@ func (a Appointment) Total() float64 {
 		return s
 	}
 	return a.Charge
+}
+
+// 放号档位默认值：半小时一档，每档 1 人（租户在门诊设置改）。
+const (
+	DefaultSlotMinutes  = 30
+	DefaultSlotCapacity = 1
+)
+
+// Slot 放号档位选项：Value 下单用（桶起点 HH:MM），Label 展示用（09:00-09:30）。
+type Slot struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+// DaySlots 当天放号档位（8:00 起约，20:00 为最晚起约，非法粒度回落默认）。
+func DaySlots(minutes int) []Slot {
+	if minutes != 15 && minutes != 30 && minutes != 60 {
+		minutes = DefaultSlotMinutes
+	}
+	var out []Slot
+	for start := 8 * 60; start <= 20*60; start += minutes {
+		end := start + minutes
+		out = append(out, Slot{
+			Value: fmt.Sprintf("%02d:%02d", start/60, start%60),
+			Label: fmt.Sprintf("%02d:%02d-%02d:%02d", start/60, start%60, end/60, end%60),
+		})
+	}
+	return out
+}
+
+// NormSlotConfig 下单配置归一（0/非法回落默认，防脏调用）。
+func NormSlotConfig(minutes, capacity int) (int, int) {
+	if minutes != 15 && minutes != 30 && minutes != 60 {
+		minutes = DefaultSlotMinutes
+	}
+	if capacity < 1 || capacity > 10 {
+		capacity = DefaultSlotCapacity
+	}
+	return minutes, capacity
 }
 
 // statusMeta 状态元数据（State 模式的数据驱动版）：中文名与徽章色收敛到一张表，

@@ -236,9 +236,13 @@ func (h *Web) services(c *gin.Context) {
 
 func (h *Web) bookPage(c *gin.Context) {
 	doctors, _ := h.e.Auth.ListPractitioners(c.Request.Context(), mw.TenantID(c))
+	slotMinutes := appointment.DefaultSlotMinutes
+	if t := mw.Tenant(c); t != nil {
+		slotMinutes, _ = t.SlotConfig()
+	}
 	web.Render(c, h.e, "portal/book", gin.H{
 		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "book", "Doctors": doctors,
-		"Today": tz.Today(),
+		"Today": tz.Today(), "Slots": appointment.DaySlots(slotMinutes),
 	})
 }
 
@@ -257,10 +261,12 @@ func (h *Web) book(c *gin.Context) {
 		Date: c.PostForm("date"), Slot: c.PostForm("slot"), Item: c.PostForm("item"),
 		Items: parseItems(c),
 	}
+	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {
 		a.RegFee = t.RegFee
+		slotMinutes, slotCapacity = t.SlotConfig()
 	}
-	if err := h.appts.Create(c.Request.Context(), p.TenantID, a); err != nil {
+	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity); err != nil {
 		slog.Error("portal book failed", "tenant", p.TenantID.Hex(), "patient", p.ID.Hex(),
 			"doctor", a.DoctorID.Hex(), "date", a.Date, "slot", a.Slot,
 			"items", len(a.Items), "err", err)

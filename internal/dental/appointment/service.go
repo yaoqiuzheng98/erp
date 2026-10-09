@@ -5,6 +5,7 @@ import (
 	"errors"
 	"hash/fnv"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -125,12 +126,14 @@ func (s *Service) EnsureIndexes(ctx context.Context) error {
 	return err
 }
 
-func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment) error {
+func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, slotMinutes, slotCapacity int) error {
 	p, err := s.pats.ByID(ctx, tenantID, a.PatientID)
 	if err != nil {
 		return errors.New("患者不存在")
 	}
-	// 同医生同时段串行化：查（有无占位）与写（插入）之间不许插并发，否则双人同 slot 重约
+	minutes, capacity := NormSlotConfig(slotMinutes, slotCapacity)
+	// 同医生同档串行化：查（档内人数）与写（插入）之间不许插并发，否则同档超售。
+	// 档位严格对齐后同档即同时刻，锁键直接用日期+时段。
 	unlock := s.stripe("slot:" + a.DoctorID.Hex() + ":" + a.Date + ":" + a.Slot)
 	defer unlock()
 	// 日期时段只收合法格式，脏数据进库后筛选查不到
@@ -140,6 +143,10 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	if !slotRe.MatchString(a.Slot) {
 		return errors.New("时间格式不正确")
 	}
+	// 档位对齐：只收放号档起点（如 30 分钟档只收 :00/:30），界面只给档位下拉，这里防绕过直调
+	if mm, _ := strconv.Atoi(a.Slot[3:]); mm%minutes != 0 {
+		return errors.New("预约时间不在放号时段内")
+	}
 	a.PatientName = p.Name
 	// 医生可选：不选则签到时分配；选了则校验并快照
 	if !a.DoctorID.IsZero() {
@@ -148,12 +155,12 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 			return err
 		}
 		a.Doctor = name
-		// 同医生同时段防重（自助约诊必需；前台走同一入口同样受检）。
+		// 同医生同档防超售（自助约诊必需；前台走同一入口同样受检）。
 		if n, _ := s.appts.Count(ctx, tenantID, bson.M{
 			"doctor_id": a.DoctorID, "date": a.Date, "slot": a.Slot,
 			"status": bson.M{"$in": []string{Booked, Arrived, Serving}},
-		}); n > 0 {
-			return errors.New("该医生该时段已约满，换个时间试试")
+		}); n >= int64(capacity) {
+			return errors.New("该时段已约满，换个时间试试")
 		}
 	}
 	if len(a.Items) > 0 {

@@ -76,11 +76,11 @@
                   <span class="input-group-text">📅</span>
                   <input class="form-control form-control-sm" name="date" type="date" required title="选择预约日期">
                 </div></div>
-              <div class="col-6"><label class="form-label">到诊时间</label>
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text">🕐</span>
-                  <input class="form-control form-control-sm" name="slot" type="time" required title="点击选择到诊时间">
-                </div></div>
+              <div class="col-6"><label class="form-label">到诊时段</label>
+                <select class="form-select form-select-sm" name="slot" required title="选择到诊时段">
+                  <option value="">选择时段</option>
+                  {{range .Data.Slots}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+                </select></div>
               <div class="col-12"><label class="form-label">接诊医生</label>
                 <select class="form-select form-select-sm" name="doctor_id" required>
                   <option value="">选择医生</option>

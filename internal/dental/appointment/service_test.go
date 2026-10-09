@@ -99,7 +99,7 @@ func TestCreateConcurrentDoubleBook(t *testing.T) {
 			errs[i] = svc.Create(ctx, tid, &Appointment{
 				PatientID: pid, DoctorID: did,
 				Date: "2026-10-06", Slot: "10:00", Item: "测试",
-			})
+			}, 0, 0)
 		}(i)
 	}
 	wg.Wait()
@@ -318,6 +318,60 @@ func TestListRange(t *testing.T) {
 	otherDoc, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5f0")
 	if res, _ := svc.ListRange(ctx, tid, "2026-10-05", "2026-10-11", otherDoc, "", 0); len(res) != 0 {
 		t.Fatalf("doctor miss len = %d, want 0", len(res))
+	}
+}
+
+// TestSlotConfig 放号档位：对齐校验 + 每档人数 + 非法配置回落默认。
+func TestSlotConfig(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ee")
+	did, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ef")
+	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+		"_id": pid, "tenant_id": tid, "name": "档位测试", "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Collection("users").InsertOne(ctx, bson.M{
+		"_id": did, "tenant_id": tid, "name": "档位医生",
+		"status": "active", "can_practice": true, "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mk := func(date, slot string, minutes, capacity int) error {
+		return svc.Create(ctx, tid, &Appointment{
+			PatientID: pid, DoctorID: did,
+			Date: date, Slot: slot, Item: "测试",
+		}, minutes, capacity)
+	}
+	// 默认 30 分钟档：09:10 不对齐拒绝，09:30 通过
+	if err := mk("2026-10-06", "09:10", 0, 0); err == nil {
+		t.Fatal("unaligned slot should fail")
+	}
+	if err := mk("2026-10-06", "09:30", 0, 0); err != nil {
+		t.Fatalf("aligned slot: %v", err)
+	}
+	// 默认每档 1 人：同档第二人约满
+	if err := mk("2026-10-06", "09:30", 0, 0); err == nil ||
+		(err != nil && !strings.Contains(err.Error(), "已约满")) {
+		t.Fatalf("second booking should be full, got %v", err)
+	}
+	// 每档 2 人：同档可约两人，第三人约满
+	if err := mk("2026-10-07", "10:00", 30, 2); err != nil {
+		t.Fatalf("capacity first: %v", err)
+	}
+	if err := mk("2026-10-07", "10:00", 30, 2); err != nil {
+		t.Fatalf("capacity second: %v", err)
+	}
+	if err := mk("2026-10-07", "10:00", 30, 2); err == nil {
+		t.Fatal("capacity third should be full")
+	}
+	// 60 分钟档：整点通过，半点拒绝
+	if err := mk("2026-10-08", "10:00", 60, 1); err != nil {
+		t.Fatalf("hourly aligned: %v", err)
+	}
+	if err := mk("2026-10-08", "10:30", 60, 1); err == nil {
+		t.Fatal("hourly misaligned should fail")
 	}
 }
 
