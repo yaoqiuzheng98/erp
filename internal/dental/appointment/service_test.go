@@ -256,6 +256,71 @@ func TestCancelUnpaid(t *testing.T) {
 	}
 }
 
+// TestListRange 周视图范围查：只回区间内，按日期+时段排序，医生/电话筛选生效。
+func TestListRange(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ee")
+	did, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ef")
+	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+		"_id": pid, "tenant_id": tid, "name": "范围测试", "phone": "13900019999", "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Collection("users").InsertOne(ctx, bson.M{
+		"_id": did, "tenant_id": tid, "name": "范围医生",
+		"status": "active", "can_practice": true, "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mk := func(date, slot string) {
+		if _, err := db.Collection("appointments").InsertOne(ctx, bson.M{
+			"tenant_id": tid, "patient_id": pid, "patient_name": "范围测试",
+			"doctor_id": did, "doctor": "范围医生",
+			"date": date, "slot": slot, "item": "测试",
+			"status": Booked, "created_at": time.Now(),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk("2026-10-05", "10:00") // 周一
+	mk("2026-10-07", "09:00") // 周三早
+	mk("2026-10-07", "14:00") // 周三午
+	mk("2026-10-11", "09:00") // 周日
+	mk("2026-10-12", "09:00") // 下周一，区间外
+	mk("2026-10-04", "09:00") // 上周日，区间外
+
+	got, err := svc.ListRange(ctx, tid, "2026-10-05", "2026-10-11", bson.NilObjectID, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 4 {
+		t.Fatalf("len = %d, want 4", len(got))
+	}
+	// 日期+时段升序
+	for i := 1; i < len(got); i++ {
+		a, b := got[i-1].Date+got[i-1].Slot, got[i].Date+got[i].Slot
+		if a > b {
+			t.Fatalf("not sorted: %s after %s", b, a)
+		}
+	}
+	// 电话筛选命中 / 不命中
+	if res, _ := svc.ListRange(ctx, tid, "2026-10-05", "2026-10-11", bson.NilObjectID, "19999", 0); len(res) != 4 {
+		t.Fatalf("phone hit len = %d, want 4", len(res))
+	}
+	if res, _ := svc.ListRange(ctx, tid, "2026-10-05", "2026-10-11", bson.NilObjectID, "00000", 0); len(res) != 0 {
+		t.Fatalf("phone miss len = %d, want 0", len(res))
+	}
+	// 医生筛选命中 / 不命中
+	if res, _ := svc.ListRange(ctx, tid, "2026-10-05", "2026-10-11", did, "", 0); len(res) != 4 {
+		t.Fatalf("doctor hit len = %d, want 4", len(res))
+	}
+	otherDoc, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5f0")
+	if res, _ := svc.ListRange(ctx, tid, "2026-10-05", "2026-10-11", otherDoc, "", 0); len(res) != 0 {
+		t.Fatalf("doctor miss len = %d, want 0", len(res))
+	}
+}
+
 func TestCompleteConcurrent(t *testing.T) {
 	// 并发开单幂等：两边都成功，但只建一张诊疗单/费用单。
 	svc, db, ctx := testSvc(t)

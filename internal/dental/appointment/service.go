@@ -176,6 +176,20 @@ func (s *Service) ByID(ctx context.Context, tenantID, id bson.ObjectID) (*Appoin
 	return s.appts.FindByID(ctx, tenantID, id)
 }
 
+// patientIDsForPhone 按电话模糊找患者 ID（列表与周视图共用，收敛到一处）。
+func (s *Service) patientIDsForPhone(ctx context.Context, tenantID bson.ObjectID, phone string) []bson.ObjectID {
+	// 按患者电话筛：先找出匹配患者（上限放宽，超大门诊也够用）
+	pats, _, err := s.pats.List(ctx, tenantID, phone, 0, 2000)
+	if err != nil {
+		return nil
+	}
+	ids := make([]bson.ObjectID, 0, len(pats))
+	for _, p := range pats {
+		ids = append(ids, p.ID)
+	}
+	return ids
+}
+
 func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, date string, doctorID bson.ObjectID, phone string, skip, limit int64) ([]Appointment, int64, error) {
 	f := bson.M{}
 	if date != "" {
@@ -185,16 +199,7 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, date string,
 		f["doctor_id"] = doctorID
 	}
 	if phone != "" {
-		// 按患者电话筛：先找出匹配患者（上限放宽，超大门诊也够用）
-		pats, _, err := s.pats.List(ctx, tenantID, phone, 0, 2000)
-		if err != nil {
-			return nil, 0, err
-		}
-		ids := make([]bson.ObjectID, 0, len(pats))
-		for _, p := range pats {
-			ids = append(ids, p.ID)
-		}
-		f["patient_id"] = bson.M{"$in": ids}
+		f["patient_id"] = bson.M{"$in": s.patientIDsForPhone(ctx, tenantID, phone)}
 	}
 	total, err := s.appts.Count(ctx, tenantID, f)
 	if err != nil {
@@ -202,6 +207,24 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, date string,
 	}
 	list, err := s.appts.FindMany(ctx, tenantID, f, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetSkip(skip).SetLimit(limit))
 	return list, total, err
+}
+
+// ListRange 按日期闭区间查（周视图用）：同 List 的医生/电话筛选，
+// 按日期+时段排序，不分页（周数据有界，limit 只做兜底）。
+func (s *Service) ListRange(ctx context.Context, tenantID bson.ObjectID, start, end string, doctorID bson.ObjectID, phone string, limit int64) ([]Appointment, error) {
+	f := bson.M{"date": bson.M{"$gte": start, "$lte": end}}
+	if !doctorID.IsZero() {
+		f["doctor_id"] = doctorID
+	}
+	if phone != "" {
+		f["patient_id"] = bson.M{"$in": s.patientIDsForPhone(ctx, tenantID, phone)}
+	}
+	if limit <= 0 {
+		limit = 1000
+	}
+	return s.appts.FindMany(ctx, tenantID, f, options.Find().SetSort(
+		bson.D{{Key: "date", Value: 1}, {Key: "slot", Value: 1}, {Key: "_id", Value: 1}},
+	).SetLimit(limit))
 }
 
 func (s *Service) OfPatient(ctx context.Context, tenantID, patID bson.ObjectID) ([]Appointment, error) {

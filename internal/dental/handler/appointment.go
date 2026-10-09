@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"fmt"
+	"html/template"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -50,27 +54,127 @@ func (h *Handler) payReg(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
-func (h *Handler) appointments(c *gin.Context) {
-	skip, limit, pager := web.ParsePager(c, 30)
-	// 默认看今天；全部走 ?date=all
-	date := c.Query("date")
-	if date == "" {
-		date = tz.Today()
-	} else if date == "all" {
-		date = ""
+// dayCol 周视图表头列：日期 + 星期 + 今天高亮 + 当天单数。
+type dayCol struct {
+	Date    string
+	Weekday string
+	IsToday bool
+	Total   int
+}
+
+// hourRow 周视图行：整点小时 + 7 天格子（与 Days 下标对齐）。
+type hourRow struct {
+	Hour  int
+	Label string
+	Cells [7][]appointment.Appointment
+}
+
+var weekdays = []string{"周一", "周二", "周三", "周四", "周五", "周六", "周日"}
+
+// 周视图时间轴：8~20 点常驻（空也占行，看出空闲）；区间外时段另起行。
+const weekOpenH, weekCloseH = 8, 20
+
+// hourOf 时段 HH:MM 取整点；脏格式归 -1（未定时行）。
+func hourOf(slot string) int {
+	if len(slot) == 5 && slot[2] == ':' {
+		if h, err := strconv.Atoi(slot[:2]); err == nil && h >= 0 && h <= 23 {
+			return h
+		}
 	}
+	return -1
+}
+
+// weekQuery 组翻周链接的保留参数（医生/电话筛选不断）。
+func weekQuery(week, doctorID, phone string) template.URL {
+	v := url.Values{}
+	v.Set("week", week)
+	if doctorID != "" {
+		v.Set("doctor_id", doctorID)
+	}
+	if phone != "" {
+		v.Set("phone", phone)
+	}
+	return template.URL(v.Encode())
+}
+
+func (h *Handler) appointments(c *gin.Context) {
+	anchor := c.Query("week")
+	if anchor == "" {
+		// 兼容旧 ?date= 入口（回跳/书签）：date=all 视为本周。
+		if d := c.Query("date"); d != "" && d != "all" {
+			anchor = d
+		}
+	}
+	days := tz.WeekOf(anchor)
 	doctorID, _ := bson.ObjectIDFromHex(c.Query("doctor_id"))
-	list, total, err := h.appts.List(c.Request.Context(), mw.TenantID(c), date, doctorID, c.Query("phone"), skip, limit)
+	phone := c.Query("phone")
+	list, err := h.appts.ListRange(c.Request.Context(), mw.TenantID(c), days[0], days[6], doctorID, phone, 1000)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	pager.Total = total
+	today := tz.Today()
+	dayIdx := map[string]int{}
+	cols := make([]dayCol, 7)
+	for i, d := range days {
+		dayIdx[d] = i
+		cols[i] = dayCol{Date: d, Weekday: weekdays[i], IsToday: d == today}
+	}
+	// 按日期+小时分桶（ListRange 已按日期时段排好，桶内天然有序）。
+	cells := map[int]*hourRow{}
+	rowOf := func(hr int) *hourRow {
+		if r, ok := cells[hr]; ok {
+			return r
+		}
+		label := "未定时"
+		if hr >= 0 {
+			label = fmt.Sprintf("%02d:00", hr)
+		}
+		r := &hourRow{Hour: hr, Label: label}
+		cells[hr] = r
+		return r
+	}
+	for _, a := range list {
+		i, ok := dayIdx[a.Date]
+		if !ok {
+			continue
+		}
+		cols[i].Total++
+		r := rowOf(hourOf(a.Slot))
+		r.Cells[i] = append(r.Cells[i], a)
+	}
+	// 行序：8~20 点常驻 + 区间外小时升序（未定时沉底）。
+	rows := make([]hourRow, 0, weekCloseH-weekOpenH+1+len(cells))
+	var extras []int
+	for hr := range cells {
+		if hr < weekOpenH || hr > weekCloseH {
+			extras = append(extras, hr)
+		}
+	}
+	sort.Ints(extras)
+	for hr := weekOpenH; hr <= weekCloseH; hr++ {
+		rows = append(rows, *rowOf(hr))
+	}
+	for _, hr := range extras {
+		rows = append(rows, *cells[hr])
+	}
+	mon, _ := tz.DayStart(days[0])
+	// 零值医生不进链接（否则翻周 URL 挂一串 0）。
+	doctorHex := ""
+	if !doctorID.IsZero() {
+		doctorHex = doctorID.Hex()
+	}
+	prevQ := weekQuery(mon.AddDate(0, 0, -7).Format("2006-01-02"), doctorHex, phone)
+	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), doctorHex, phone)
+	todayQ := weekQuery(tz.Today(), doctorHex, phone)
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
 	items, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
 	doctors, _ := h.users.ListPractitioners(c.Request.Context(), mw.TenantID(c))
 	web.Render(c, h.e, "dental/appointments", gin.H{
-		"Rows": list, "Pager": pager, "Date": date, "DoctorID": doctorID.Hex(), "Phone": c.Query("phone"),
+		"Days": cols, "Rows": rows, "WeekStart": days[0], "WeekEnd": days[6],
+		"WeekTotal": len(list), "WeekMonday": days[0],
+		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
+		"DoctorID": doctorHex, "Phone": phone,
 		"Patients": pats, "Services": items, "Doctors": doctors,
 	})
 }

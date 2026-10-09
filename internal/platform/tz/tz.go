@@ -18,6 +18,23 @@ func MonthKey() string { return Now().Format("200601") }
 // Loc 业务时区（东八区）：模板时间显示、日期筛选边界都走这里。
 func Loc() *time.Location { return shanghai }
 
+// WeekOf 锚点日期所在自然周（周一~周日，YYYY-MM-DD ×7）：
+// 锚点非法或空则回落到本周。跨月跨年天然成立（按天加减）。
+func WeekOf(anchor string) [7]string {
+	t, ok := DayStart(anchor)
+	if !ok {
+		t, _ = DayStart(Today())
+	}
+	// Go 周日=0：换算到"距周一差几天"，周一0 … 周日6。
+	off := (int(t.Weekday()) + 6) % 7
+	monday := t.AddDate(0, 0, -off)
+	var out [7]string
+	for i := range out {
+		out[i] = monday.AddDate(0, 0, i).Format("2006-01-02")
+	}
+	return out
+}
+
 // DayStart 某自然日零点（YYYY-MM-DD，东八区），非法返回 false。
 func DayStart(s string) (time.Time, bool) {
 	t, err := time.ParseInLocation("2006-01-02", s, shanghai)

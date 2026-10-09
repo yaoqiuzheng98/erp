@@ -101,6 +101,16 @@ func funcMap() template.FuncMap {
 		"mul": func(a, b float64) string { return fmt.Sprintf("%.2f", a*b) },
 		"sub": func(a, b float64) string { return fmt.Sprintf("%.2f", a-b) },
 		"f2":  func(a float64) string { return fmt.Sprintf("%.2f", a) },
+		// dict 给子模板传多参：{{template "x" dict "A" . "CSRF" $.CSRF}}。
+		"dict": func(kv ...any) map[string]any {
+			m := map[string]any{}
+			for i := 0; i+1 < len(kv); i += 2 {
+				if k, ok := kv[i].(string); ok {
+					m[k] = kv[i+1]
+				}
+			}
+			return m
+		},
 	}
 }
 
