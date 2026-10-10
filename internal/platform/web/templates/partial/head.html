@@ -18,8 +18,7 @@
       --bs-btn-hover-bg: #0d9488; --bs-btn-hover-border-color: #0d9488;
       --bs-btn-active-bg: #0f766e; --bs-btn-active-border-color: #0f766e;
     }
-    .sidebar { width: 220px; min-height: 100vh; background: linear-gradient(180deg, #0f766e, #134e4a) !important; overflow-y: auto; }
-    /* 手机端 offcanvas 抽屉内菜单过长时可滚动 */
+    .sidebar { width: 220px; min-height: 100vh; background: linear-gradient(180deg, #0f766e, #134e4a) !important; overflow-y: auto; }    /* 手机端 offcanvas 抽屉内菜单过长时可滚动 */
     .offcanvas-md.sidebar { max-height: 100vh; }
     @media (min-width: 768px) {
       /* 桌面端侧栏吸顶整屏高：内容长于屏幕时深色底不断、底下不露白 */
@@ -33,8 +32,6 @@
     /* 长列表表头吸顶（横滑wrapper内不生效时至少回顶按钮可用） */
     .table-responsive thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
     /* 金额语义色：欠费红 / 已收绿 */
-    .amt-unpaid { color: #dc3545; font-weight: 700; }
-    .amt-paid { color: #198754; font-weight: 700; }
     /* 必填项红星（label 紧邻必填输入时自动标） */
     label:has(+ input[required])::after, label:has(+ select[required])::after,
     label:has(+ textarea[required])::after { content: " *"; color: #dc3545; }

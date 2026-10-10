@@ -57,11 +57,10 @@ func (h *Handler) patient(c *gin.Context) {
 		c.String(http.StatusNotFound, "患者不存在")
 		return
 	}
-	// 就诊记录展示诊疗单（一次接诊一张；作废的不展示）。
-	treats, _ := h.treats.ListByPatient(c.Request.Context(), tid, id)
+	appts, _ := h.appts.OfPatient(c.Request.Context(), tid, id)
 	files, _ := h.e.Attach.ListByOwner(c.Request.Context(), tid, "patient", id)
 	web.Render(c, h.e, "dental/patient", gin.H{
-		"P": p, "Appts": treats, "Files": files,
+		"P": p, "Appts": appts, "Files": files,
 	})
 }
 

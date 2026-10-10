@@ -13,25 +13,12 @@
     <button class="btn btn-sm btn-outline-danger">取消</button></form>
   {{end}}
   {{if eq $a.Status "arrived"}}
-  <button type="button" class="btn btn-sm btn-outline-info" data-say="{{$a.PatientName}}请到前台分配就诊">叫号</button>
-  <form method="post" action="/app/appointments/{{hex $a.ID}}/serve" class="m-0">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <button class="btn btn-sm btn-outline-success">就诊</button></form>
   <form method="post" action="/app/appointments/{{hex $a.ID}}/cancel" class="m-0"
         onsubmit="return confirm('确认取消该预约？')">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <button class="btn btn-sm btn-outline-danger">取消</button></form>
   {{end}}
-  {{if eq $a.Status "unpaid"}}
-  <form method="post" action="/app/appointments/{{hex $a.ID}}/cancel" class="m-0"
-        onsubmit="return confirm('该单已开单，确认取消？')">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <button class="btn btn-sm btn-outline-danger">取消</button></form>
-  {{end}}
 </div>
-{{if eq $a.Status "serving"}}
-<div class="mt-1"><a class="btn btn-sm btn-outline-success" href="/app/appointments/{{hex $a.ID}}/bill">开单</a></div>
-{{end}}
 {{end}}
 
 {{define "dental/appointments"}}
@@ -141,7 +128,6 @@
               <div class="small mt-1"><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>
                 <span class="text-muted">{{.Doctor}} · {{.DisplayItem}}</span>{{if .QueueNo}} <span class="badge bg-info text-dark">排{{.QueueNo}}号</span>{{end}}</div>
               {{if .Items}}<div class="small text-muted">{{range .Items}}{{.Name}}x{{.Qty}} ¥{{printf "%.2f" .Amount}}<br>{{end}}</div>{{end}}
-              <div class="small"><a href="/app/appointments/{{hex .ID}}/bill">诊疗单</a></div>
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}

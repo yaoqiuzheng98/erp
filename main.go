@@ -10,7 +10,6 @@ import (
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/handler"
 	"erp/internal/dental/patient"
-	"erp/internal/dental/treatment"
 	"erp/internal/platform/attach"
 	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
@@ -63,9 +62,8 @@ func main() {
 	// 业务服务直连装配（员工即 e.Auth 用户）
 	patSvc := patient.New(d.Database)
 	catalogSvc := catalog.New(d.Database)
-	treatSvc := treatment.New(d.Database)
-	apptSvc := appointment.New(d.Database, e.Seq, patSvc, catalogSvc, e.Auth, treatSvc)
-	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, e.Auth, treatSvc)
+	apptSvc := appointment.New(d.Database, e.Seq, patSvc, catalogSvc, e.Auth)
+	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, e.Auth)
 
 	// 唯一索引（幂等）
 	usersCol := d.Database.Collection("users")
@@ -95,15 +93,6 @@ func main() {
 	}
 	if err := patSvc.EnsureIndexes(ctx); err != nil {
 		slog.Error("ensure patient indexes", "err", err)
-		os.Exit(1)
-	}
-	if err := treatSvc.EnsureIndexes(ctx); err != nil {
-		slog.Error("ensure treatment indexes", "err", err)
-		os.Exit(1)
-	}
-	// 老数据迁移：已有诊疗内容的预约拆出诊疗单（幂等，跑完即空操作）
-	if err := treatSvc.EnsureMigration(ctx); err != nil {
-		slog.Error("ensure treatment migration", "err", err)
 		os.Exit(1)
 	}
 

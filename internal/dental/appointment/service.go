@@ -12,7 +12,6 @@ import (
 
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
-	"erp/internal/dental/treatment"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/repo"
 	"erp/internal/platform/seqno"
@@ -29,13 +28,12 @@ var ErrBadStatus = errors.New("状态不允许该操作")
 var slotRe = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
 
 type Service struct {
-	db         *mongo.Database
-	seq        *seqno.Generator
-	appts      *repo.TenantRepo[Appointment]
-	pats       *patient.Service
-	items      *catalog.Service
-	users      *auth.Service
-	treatments *treatment.Service
+	db    *mongo.Database
+	seq   *seqno.Generator
+	appts *repo.TenantRepo[Appointment]
+	pats  *patient.Service
+	items *catalog.Service
+	users *auth.Service
 	// stripes 同键串行锁（防并发重约）：key 越细粒度并发越高，
 	// 同 key 同时只进一个。单实例部署有效（compose 单副本），扩多副本换分布式锁。
 	stripes [64]sync.Mutex
@@ -52,10 +50,10 @@ func (s *Service) stripe(key string) func() {
 
 // New 装配预约服务；医生即"可接诊的在职员工"（用户）。
 func New(db *mongo.Database, seq *seqno.Generator,
-	pats *patient.Service, items *catalog.Service, users *auth.Service, treats *treatment.Service) *Service {
+	pats *patient.Service, items *catalog.Service, users *auth.Service) *Service {
 	return &Service{
 		db: db, seq: seq, appts: repo.NewTenantRepo[Appointment](db, "appointments"),
-		pats: pats, items: items, users: users, treatments: treats,
+		pats: pats, items: items, users: users,
 	}
 }
 
@@ -156,7 +154,7 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		// 同医生同档防超售（自助约诊必需；前台走同一入口同样受检）。
 		if n, _ := s.appts.Count(ctx, tenantID, bson.M{
 			"doctor_id": a.DoctorID, "date": a.Date, "slot": a.Slot,
-			"status": bson.M{"$in": []string{Booked, Arrived, Serving}},
+			"status": bson.M{"$in": []string{Booked, Arrived}},
 		}); n >= int64(capacity) {
 			return errors.New("该时段已约满，换个时间试试")
 		}
@@ -252,11 +250,11 @@ func (s *Service) setStatus(ctx context.Context, tenantID, id bson.ObjectID, fro
 	return s.appts.FindByID(ctx, tenantID, id)
 }
 
-// activeLoad 当天某医生手上未完结的单数（候诊+就诊中）。
+// activeLoad 当天某医生手上候诊单数。
 func (s *Service) activeLoad(ctx context.Context, tenantID, doctorID bson.ObjectID, date string) int64 {
 	n, _ := s.appts.Count(ctx, tenantID, bson.M{
 		"doctor_id": doctorID, "date": date,
-		"status": bson.M{"$in": []string{Arrived, Serving}},
+		"status": Arrived,
 	})
 	return n
 }
@@ -283,7 +281,7 @@ func (s *Service) pickDoctor(ctx context.Context, tenantID bson.ObjectID, date s
 }
 
 // nextQueueNo 当天当医生下一个排号（已用号+1）。
-// 注意：排号一旦分配就占号（开单待缴费也占），必须统计所有带号单据，
+// 注意：排号一旦分配就占号，必须统计所有带号单据（noshow/cancel 的单仍占号），
 // 否则下一位签到会撞唯一索引。
 func (s *Service) nextQueueNo(ctx context.Context, tenantID, doctorID bson.ObjectID, date string) int {
 	n, _ := s.appts.Count(ctx, tenantID, bson.M{
@@ -341,37 +339,13 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (stri
 	return "", 0, lastErr
 }
 
-// StartServe 就诊：arrived → serving。
-func (s *Service) StartServe(ctx context.Context, tenantID, id bson.ObjectID) error {
-	_, err := s.setStatus(ctx, tenantID, id, []string{Arrived}, Serving)
-	return err
-}
-
-// nextInLine 同医生当天排号最小的候诊单（自动叫号用）。
-func (s *Service) nextInLine(ctx context.Context, tenantID, doctorID bson.ObjectID, date string) (*Appointment, error) {
-	list, err := s.appts.FindMany(ctx, tenantID,
-		bson.M{"doctor_id": doctorID, "date": date, "status": Arrived})
-	if err != nil || len(list) == 0 {
-		return nil, err
-	}
-	best := list[0]
-	for _, a := range list[1:] {
-		if a.QueueNo < best.QueueNo {
-			best = a
-		}
-	}
-	return &best, nil
-}
-
-// Position 排位：serving=0（正在就诊），候诊=前面人数+1，其他状态=-1。
+// Position 排位：候诊=前面人数+1（1 即下一位就到自己），其他状态=-1。
 func (s *Service) Position(ctx context.Context, tenantID, id bson.ObjectID) int {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return -1
 	}
 	switch a.Status {
-	case Serving:
-		return 0
 	case Arrived:
 		n, _ := s.appts.Count(ctx, tenantID, bson.M{
 			"doctor_id": a.DoctorID, "date": a.Date, "status": Arrived,
@@ -393,16 +367,14 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id bson.ObjectID) error 
 	return err
 }
 
-// CancelUnpaid 门诊后台取消：允许未完结的预约（已预约/候诊/待缴费历史单）取消。
-// 返回 error（保留旧签名语义：曾经会作废未收单，现财务已移除）。
-// 患者端只允许取消 booked（走 Cancel），这里给后台放宽到 unpaid。
+// CancelUnpaid 门诊后台取消：允许未完结的预约（已预约/候诊）取消。
 func (s *Service) CancelUnpaid(ctx context.Context, tenantID, id bson.ObjectID) error {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return err
 	}
 	switch a.Status {
-	case Booked, Arrived, Unpaid:
+	case Booked, Arrived:
 	default:
 		return ErrBadStatus
 	}
@@ -413,108 +385,6 @@ func (s *Service) CancelUnpaid(ctx context.Context, tenantID, id bson.ObjectID) 
 	}
 	if matched == 0 {
 		return ErrBadStatus
-	}
-	return nil
-}
-
-// Complete 开单：仅就诊中（serving）可开单，不许跳过叫号。
-// 优先按明细结算，否则沿用预约存量明细，再否则用手工 charge（仅记录金额，不收钱）。
-// 开诊疗单（病历记录）+ 预约落已完成；单号 CH- 由序号器发出。
-// 幂等：并发第二人/崩溃重试命中诊疗单唯一索引后走修复（补翻预约），直接成功。
-// 返回下一位患者姓名（无则空）。
-func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID, items []ApptItem, charge float64, diagnosis, result, by string) (string, error) {
-	// 同预约串行化：查（状态）算（总额）写（诊疗单+翻转）一气呵成，
-	// 并发第二人等第一人落完再读到 done，直接幂等成功
-	unlock := s.stripe("complete:" + id.Hex())
-	defer unlock()
-	a, err := s.appts.FindByID(ctx, tenantID, id)
-	if err != nil {
-		return "", err
-	}
-	if a.Status == Done {
-		// 已开过：幂等成功（刷新/双击/重试）
-		return "", nil
-	}
-	if a.Status != Serving {
-		return "", ErrBadStatus
-	}
-	finalItems := a.Items
-	summary := a.Item
-	total := charge
-	if len(items) > 0 {
-		filled, sum, t, err := s.fillItems(ctx, tenantID, items)
-		if err != nil {
-			return "", err
-		}
-		finalItems, summary, total = filled, sum, t
-	} else if len(a.Items) > 0 {
-		var t float64
-		for _, it := range a.Items {
-			t += it.Amount
-		}
-		total = t
-	}
-	if total < 0 {
-		return "", errors.New("收费额不能为负")
-	}
-	tItems := make([]treatment.Item, 0, len(finalItems))
-	for _, it := range finalItems {
-		tItems = append(tItems, treatment.Item{
-			ServiceID: it.ServiceID, Name: it.Name, Qty: it.Qty, Price: it.Price, Amount: it.Amount,
-		})
-	}
-	billNo, err := s.seq.Next(ctx, tenantID, "CH")
-	if err != nil {
-		return "", err
-	}
-	t := &treatment.Treatment{
-		ApptID: a.ID, PatientID: a.PatientID, PatientName: a.PatientName,
-		DoctorID: a.DoctorID, Doctor: a.Doctor, Date: a.Date, Slot: a.Slot,
-		Item: summary, Items: tItems, Diagnosis: diagnosis, Result: result,
-		Total: total, BillNo: billNo, Status: treatment.Billed,
-	}
-	if err := s.treatments.Insert(ctx, tenantID, t); err != nil {
-		if err == treatment.ErrExists {
-			// 并发第二人/崩溃重试：补齐预约翻转，直接成功
-			return "", s.repairComplete(ctx, tenantID, a)
-		}
-		return "", err
-	}
-	// 预约落已完成 + 显示快照（列表/旧读数用，权威值在诊疗单）
-	snap := bson.M{"status": Done, "items": finalItems, "item": summary,
-		"diagnosis": diagnosis, "result": result}
-	if _, err := s.appts.UpdateWhere(ctx, tenantID,
-		bson.M{"_id": id, "status": Serving}, snap); err != nil {
-		return "", err
-	}
-	// 下一位只提示、不自动流转：前台点叫号播报后再点就诊
-	next, err := s.nextInLine(ctx, tenantID, a.DoctorID, a.Date)
-	if err != nil || next == nil {
-		return "", nil
-	}
-	return next.PatientName, nil
-}
-
-// repairComplete 开单修复：诊疗单已存在时补齐预约翻转（幂等）。
-func (s *Service) repairComplete(ctx context.Context, tenantID bson.ObjectID, a *Appointment) error {
-	t, err := s.treatments.ByAppt(ctx, tenantID, a.ID)
-	if err != nil || t == nil {
-		return ErrBadStatus
-	}
-	snap := bson.M{"status": Done, "items": a.Items, "item": t.Item,
-		"diagnosis": t.Diagnosis, "result": t.Result}
-	matched, err := s.appts.UpdateWhere(ctx, tenantID,
-		bson.M{"_id": a.ID, "status": Serving}, snap)
-	if err != nil {
-		return err
-	}
-	if matched == 0 {
-		// 预约已不在 serving：done 即成功，其他状态报状态错
-		if cur, ferr := s.appts.FindByID(ctx, tenantID, a.ID); ferr != nil {
-			return ferr
-		} else if cur.Status != Done {
-			return ErrBadStatus
-		}
 	}
 	return nil
 }

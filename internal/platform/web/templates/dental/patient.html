@@ -25,15 +25,14 @@
             </table>
           </div></div>
           <div class="card mt-3"><div class="card-body">
-            <h6>就诊记录</h6>
+            <h6>预约记录</h6>
             <div class="table-responsive"><table class="table table-sm mb-0">
-              <thead><tr><th>日期</th><th>项目</th><th>医生</th><th>操作</th></tr></thead>
+              <thead><tr><th>日期时段</th><th>项目</th><th>医生</th><th>状态</th></tr></thead>
               <tbody>
               {{range .Data.Appts}}
-              <tr><td>{{.Date}} {{.Slot}}</td><td>{{.DisplayItem}}</td><td>{{.Doctor}}</td>
-                <td><a class="btn btn-sm btn-outline-primary text-nowrap" href="/app/appointments/{{hex .ID}}/bill">查看诊疗单</a></td></tr>
+              <tr><td>{{.Date}} {{.Slot}}</td><td>{{.DisplayItem}}</td><td>{{.Doctor}}</td><td>{{.StatusName}}</td></tr>
               {{else}}
-              <tr><td colspan="4" class="text-muted">暂无就诊记录</td></tr>
+              <tr><td colspan="4" class="text-muted">暂无预约记录</td></tr>
               {{end}}
               </tbody>
             </table></div>

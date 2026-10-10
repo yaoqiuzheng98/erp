@@ -16,7 +16,7 @@
       <span class="badge {{.Badge}}">{{.StatusName}}</span>
     </div>
     <div class="small text-muted">{{.Doctor}} · {{.DisplayItem}}</div>
-    {{if gt $pos 0}}<div class="small text-info">前面还有 {{$pos}} 位，请稍候</div>{{else if eq $pos 0}}<div class="small text-success">正在就诊，请入内</div>{{end}}
+    {{if gt $pos 0}}<div class="small text-info">前面还有 {{$pos}} 位，请稍候</div>{{end}}
     {{if eq .Status "booked"}}
     <form method="post" action="/p/{{$.Data.Tid}}/appointments/{{hex .ID}}/cancel" class="mt-1"
           onsubmit="return confirm('确认取消这次预约？')">

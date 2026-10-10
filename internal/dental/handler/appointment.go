@@ -27,12 +27,9 @@ func (h *Handler) registerAppointment(g *gin.RouterGroup) {
 	})
 	g.GET("/appointments", mw.RequirePerm("appt.read"), h.appointments)
 	g.POST("/appointments", mw.RequirePerm("appt.write"), h.createAppt)
-	g.GET("/appointments/:id/bill", mw.RequirePerm("appt.read"), h.billPage)
 	g.POST("/appointments/:id/checkin", mw.RequirePerm("appt.write"), h.checkin)
 	// 兼容旧版缓存页面上的 /arrive 入口（行为同签到）。
 	g.POST("/appointments/:id/arrive", mw.RequirePerm("appt.write"), h.checkin)
-	g.POST("/appointments/:id/serve", mw.RequirePerm("appt.write"), h.serve)
-	g.POST("/appointments/:id/done", mw.RequirePerm("appt.write"), h.done)
 	g.POST("/appointments/:id/noshow", mw.RequirePerm("appt.write"), h.noshow)
 	g.POST("/appointments/:id/cancel", mw.RequirePerm("appt.write"), h.cancel)
 }
@@ -248,20 +245,6 @@ func (h *Handler) createAppt(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
-// billPage 诊疗单据页：明细 + 开单完成，可打印。
-func (h *Handler) billPage(c *gin.Context) {
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	tid := mw.TenantID(c)
-	a, err := h.appts.ByID(c.Request.Context(), tid, id)
-	if err != nil {
-		c.String(http.StatusNotFound, "单据不存在")
-		return
-	}
-	p, _ := h.pats.ByID(c.Request.Context(), tid, a.PatientID)
-	items, _ := h.items.List(c.Request.Context(), tid, true)
-	web.Render(c, h.e, "dental/bill", gin.H{"A": a, "P": p, "Services": items})
-}
-
 // checkin 前台签到：报手机号找到单 → 分配医生 + 排号。
 func (h *Handler) checkin(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
@@ -280,36 +263,6 @@ func queueNo(no int) string {
 		return ""
 	}
 	return strconv.Itoa(no) + "号"
-}
-
-// serve 开始就诊：候诊 → 就诊中。
-func (h *Handler) serve(c *gin.Context) {
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	if err := h.appts.StartServe(c.Request.Context(), mw.TenantID(c), id); err != nil {
-		web.SetFlash(c, "操作失败: "+err.Error())
-	} else {
-		h.audit(c, audit.ActApptServe, id.Hex(), "")
-		web.SetFlash(c, "已开始就诊")
-	}
-	c.Redirect(http.StatusFound, "/app/appointments")
-}
-
-func (h *Handler) done(c *gin.Context) {
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	charge, _ := strconv.ParseFloat(c.PostForm("charge"), 64)
-	items := parseApptItems(c)
-	next, err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge,
-		c.PostForm("diagnosis"), c.PostForm("result"), mw.User(c).Name)
-	if err != nil {
-		web.SetFlash(c, "操作失败: "+err.Error())
-	} else if next != "" {
-		h.audit(c, audit.ActApptComplete, id.Hex(), "")
-		web.SetFlash(c, "已开单，下一位："+next+"，请叫号")
-	} else {
-		h.audit(c, audit.ActApptComplete, id.Hex(), "")
-		web.SetFlash(c, "已开单")
-	}
-	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
 func (h *Handler) noshow(c *gin.Context) {

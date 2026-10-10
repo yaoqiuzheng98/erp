@@ -9,15 +9,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-// 预约状态机：booked → arrived(候诊) → serving(就诊中) → unpaid(待缴费) → done；
-// 分支 noshow / cancel。签到分配医生+排号；叫号只前端播报；点就诊进就诊中；
-// 开单（unpaid）仅就诊中可做；前台收清后翻 done。
+// 预约状态机：booked → arrived(候诊，含排号)；分支 noshow / cancel。
+// 签到后前台人工接诊，流程即结束（无叫号/就诊/开单环节）。
 const (
 	Booked  = "booked"
 	Arrived = "arrived"
-	Serving = "serving"
-	Unpaid  = "unpaid"
-	Done    = "done"
 	NoShow  = "noshow"
 	Cancel  = "cancel"
 )
@@ -41,8 +37,6 @@ type Appointment struct {
 	Date        string        `bson:"date"` // YYYY-MM-DD
 	Slot        string        `bson:"slot"` // HH:MM
 	Item        string        `bson:"item"` // 自由文本兜底（无价目时填）
-	Diagnosis   string        `bson:"diagnosis,omitempty"` // 病情分析/诊断（开单时填）
-	Result      string        `bson:"result,omitempty"`    // 诊疗结果（开单时填）
 	Items       []ApptItem    `bson:"items,omitempty"`
 	QueueNo     int           `bson:"queue_no,omitempty"` // 当天当医生排号（签到分配）
 	Status      string        `bson:"status"`
@@ -126,9 +120,6 @@ type statusMeta struct{ Name, Badge string }
 var statusMetas = map[string]statusMeta{
 	Booked:  {"已预约", "bg-primary"},
 	Arrived: {"候诊中", "bg-info text-dark"},
-	Serving: {"就诊中", "bg-success"},
-	Unpaid:  {"待缴费", "bg-warning text-dark"},
-	Done:    {"已完成", "bg-secondary"},
 	NoShow:  {"爽约", "bg-warning text-dark"},
 	Cancel:  {"已取消", "bg-secondary"},
 }
