@@ -9,11 +9,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-// 预约状态机：booked → arrived(候诊，含排号)；分支 noshow / cancel。
-// 签到后前台人工接诊，流程即结束（无叫号/就诊/开单环节）。
+// 预约状态机：booked(预约) → arrived(签到/候诊) → done(完成，前台线下接诊后标记)；
+// 分支 noshow(爽约) / cancel(取消)。
 const (
 	Booked  = "booked"
 	Arrived = "arrived"
+	Done    = "done"
 	NoShow  = "noshow"
 	Cancel  = "cancel"
 )
@@ -119,6 +120,7 @@ type statusMeta struct{ Name, Badge string }
 var statusMetas = map[string]statusMeta{
 	Booked:  {"已预约", "bg-primary"},
 	Arrived: {"候诊中", "bg-info text-dark"},
+	Done:    {"已完成", "bg-success"},
 	NoShow:  {"爽约", "bg-warning text-dark"},
 	Cancel:  {"已取消", "bg-secondary"},
 }

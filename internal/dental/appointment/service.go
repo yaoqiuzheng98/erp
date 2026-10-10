@@ -303,6 +303,12 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (stri
 	return docName, nil
 }
 
+// Complete 完成：前台线下接诊完手动标记，arrived → done。
+func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID) error {
+	_, err := s.setStatus(ctx, tenantID, id, []string{Arrived}, Done)
+	return err
+}
+
 func (s *Service) NoShow(ctx context.Context, tenantID, id bson.ObjectID) error {
 	_, err := s.setStatus(ctx, tenantID, id, []string{Booked}, NoShow)
 	return err

@@ -13,6 +13,10 @@
     <button class="btn btn-sm btn-outline-danger">取消</button></form>
   {{end}}
   {{if eq $a.Status "arrived"}}
+  <form method="post" action="/app/appointments/{{hex $a.ID}}/done" class="m-0"
+        onsubmit="return confirm('确认已完成本次接诊？')">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button class="btn btn-sm btn-outline-success">完成</button></form>
   <form method="post" action="/app/appointments/{{hex $a.ID}}/cancel" class="m-0"
         onsubmit="return confirm('确认取消该预约？')">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
