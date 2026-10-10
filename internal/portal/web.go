@@ -95,11 +95,15 @@ func (h *Web) logout(c *gin.Context) {
 
 // teamMember 首页团队成员（与 home 模板字段对应）。
 type teamMember struct {
-	Name   string
-	Roles  string
-	Bio    string
-	Avatar string
-	Order  int
+	Name      string
+	Roles     string
+	Bio       string
+	Avatar    string
+	Order     int
+	Title     string
+	Years     int
+	Specialty string
+	Tags      []string
 }
 
 // teamMembers 首页可见团队：全部在职、有角色、未隐藏的成员，按排序号展示。
@@ -123,7 +127,8 @@ func teamMembers(ctx context.Context, e *env.Env, tid bson.ObjectID) []teamMembe
 				rn = append(rn, n)
 			}
 		}
-		team = append(team, teamMember{Name: u.Name, Roles: strings.Join(rn, "·"), Bio: u.Bio, Avatar: u.Avatar, Order: u.HomeOrder})
+		team = append(team, teamMember{Name: u.Name, Roles: strings.Join(rn, "·"), Bio: u.Bio, Avatar: u.Avatar, Order: u.HomeOrder,
+			Title: u.Title, Years: u.Years, Specialty: u.Specialty, Tags: u.Tags})
 	}
 	auth.SortByWeight(team,
 		func(m teamMember) int { return m.Order },

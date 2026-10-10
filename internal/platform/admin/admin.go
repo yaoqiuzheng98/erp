@@ -78,6 +78,21 @@ func (h *Handler) scopedRoleIDs(c *gin.Context) []bson.ObjectID {
 	return out
 }
 
+// splitTags 擅长标签：逗号/顿号/空格分隔，去空去重。
+func splitTags(s string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, t := range strings.FieldsFunc(s, func(r rune) bool {
+		return r == ',' || r == '，' || r == '、' || r == ' ' || r == '\n'
+	}) {
+		if t != "" && !seen[t] {
+			seen[t] = true
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 // ---------- 员工 ----------
 
 func (h *Handler) usersPage(c *gin.Context) {
@@ -89,12 +104,18 @@ func (h *Handler) usersPage(c *gin.Context) {
 }
 
 func (h *Handler) createUser(c *gin.Context) {
+	tags := splitTags(c.PostForm("tags"))
+	years, _ := strconv.Atoi(c.PostForm("years"))
 	u := &auth.User{
 		Name:        c.PostForm("name"),
 		Phone:       c.PostForm("phone"),
 		RoleIDs:     h.scopedRoleIDs(c),
 		IsTenantAdm: c.PostForm("is_admin") == "on",
 		Bio:         c.PostForm("bio"),
+		Title:       strings.TrimSpace(c.PostForm("title")),
+		Years:       years,
+		Specialty:   strings.TrimSpace(c.PostForm("specialty")),
+		Tags:        tags,
 	}
 	if err := h.e.Auth.Create(c.Request.Context(), mw.TenantID(c), u, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
@@ -153,6 +174,7 @@ func (h *Handler) updateUser(c *gin.Context) {
 	}
 	isAdm := c.PostForm("is_admin") == "on"
 	// 护栏：不能取消自己的管理员身份，也不能取消最后一个管理员
+	years, _ := strconv.Atoi(c.PostForm("years"))
 	if me := mw.User(c); me != nil && id == me.ID && !isAdm {
 		web.SetFlash(c, "不能取消自己的管理员身份")
 		c.Redirect(http.StatusFound, "/admin/users")
@@ -169,6 +191,10 @@ func (h *Handler) updateUser(c *gin.Context) {
 		"name":            c.PostForm("name"),
 		"phone":           c.PostForm("phone"),
 		"bio":             c.PostForm("bio"),
+		"title":           strings.TrimSpace(c.PostForm("title")),
+		"years":           years,
+		"specialty":       strings.TrimSpace(c.PostForm("specialty")),
+		"tags":            splitTags(c.PostForm("tags")),
 		"role_ids":        h.scopedRoleIDs(c),
 		"status":          status,
 		"is_tenant_admin": isAdm,

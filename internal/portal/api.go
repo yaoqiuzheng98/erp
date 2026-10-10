@@ -248,11 +248,11 @@ func (h *API) team(c *gin.Context) {
 	list := teamMembers(c.Request.Context(), h.e, tid)
 	out := make([]gin.H, 0, len(list))
 	for _, m := range list {
-		if m.Avatar != "" {
-			out = append(out, gin.H{"name": m.Name, "roles": m.Roles, "bio": m.Bio, "avatar": m.Avatar})
-		} else {
-			out = append(out, gin.H{"name": m.Name, "roles": m.Roles, "bio": m.Bio})
-		}
+		out = append(out, gin.H{
+			"name": m.Name, "roles": m.Roles, "bio": m.Bio,
+			"avatar": m.Avatar, "title": m.Title, "years": m.Years,
+			"specialty": m.Specialty, "tags": m.Tags,
+		})
 	}
 	ok(c, out)
 }
