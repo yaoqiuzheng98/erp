@@ -4,11 +4,9 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"erp/internal/dental/appointment"
-	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
@@ -26,12 +24,10 @@ type Web struct {
 	e     *env.Env
 	pats  *patient.Service
 	appts *appointment.Service
-	items *catalog.Service
 }
 
-func NewWeb(e *env.Env, pats *patient.Service, appts *appointment.Service,
-	items *catalog.Service) *Web {
-	return &Web{e: e, pats: pats, appts: appts, items: items}
+func NewWeb(e *env.Env, pats *patient.Service, appts *appointment.Service) *Web {
+	return &Web{e: e, pats: pats, appts: appts}
 }
 
 func (h *Web) Register(g *gin.RouterGroup) {
@@ -40,7 +36,6 @@ func (h *Web) Register(g *gin.RouterGroup) {
 	g.POST("/logout", h.logout)
 	g.GET("", h.requirePatient, h.home)
 	g.GET("/", h.requirePatient, h.home)
-	g.GET("/services", h.services)
 	g.GET("/gallery/:id", h.gallery)
 	g.GET("/book", h.requirePatient, h.bookPage)
 	g.POST("/book", h.requirePatient, h.book)
@@ -205,11 +200,6 @@ func (h *Web) apptsPage(c *gin.Context) {
 	})
 }
 
-func (h *Web) services(c *gin.Context) {
-	list, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
-	web.Render(c, h.e, "portal/services", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "services", "Rows": list})
-}
-
 func (h *Web) bookPage(c *gin.Context) {
 	doctors, _ := h.e.Auth.ListPractitioners(c.Request.Context(), mw.TenantID(c))
 	slotMinutes := appointment.DefaultSlotMinutes
@@ -235,7 +225,6 @@ func (h *Web) book(c *gin.Context) {
 	a := &appointment.Appointment{
 		PatientID: p.ID, DoctorID: docID,
 		Date: c.PostForm("date"), Slot: c.PostForm("slot"), Item: c.PostForm("item"),
-		Items: parseItems(c),
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {
@@ -243,36 +232,13 @@ func (h *Web) book(c *gin.Context) {
 	}
 	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity); err != nil {
 		slog.Error("portal book failed", "tenant", p.TenantID.Hex(), "patient", p.ID.Hex(),
-			"doctor", a.DoctorID.Hex(), "date", a.Date, "slot", a.Slot,
-			"items", len(a.Items), "err", err)
+			"doctor", a.DoctorID.Hex(), "date", a.Date, "slot", a.Slot, "err", err)
 		web.SetFlash(c, "预约失败: "+err.Error())
 		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/book")
 		return
 	}
 	web.SetFlash(c, "预约成功，请按时到诊")
 	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/appointments")
-}
-
-// parseItems 解析 service_id[] + qty_<hex>（与门诊后台同款）。
-func parseItems(c *gin.Context) []appointment.ApptItem {
-	ids := c.PostFormArray("service_id")
-	var out []appointment.ApptItem
-	for _, sid := range ids {
-		oid, err := bson.ObjectIDFromHex(sid)
-		if err != nil || oid.IsZero() {
-			continue
-		}
-		qty := 1.0
-		if v := c.PostForm("qty_" + sid); v != "" {
-			if q, err := strconv.ParseFloat(v, 64); err == nil && q > 0 {
-				qty = q
-			} else {
-				continue
-			}
-		}
-		out = append(out, appointment.ApptItem{ServiceID: oid, Qty: qty})
-	}
-	return out
 }
 
 func (h *Web) cancel(c *gin.Context) {

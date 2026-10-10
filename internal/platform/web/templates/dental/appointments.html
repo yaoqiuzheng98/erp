@@ -59,21 +59,8 @@
                   {{range .Data.Doctors}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
                 </select></div>
             </div>
-            <div class="mt-2"><label class="form-label">诊疗项目（价目表勾选，不选则填下行备注）</label>
-              <div class="border rounded p-2 d-flex flex-wrap gap-2" style="max-height:12em;overflow:auto">
-                {{range .Data.Services}}
-                <label class="form-check form-check-inline m-0 border rounded px-2 py-1 bg-light">
-                  <input class="form-check-input" type="checkbox" name="service_id" value="{{hex .ID}}">
-                  {{.Name}} ¥{{printf "%.2f" .Price}}/{{.Unit}}
-                  <input class="form-control form-control-sm d-inline ms-1" name="qty_{{hex .ID}}"
-                         type="number" min="1" step="1" value="1" style="width:4em" title="数量">
-                </label>
-                {{else}}
-                <span class="text-muted small">暂无价目，先去<a href="/app/services">价目表</a>维护</span>
-                {{end}}
-              </div></div>
-            <div class="mt-2"><label class="form-label">备注/临时项目</label>
-              <input class="form-control form-control-sm" name="item" placeholder="无价目时填"></div>
+            <div class="mt-2"><label class="form-label">主诉/就诊事由</label>
+              <input class="form-control form-control-sm" name="item" required></div>
           </div>
           <div class="modal-footer"><button class="btn btn-sm btn-primary">预约</button></div>
         </form>
@@ -121,8 +108,7 @@
                 <span class="badge {{.Badge}}">{{.StatusName}}</span>
               </div>
               <div class="small mt-1"><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>
-                <span class="text-muted">{{.Doctor}} · {{.DisplayItem}}</span></div>
-              {{if .Items}}<div class="small text-muted">{{range .Items}}{{.Name}}x{{.Qty}} ¥{{printf "%.2f" .Amount}}<br>{{end}}</div>{{end}}
+                <span class="text-muted">{{.Doctor}} · {{.Item}}</span></div>
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}

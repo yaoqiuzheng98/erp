@@ -6,11 +6,9 @@ import (
 	"hash/fnv"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/repo"
@@ -32,7 +30,6 @@ type Service struct {
 	seq   *seqno.Generator
 	appts *repo.TenantRepo[Appointment]
 	pats  *patient.Service
-	items *catalog.Service
 	users *auth.Service
 	// stripes 同键串行锁（防并发重约）：key 越细粒度并发越高，
 	// 同 key 同时只进一个。单实例部署有效（compose 单副本），扩多副本换分布式锁。
@@ -50,51 +47,11 @@ func (s *Service) stripe(key string) func() {
 
 // New 装配预约服务；医生即"可接诊的在职员工"（用户）。
 func New(db *mongo.Database, seq *seqno.Generator,
-	pats *patient.Service, items *catalog.Service, users *auth.Service) *Service {
+	pats *patient.Service, users *auth.Service) *Service {
 	return &Service{
 		db: db, seq: seq, appts: repo.NewTenantRepo[Appointment](db, "appointments"),
-		pats: pats, items: items, users: users,
+		pats: pats, users: users,
 	}
-}
-
-// fillItems 按价目表回填明细快照（防前端改价），并汇总显示串与合计。
-func (s *Service) fillItems(ctx context.Context, tenantID bson.ObjectID, in []ApptItem) ([]ApptItem, string, float64, error) {
-	out := make([]ApptItem, 0, len(in))
-	var total float64
-	names := []string{}
-	for _, l := range in {
-		if l.Qty <= 0 {
-			continue
-		}
-		if l.ServiceID.IsZero() {
-			// 手工项：名称必填，单价以传入为准
-			if l.Name == "" || l.Price < 0 {
-				continue
-			}
-			amt := l.Qty * l.Price
-			out = append(out, ApptItem{
-				Name: l.Name, Qty: l.Qty, Price: l.Price, Amount: amt,
-			})
-			total += amt
-			names = append(names, l.Name)
-			continue
-		}
-		si, err := s.items.ByID(ctx, tenantID, l.ServiceID)
-		if err != nil {
-			return nil, "", 0, errors.New("价目项目不存在")
-		}
-		if si.Status != "active" {
-			return nil, "", 0, errors.New("项目已停用：" + si.Name)
-		}
-		amt := l.Qty * si.Price
-		out = append(out, ApptItem{
-			ServiceID: si.ID, Name: si.Name,
-			Qty: l.Qty, Price: si.Price, Amount: amt,
-		})
-		total += amt
-		names = append(names, si.Name)
-	}
-	return out, strings.Join(names, "、"), total, nil
 }
 
 func (s *Service) doctorName(ctx context.Context, tenantID, doctorID bson.ObjectID) (string, error) {
@@ -145,13 +102,6 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		}); n >= int64(capacity) {
 			return errors.New("该时段已约满，换个时间试试")
 		}
-	}
-	if len(a.Items) > 0 {
-		items, summary, _, err := s.fillItems(ctx, tenantID, a.Items)
-		if err != nil {
-			return err
-		}
-		a.Items, a.Item = items, summary
 	}
 	a.TenantID, a.Status, a.CreatedAt = tenantID, Booked, time.Now()
 	id, err := s.appts.Insert(ctx, tenantID, a)

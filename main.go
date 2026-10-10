@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"erp/internal/dental/appointment"
-	"erp/internal/dental/catalog"
 	"erp/internal/dental/handler"
 	"erp/internal/dental/patient"
 	"erp/internal/platform/attach"
@@ -61,9 +60,8 @@ func main() {
 	}
 	// 业务服务直连装配（员工即 e.Auth 用户）
 	patSvc := patient.New(d.Database)
-	catalogSvc := catalog.New(d.Database)
-	apptSvc := appointment.New(d.Database, e.Seq, patSvc, catalogSvc, e.Auth)
-	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, e.Auth)
+	apptSvc := appointment.New(d.Database, e.Seq, patSvc, e.Auth)
+	dentalHandler := handler.New(e, patSvc, apptSvc, e.Auth)
 
 	// 唯一索引（幂等）
 	usersCol := d.Database.Collection("users")
@@ -106,7 +104,7 @@ func main() {
 
 	r := httpserver.Build(e, httpserver.Services{
 		Dental: dentalHandler,
-		Patients: patSvc, Appts: apptSvc, Catalog: catalogSvc,
+		Patients: patSvc, Appts: apptSvc,
 	}, tpl)
 	slog.Info("dental listening", "addr", cfg.Server.Addr)
 	if err := r.Run(cfg.Server.Addr); err != nil {

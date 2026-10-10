@@ -62,7 +62,7 @@ func (t *Tenant) SlotConfig() (minutes, capacity int) {
 
 // tenantCollections 带 tenant_id 的租户级集合；新增集合时同步维护。
 var tenantCollections = []string{
-	"users", "roles", "patients", "appointments", "service_items",
+	"users", "roles", "patients", "appointments",
 	"bills", "payments", "sessions", "notifications", "audit_logs",
 }
 

@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
-	"strings"
 
 	"erp/internal/dental/appointment"
 	"erp/internal/platform/audit"
@@ -148,7 +147,6 @@ func (h *Handler) appointments(c *gin.Context) {
 	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), doctorHex, phone)
 	todayQ := weekQuery(tz.Today(), doctorHex, phone)
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
-	items, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
 	doctors, _ := h.users.ListPractitioners(c.Request.Context(), mw.TenantID(c))
 	slotMinutes := appointment.DefaultSlotMinutes
 	if t := mw.Tenant(c); t != nil {
@@ -159,65 +157,9 @@ func (h *Handler) appointments(c *gin.Context) {
 		"WeekTotal": len(list), "WeekMonday": days[0],
 		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
 		"DoctorID": doctorHex, "Phone": phone,
-		"Patients": pats, "Services": items, "Doctors": doctors,
+		"Patients": pats, "Doctors": doctors,
 		"Slots": appointment.DaySlots(slotMinutes),
 	})
-}
-
-// parseApptItems 解析明细表单：service_id[] 多选 + qty_<hex> 数量。
-func parseApptItems(c *gin.Context) []appointment.ApptItem {
-	ids := c.PostFormArray("service_id")
-	qtys := c.PostFormArray("qty")
-	var out []appointment.ApptItem
-	for i, sid := range ids {
-		oid, err := bson.ObjectIDFromHex(sid)
-		if err != nil || oid.IsZero() {
-			continue
-		}
-		qty := 1.0
-		if v := c.PostForm("qty_" + sid); v != "" {
-			if q, err := strconv.ParseFloat(v, 64); err == nil && q > 0 {
-				qty = q
-			} else {
-				continue
-			}
-		} else if i < len(qtys) && len(qtys) == len(ids) {
-			if q, err := strconv.ParseFloat(qtys[i], 64); err == nil && q > 0 {
-				qty = q
-			} else if qtys[i] != "" {
-				continue
-			}
-		}
-		out = append(out, appointment.ApptItem{ServiceID: oid, Qty: qty})
-	}
-	// 手工项（不在价目表）：三数组按序对齐，名称必填。
-	names := c.PostFormArray("manual_name")
-	mqtys := c.PostFormArray("manual_qty")
-	mprices := c.PostFormArray("manual_price")
-	for i, nm := range names {
-		nm = strings.TrimSpace(nm)
-		if nm == "" {
-			continue
-		}
-		qty := 1.0
-		if i < len(mqtys) {
-			if q, err := strconv.ParseFloat(mqtys[i], 64); err == nil && q > 0 {
-				qty = q
-			} else {
-				continue
-			}
-		}
-		price := 0.0
-		if i < len(mprices) {
-			if p, err := strconv.ParseFloat(mprices[i], 64); err == nil && p >= 0 {
-				price = p
-			} else {
-				continue
-			}
-		}
-		out = append(out, appointment.ApptItem{Name: nm, Qty: qty, Price: price})
-	}
-	return out
 }
 
 func (h *Handler) createAppt(c *gin.Context) {
@@ -226,8 +168,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 	a := &appointment.Appointment{
 		PatientID: patID, DoctorID: docID,
 		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
-		Item:  c.PostForm("item"), // 老单自由文本兜底；新单以明细为准
-		Items: parseApptItems(c),
+		Item: c.PostForm("item"),
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {

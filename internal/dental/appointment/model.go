@@ -17,15 +17,6 @@ const (
 	Cancel = "cancel"
 )
 
-// ApptItem 预约/结算明细行：下单时快照 Name/Price，防价目改价影响历史单。
-type ApptItem struct {
-	ServiceID bson.ObjectID `bson:"service_id"`
-	Name      string        `bson:"name"`
-	Qty       float64       `bson:"qty"`
-	Price     float64       `bson:"price"`
-	Amount    float64       `bson:"amount"` // Qty*Price
-}
-
 // Appointment 预约（按医生/时段排）。
 type Appointment struct {
 	model.Doc   `bson:",inline"`
@@ -35,41 +26,8 @@ type Appointment struct {
 	Doctor      string        `bson:"doctor"` // 接诊医生快照（签到时最终确定）
 	Date        string        `bson:"date"` // YYYY-MM-DD
 	Slot        string        `bson:"slot"` // HH:MM
-	Item        string        `bson:"item"` // 自由文本兜底（无价目时填）
-	Items       []ApptItem    `bson:"items,omitempty"`
+	Item        string        `bson:"item"` // 主诉/就诊事由
 	Status      string        `bson:"status"`
-}
-
-// DisplayItem 列表展示用：有明细显示明细名，否则回落 Item。
-func (a Appointment) DisplayItem() string {
-	if len(a.Items) > 0 {
-		names := make([]string, 0, len(a.Items))
-		for _, it := range a.Items {
-			if it.Qty > 1 {
-				names = append(names, it.Name+"x"+trimNum(it.Qty))
-			} else {
-				names = append(names, it.Name)
-			}
-		}
-		s := ""
-		for i, n := range names {
-			if i > 0 {
-				s += "、"
-			}
-			s += n
-		}
-		return s
-	}
-	return a.Item
-}
-
-// Total 明细合计。
-func (a Appointment) Total() float64 {
-	var s float64
-	for _, it := range a.Items {
-		s += it.Amount
-	}
-	return s
 }
 
 // 放号档位默认值：半小时一档，每档 1 人（租户在门诊设置改）。

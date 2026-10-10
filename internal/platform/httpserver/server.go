@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"erp/internal/dental/appointment"
-	"erp/internal/dental/catalog"
 	dental "erp/internal/dental/handler"
 	"erp/internal/dental/patient"
 	"erp/internal/platform/admin"
@@ -24,7 +23,6 @@ type Services struct {
 	Dental   *dental.Handler
 	Patients *patient.Service
 	Appts    *appointment.Service
-	Catalog  *catalog.Service
 }
 
 func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
@@ -97,7 +95,7 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 
 	// ---------- 患者端 H5 /p/:tid（公开 + 患者会话） ----------
 	guard := portal.NewGuard(e, svc.Patients)
-	portal.NewWeb(e, svc.Patients, svc.Appts, svc.Catalog).Register(
+	portal.NewWeb(e, svc.Patients, svc.Appts).Register(
 		r.Group("/p/:tid", portal.TenantByID(e), guard.RateLimit(300), guard.PatientAuth(), mw.CSRF()),
 	)
 
@@ -105,7 +103,7 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 	api := r.Group("/api/p/:tid", portal.TenantByID(e), portal.CORS(), guard.RateLimit(300), guard.PatientAuth())
 	// 预检必须有显式路由，否则 Gin 直接 404，组中间件（含 CORS）跑不到。
 	api.OPTIONS("/*any", func(c *gin.Context) { c.Status(http.StatusNoContent) })
-	portal.NewAPI(e, guard, svc.Patients, svc.Appts, svc.Catalog).Register(api)
+	portal.NewAPI(e, guard, svc.Patients, svc.Appts).Register(api)
 
 	return r
 }

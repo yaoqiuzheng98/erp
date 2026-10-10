@@ -44,7 +44,6 @@ var appMenu = []menu.Item{
 	{ID: "dental", Title: "门诊", Icon: "✚", Children: []menu.Item{
 		{ID: "dental.patients", Title: "患者", Path: "/app/patients", Perm: "patient.read"},
 		{ID: "dental.appts", Title: "预约", Path: "/app/appointments", Perm: "appt.read"},
-		{ID: "dental.services", Title: "价目表", Path: "/app/services", Perm: "catalog.read"},
 	}},
 }
 

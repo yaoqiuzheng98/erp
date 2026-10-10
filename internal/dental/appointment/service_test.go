@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/seqno"
@@ -57,7 +56,7 @@ func testSvc(t *testing.T) (*Service, *mongo.Database, context.Context) {
 		_ = cli.Disconnect(ctx)
 	})
 	seq := seqno.New(db)
-	svc := New(db, seq, patient.New(db), catalog.New(db), auth.NewService(db))
+	svc := New(db, seq, patient.New(db), auth.NewService(db))
 	return svc, db, ctx
 }
 

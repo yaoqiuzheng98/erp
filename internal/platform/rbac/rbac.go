@@ -31,8 +31,6 @@ func Catalog() []PermissionDef {
 		{Code: "patient.write", Desc: "患者建档"},
 		{Code: "appt.read", Desc: "预约查看"},
 		{Code: "appt.write", Desc: "预约操作"},
-		{Code: "catalog.read", Desc: "价目查看"},
-		{Code: "catalog.write", Desc: "价目维护"},
 		{Code: "admin.users", Desc: "员工管理"},
 		{Code: "admin.roles", Desc: "权限角色"},
 		{Code: "admin.settings", Desc: "门诊设置"},
@@ -45,14 +43,12 @@ func defaultRoles() []Role {
 	return []Role{
 		{Name: "医生", PermCodes: []string{
 			"patient.read", "patient.write", "appt.read", "appt.write",
-			"catalog.read",
 		}},
 		{Name: "护士", PermCodes: []string{
-			"patient.read", "appt.read", "catalog.read",
+			"patient.read", "appt.read",
 		}},
 		{Name: "前台", PermCodes: []string{
 			"patient.read", "patient.write", "appt.read", "appt.write",
-			"catalog.read",
 		}},
 	}
 }

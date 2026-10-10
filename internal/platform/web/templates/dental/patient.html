@@ -30,7 +30,7 @@
               <thead><tr><th>日期时段</th><th>项目</th><th>医生</th><th>状态</th></tr></thead>
               <tbody>
               {{range .Data.Appts}}
-              <tr><td>{{.Date}} {{.Slot}}</td><td>{{.DisplayItem}}</td><td>{{.Doctor}}</td><td>{{.StatusName}}</td></tr>
+              <tr><td>{{.Date}} {{.Slot}}</td><td>{{.Item}}</td><td>{{.Doctor}}</td><td>{{.StatusName}}</td></tr>
               {{else}}
               <tr><td colspan="4" class="text-muted">暂无预约记录</td></tr>
               {{end}}

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"erp/internal/dental/appointment"
-	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
@@ -22,12 +21,10 @@ type API struct {
 	guard *Guard
 	pats  *patient.Service
 	appts *appointment.Service
-	items *catalog.Service
 }
 
-func NewAPI(e *env.Env, guard *Guard, pats *patient.Service, appts *appointment.Service,
-	items *catalog.Service) *API {
-	return &API{e: e, guard: guard, pats: pats, appts: appts, items: items}
+func NewAPI(e *env.Env, guard *Guard, pats *patient.Service, appts *appointment.Service) *API {
+	return &API{e: e, guard: guard, pats: pats, appts: appts}
 }
 
 func ok(c *gin.Context, data any) {
@@ -46,7 +43,6 @@ func (h *API) Register(g *gin.RouterGroup) {
 	g.GET("/clinic", h.clinic)
 	g.GET("/team", h.team)
 	g.GET("/doctors", h.doctors)
-	g.GET("/services", h.services)
 	g.GET("/slots", h.slots)
 	g.GET("/appointments", h.requirePatient, h.myAppointments)
 	g.POST("/appointments", h.requirePatient, h.createAppointment)
@@ -220,23 +216,6 @@ func (h *API) logout(c *gin.Context) {
 	ok(c, nil)
 }
 
-func (h *API) services(c *gin.Context) {
-	list, err := h.items.List(c.Request.Context(), mw.TenantID(c), true)
-	if err != nil {
-		fail(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	out := make([]gin.H, 0, len(list))
-	for _, it := range list {
-		out = append(out, gin.H{
-			"id": it.ID.Hex(), "name": it.Name, "category": it.Category,
-			"price": it.Price, "unit": it.Unit,
-		})
-	}
-	ok(c, out)
-}
-
-// slots 放号档位（小程序排班用）：粒度+每档人数+当天档位。
 func (h *API) slots(c *gin.Context) {
 	minutes, capacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {
@@ -308,13 +287,9 @@ func (h *API) myAppointments(c *gin.Context) {
 }
 
 func apptJSON(a appointment.Appointment) gin.H {
-	items := make([]gin.H, 0, len(a.Items))
-	for _, it := range a.Items {
-		items = append(items, gin.H{"name": it.Name, "qty": it.Qty, "price": it.Price, "amount": it.Amount})
-	}
 	return gin.H{
 		"id": a.ID.Hex(), "date": a.Date, "slot": a.Slot,
-		"doctor": a.Doctor, "item": a.DisplayItem(), "items": items,
+		"doctor": a.Doctor, "item": a.Item,
 		"status": a.Status, "status_name": a.StatusName(),
 	}
 }
@@ -324,10 +299,6 @@ type bookReq struct {
 	Date     string `json:"date"`
 	Slot     string `json:"slot"`
 	Item     string `json:"item"`
-	Lines    []struct {
-		ServiceID string  `json:"service_id"`
-		Qty       float64 `json:"qty"`
-	} `json:"lines"`
 }
 
 func (h *API) createAppointment(c *gin.Context) {
@@ -345,13 +316,6 @@ func (h *API) createAppointment(c *gin.Context) {
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
-	}
-	for _, l := range in.Lines {
-		sid, err := bson.ObjectIDFromHex(l.ServiceID)
-		if err != nil {
-			continue
-		}
-		a.Items = append(a.Items, appointment.ApptItem{ServiceID: sid, Qty: l.Qty})
 	}
 	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity); err != nil {
 		fail(c, http.StatusBadRequest, err.Error())
