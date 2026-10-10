@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"erp/internal/billing"
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
@@ -20,13 +19,12 @@ type Handler struct {
 	appts  *appointment.Service
 	items  *catalog.Service
 	users  *auth.Service
-	bill   *billing.Service
 	treats *treatment.Service
 }
 
 func New(e *env.Env, pats *patient.Service, appts *appointment.Service,
-	items *catalog.Service, users *auth.Service, bill *billing.Service, treats *treatment.Service) *Handler {
-	return &Handler{e: e, pats: pats, appts: appts, items: items, users: users, bill: bill, treats: treats}
+	items *catalog.Service, users *auth.Service, treats *treatment.Service) *Handler {
+	return &Handler{e: e, pats: pats, appts: appts, items: items, users: users, treats: treats}
 }
 
 func (h *Handler) Register(g *gin.RouterGroup) {

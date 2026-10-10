@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"erp/internal/billing"
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/catalog"
 	dental "erp/internal/dental/handler"
@@ -23,7 +22,6 @@ import (
 
 type Services struct {
 	Dental   *dental.Handler
-	Billing  *billing.Service
 	Patients *patient.Service
 	Appts    *appointment.Service
 	Catalog  *catalog.Service
@@ -86,7 +84,6 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 	app.POST("/attach", attachUpload(e))
 	app.GET("/attach/:id", attachDownload(e))
 	svc.Dental.Register(app)
-	billing.NewHandler(e, svc.Billing).Register(app.Group("/billing"))
 
 	// ---------- 租户管理区 /admin ----------
 	adm := r.Group("/admin",
@@ -100,14 +97,15 @@ func Build(e *env.Env, svc Services, tpl *template.Template) *gin.Engine {
 
 	// ---------- 患者端 H5 /p/:tid（公开 + 患者会话） ----------
 	guard := portal.NewGuard(e, svc.Patients)
-	portal.NewWeb(e, svc.Patients, svc.Appts, svc.Catalog, svc.Billing).Register(
+	portal.NewWeb(e, svc.Patients, svc.Appts, svc.Catalog).Register(
 		r.Group("/p/:tid", portal.TenantByID(e), guard.RateLimit(300), guard.PatientAuth(), mw.CSRF()),
 	)
 
-	// ---------- 患者端 JSON API /api/p/:tid（小程序预留，Bearer token） ----------
-	portal.NewAPI(e, guard, svc.Patients, svc.Appts, svc.Catalog, svc.Billing).Register(
-		r.Group("/api/p/:tid", portal.TenantByID(e), guard.RateLimit(300), guard.PatientAuth()),
-	)
+	// ---------- 患者端 JSON API /api/p/:tid（小程序 + H5 共用，Bearer token） ----------
+	api := r.Group("/api/p/:tid", portal.TenantByID(e), portal.CORS(), guard.RateLimit(300), guard.PatientAuth())
+	// 预检必须有显式路由，否则 Gin 直接 404，组中间件（含 CORS）跑不到。
+	api.OPTIONS("/*any", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	portal.NewAPI(e, guard, svc.Patients, svc.Appts, svc.Catalog).Register(api)
 
 	return r
 }

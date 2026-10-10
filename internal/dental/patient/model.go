@@ -11,6 +11,7 @@ type Patient struct {
 	Name         string `bson:"name"`
 	Phone        string `bson:"phone"`
 	PasswordHash string `bson:"password_hash,omitempty"`
+	OpenID       string `bson:"open_id,omitempty"` // 微信小程序 openId（小程序建档/登录时绑定，免密登录用）
 	Gender       string `bson:"gender"`
 	Birth        string `bson:"birth"`
 	Allergy      string `bson:"allergy"`

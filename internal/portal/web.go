@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"erp/internal/billing"
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/patient"
@@ -28,12 +27,11 @@ type Web struct {
 	pats  *patient.Service
 	appts *appointment.Service
 	items *catalog.Service
-	bill  *billing.Service
 }
 
 func NewWeb(e *env.Env, pats *patient.Service, appts *appointment.Service,
-	items *catalog.Service, bill *billing.Service) *Web {
-	return &Web{e: e, pats: pats, appts: appts, items: items, bill: bill}
+	items *catalog.Service) *Web {
+	return &Web{e: e, pats: pats, appts: appts, items: items}
 }
 
 func (h *Web) Register(g *gin.RouterGroup) {
@@ -46,14 +44,9 @@ func (h *Web) Register(g *gin.RouterGroup) {
 	g.GET("/gallery/:id", h.gallery)
 	g.GET("/book", h.requirePatient, h.bookPage)
 	g.POST("/book", h.requirePatient, h.book)
-	g.GET("/pay/:id", h.requirePatient, h.payPage)
-	g.POST("/pay/:id", h.requirePatient, h.pay)
 	g.GET("/my", h.requirePatient, h.my)
 	g.GET("/appointments", h.requirePatient, h.apptsPage)
-	g.GET("/bills", h.requirePatient, h.billsPage)
 	g.POST("/appointments/:id/cancel", h.requirePatient, h.cancel)
-	g.GET("/bills/:id", h.requirePatient, h.billPage)
-	g.POST("/bills/:id/pay", h.requirePatient, h.payBill)
 }
 
 func (h *Web) requirePatient(c *gin.Context) {
@@ -105,19 +98,6 @@ func (h *Web) logout(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/login")
 }
 
-func (h *Web) home(c *gin.Context) {
-	p := Patient(c)
-	data := gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name}
-	if t := mw.Tenant(c); t != nil {
-		data["Intro"], data["Address"] = t.Intro, t.Address
-		data["Phone"], data["Hours"] = t.Phone, t.Hours
-		data["Notice"], data["Gallery"] = t.Notice, t.Gallery
-	}
-	// 首页团队：全部在职、有角色、未隐藏的成员，按排序号展示
-	data["Team"] = h.teamMembers(c.Request.Context(), p.TenantID)
-	web.Render(c, h.e, "portal/home", data)
-}
-
 // teamMember 首页团队成员（与 home 模板字段对应）。
 type teamMember struct {
 	Name   string
@@ -128,10 +108,10 @@ type teamMember struct {
 }
 
 // teamMembers 首页可见团队：全部在职、有角色、未隐藏的成员，按排序号展示。
-// gallery 公开图接口复用同一名单做头像白名单。
-func (h *Web) teamMembers(ctx context.Context, tid bson.ObjectID) []teamMember {
-	users, _ := h.e.Auth.List(ctx, tid)
-	roles, _ := h.e.RBAC.List(ctx, tid)
+// gallery 公开图接口复用同一名单做头像白名单。SSR 模板与 JSON API 共用。
+func teamMembers(ctx context.Context, e *env.Env, tid bson.ObjectID) []teamMember {
+	users, _ := e.Auth.List(ctx, tid)
+	roles, _ := e.RBAC.List(ctx, tid)
 	roleName := map[string]string{}
 	for _, r := range roles {
 		roleName[r.ID.Hex()] = r.Name
@@ -156,6 +136,19 @@ func (h *Web) teamMembers(ctx context.Context, tid bson.ObjectID) []teamMember {
 	return team
 }
 
+func (h *Web) home(c *gin.Context) {
+	p := Patient(c)
+	data := gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name}
+	if t := mw.Tenant(c); t != nil {
+		data["Intro"], data["Address"] = t.Intro, t.Address
+		data["Phone"], data["Hours"] = t.Phone, t.Hours
+		data["Notice"], data["Gallery"] = t.Notice, t.Gallery
+	}
+	// 首页团队：全部在职、有角色、未隐藏的成员，按排序号展示
+	data["Team"] = teamMembers(c.Request.Context(), h.e, p.TenantID)
+	web.Render(c, h.e, "portal/home", data)
+}
+
 // gallery 首页公开图片（无需患者登录）：门诊图库 + 首页可见成员的大头照。
 // 白名单制：不在名单里的 ID 一律 404，防止用 ID 猜解患者影像。
 func (h *Web) gallery(c *gin.Context) {
@@ -170,7 +163,7 @@ func (h *Web) gallery(c *gin.Context) {
 			}
 		}
 		if !allowed {
-			for _, m := range h.teamMembers(c.Request.Context(), t.ID) {
+			for _, m := range teamMembers(c.Request.Context(), h.e, t.ID) {
 				if m.Avatar != "" && m.Avatar == fid {
 					allowed = true
 					break
@@ -216,19 +209,6 @@ func (h *Web) apptsPage(c *gin.Context) {
 	})
 }
 
-func (h *Web) billsPage(c *gin.Context) {
-	p := Patient(c)
-	bills, _ := h.bill.Mine(c.Request.Context(), p.TenantID, p.ID)
-	var unpaid float64
-	for _, b := range bills {
-		unpaid += b.Amount - b.PaidAmount
-	}
-	web.Render(c, h.e, "portal/bills", gin.H{
-		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name,
-		"Bills": bills, "Unpaid": unpaid,
-	})
-}
-
 func (h *Web) services(c *gin.Context) {
 	list, _ := h.items.List(c.Request.Context(), mw.TenantID(c), true)
 	web.Render(c, h.e, "portal/services", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "services", "Rows": list})
@@ -263,7 +243,6 @@ func (h *Web) book(c *gin.Context) {
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {
-		a.RegFee = t.RegFee
 		slotMinutes, slotCapacity = t.SlotConfig()
 	}
 	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity); err != nil {
@@ -274,40 +253,7 @@ func (h *Web) book(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/book")
 		return
 	}
-	if a.RegFee > 0 {
-		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/pay/"+a.ID.Hex())
-		return
-	}
 	web.SetFlash(c, "预约成功，请按时到诊")
-	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/appointments")
-}
-
-func (h *Web) payPage(c *gin.Context) {
-	p := Patient(c)
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	a, err := h.appts.ByID(c.Request.Context(), p.TenantID, id)
-	if err != nil || a.PatientID != p.ID {
-		c.String(http.StatusNotFound, "单据不存在")
-		return
-	}
-	web.Render(c, h.e, "portal/pay", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "", "A": a})
-}
-
-func (h *Web) pay(c *gin.Context) {
-	p := Patient(c)
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	a, err := h.appts.ByID(c.Request.Context(), p.TenantID, id)
-	if err != nil || a.PatientID != p.ID {
-		web.SetFlash(c, "单据不存在")
-		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/appointments")
-		return
-	}
-	if err := h.appts.PayReg(c.Request.Context(), p.TenantID, id, "mock", p.Name); err != nil {
-		web.SetFlash(c, "支付失败: "+err.Error())
-		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/pay/"+id.Hex())
-		return
-	}
-	web.SetFlash(c, "支付成功，请按时到诊")
 	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/appointments")
 }
 
@@ -348,49 +294,6 @@ func (h *Web) cancel(c *gin.Context) {
 		web.SetFlash(c, "预约已取消")
 	}
 	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/appointments")
-}
-
-func (h *Web) billPage(c *gin.Context) {
-	p := Patient(c)
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	list, _ := h.bill.Mine(c.Request.Context(), p.TenantID, p.ID)
-	for _, b := range list {
-		if b.ID == id {
-			var appt *appointment.Appointment
-			if b.RefID != "" {
-				if aid, err := bson.ObjectIDFromHex(b.RefID); err == nil {
-					appt, _ = h.appts.ByID(c.Request.Context(), p.TenantID, aid)
-				}
-			}
-			web.Render(c, h.e, "portal/bill", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "B": b, "A": appt})
-			return
-		}
-	}
-	c.String(http.StatusNotFound, "诊疗单不存在")
-}
-
-func (h *Web) payBill(c *gin.Context) {
-	p := Patient(c)
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	mine, _ := h.bill.Mine(c.Request.Context(), p.TenantID, p.ID)
-	found := false
-	for _, b := range mine {
-		if b.ID == id {
-			found = true
-		}
-	}
-	if !found {
-		web.SetFlash(c, "诊疗单不存在")
-		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/bills")
-		return
-	}
-	if err := h.bill.PayMock(c.Request.Context(), p.TenantID, id, p.Name); err != nil {
-		web.SetFlash(c, "支付失败: "+err.Error())
-		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/bills/"+id.Hex())
-		return
-	}
-	web.SetFlash(c, "支付成功")
-	c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/bills")
 }
 
 func (h *Web) my(c *gin.Context) {

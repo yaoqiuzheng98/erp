@@ -24,19 +24,9 @@
   {{end}}
   {{if eq $a.Status "unpaid"}}
   <form method="post" action="/app/appointments/{{hex $a.ID}}/cancel" class="m-0"
-        onsubmit="return confirm('该单已开单待缴费，取消将同时作废未收单据，确认取消？')">
+        onsubmit="return confirm('该单已开单，确认取消？')">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <button class="btn btn-sm btn-outline-danger">取消</button></form>
-  {{end}}
-  {{if and (gt $a.RegFee 0.0) (not $a.RegPaid) (or (eq $a.Status "booked") (eq $a.Status "arrived"))}}
-  <form method="post" action="/app/appointments/{{hex $a.ID}}/payreg" class="d-flex flex-wrap gap-1 align-items-center m-0"
-        onsubmit="return confirm('确认收挂号费 ¥{{printf "%.2f" $a.RegFee}}？')">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <select class="form-select form-select-sm" name="method" style="width:5em">
-      <option value="cash">现金</option><option value="bank">银行</option><option value="other">其他</option>
-    </select>
-    <button class="btn btn-sm btn-warning text-nowrap">收挂号费</button>
-  </form>
   {{end}}
 </div>
 {{if eq $a.Status "serving"}}
@@ -151,7 +141,7 @@
               <div class="small mt-1"><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>
                 <span class="text-muted">{{.Doctor}} · {{.DisplayItem}}</span>{{if .QueueNo}} <span class="badge bg-info text-dark">排{{.QueueNo}}号</span>{{end}}</div>
               {{if .Items}}<div class="small text-muted">{{range .Items}}{{.Name}}x{{.Qty}} ¥{{printf "%.2f" .Amount}}<br>{{end}}</div>{{end}}
-              {{if .Charge}}<div class="small"><a href="/app/appointments/{{hex .ID}}/bill">收费 ¥{{printf "%.2f" .Charge}}</a> <span class="text-muted">{{.ChargeNo}}</span></div>{{end}}
+              <div class="small"><a href="/app/appointments/{{hex .ID}}/bill">诊疗单</a></div>
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}

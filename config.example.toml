@@ -18,3 +18,7 @@ max_image_mb = 10             # 图片上传上限（MB），文件本体存 Mon
 enabled = true                # 首次启动时写入种子数据
 sysadmin_user = "admin"       # 系统超管账号
 sysadmin_pass = "admin123"
+
+[wechat]
+appid = ""                    # 小程序 AppID（空=关闭 openId 免密登录）
+secret = ""                   # 小程序 Secret（不入库，部署机上填）

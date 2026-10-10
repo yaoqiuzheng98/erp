@@ -45,11 +45,7 @@ type Appointment struct {
 	Result      string        `bson:"result,omitempty"`    // 诊疗结果（开单时填）
 	Items       []ApptItem    `bson:"items,omitempty"`
 	QueueNo     int           `bson:"queue_no,omitempty"` // 当天当医生排号（签到分配）
-	RegFee      float64       `bson:"reg_fee,omitempty"`    // 挂号费快照（预约时）
-	RegPaid     bool          `bson:"reg_paid,omitempty"`   // 挂号费已缴
 	Status      string        `bson:"status"`
-	Charge      float64       `bson:"charge"` // 完成时收费总额
-	ChargeNo    string        `bson:"charge_no"`
 }
 
 // DisplayItem 列表展示用：有明细显示明细名，否则回落 Item。
@@ -75,16 +71,13 @@ func (a Appointment) DisplayItem() string {
 	return a.Item
 }
 
-// Total 明细合计（无明细回落 Charge）。
+// Total 明细合计。
 func (a Appointment) Total() float64 {
-	if len(a.Items) > 0 {
-		var s float64
-		for _, it := range a.Items {
-			s += it.Amount
-		}
-		return s
+	var s float64
+	for _, it := range a.Items {
+		s += it.Amount
 	}
-	return a.Charge
+	return s
 }
 
 // 放号档位默认值：半小时一档，每档 1 人（租户在门诊设置改）。

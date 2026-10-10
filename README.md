@@ -1,7 +1,7 @@
 # 口腔门诊 SaaS
 
 多门诊 SaaS，只做口腔门诊：患者档案、预约排号、诊疗价目、
-医护花名册、完成收费直连财务应收。单垂直应用，无插件系统。
+医护花名册。单垂直应用，无插件系统。财务功能已整体移除。
 
 ## 1. 技术栈
 
@@ -33,7 +33,6 @@
 ├─────────────────────────────────────────────────────────┤
 │  业务层（直连装配，无插件）                                │
 │  ├─ dental  门诊：患者/预约/价目                         │
-│  └─ billing 财务：应收/收款/费用/账簿汇总                 │
 ├─────────────────────────────────────────────────────────┤
 │  平台底座 platform                                        │
 │  ├─ 租户/企业   ├─ 员工(用户)/认证   ├─ 角色权限 RBAC      │
@@ -45,7 +44,7 @@
 ### 分层约定
 
 - `handler`：HTTP 层，解析请求、调用 service、渲染模板，不含业务逻辑。
-- `service`：业务逻辑。`dental.Complete` 直接调 `billing.CreateAR`（同库直连，无事件中转）。
+- `service`：业务逻辑。预约/开单一条线（`dental` 包内直连，无事件中转）。
 - `repository`：`TenantRepo[T]` 基类，所有查询自动注入 `tenant_id` 过滤。
 - `model`：BSON 结构体与领域枚举。
 
@@ -69,7 +68,7 @@
 | 使用者 | 平台运维超管（`sys_admins`） | 门诊员工与管理员（`users`，员工即用户） | 患者（凭手机号+密码，门诊后台配置） |
 | 登录 | `/sysadmin/login`，独立会话 cookie | `/login`（门诊名+手机号+密码） | `/p/{门诊ID}/login`，独立患者会话 |
 | 功能 | 门诊 CRUD/停用、全局审计 | `/app/*` 业务页 + `/admin/` 员工/角色/审计 | 价目表（公开）、预约挂号、我的预约/账单 |
-| 菜单 | 固定（概览/门诊管理/全局审计） | 固定（门诊/财务/系统管理） | 无侧边栏，手机优先单列页 |
+| 菜单 | 固定（概览/门诊管理/全局审计） | 固定（门诊/系统管理） | 无侧边栏，手机优先单列页 |
 | 数据范围 | 跨租户 | 强制 `tenant_id` 隔离 | 强制隔离，只能看自己的单 |
 
 ## 3. 业务流程
@@ -131,7 +130,7 @@ sessions     { _id(token), kind[tenant/sys/patient], user_id, tenant_id,
                expires_at(TTL 自动清), csrf }
 ```
 
-权限码固定目录（`rbac.Catalog`）：`patient/appt/catalog/billing` 各 `.read/.write`，
+权限码固定目录（`rbac.Catalog`）：`patient/appt/catalog` 各 `.read/.write`，
 加 `admin.users/roles/settings/audit`。租户管理员拥有全部权限；新门诊自动种
 默认角色（医生/护士/前台），可在「系统管理→权限角色」调整。
 
@@ -147,7 +146,6 @@ erp/
 └── internal/
     ├── dental/               // 门诊：model/service/handler
     │                         // patient/appointment/catalog
-    ├── billing/              // 财务：model/service/handler
     └── platform/             // 底座：config/db/model/repo/session/
                               // auth/tenant/rbac/middleware/menu/web/
                               // httpserver/admin/sysadmin/

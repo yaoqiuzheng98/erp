@@ -76,6 +76,22 @@ func (s *Service) Login(ctx context.Context, tenantID bson.ObjectID, phone, pass
 	return p, nil
 }
 
+// ByOpenID 按微信 openId 定位患者（小程序免密登录用）：空串直接 miss。
+func (s *Service) ByOpenID(ctx context.Context, tenantID bson.ObjectID, openid string) (*Patient, error) {
+	if openid == "" {
+		return nil, errors.New("未绑定微信")
+	}
+	return s.pats.FindOne(ctx, tenantID, bson.M{"open_id": openid})
+}
+
+// BindOpenID 绑定微信 openId（建档时/密码登录成功后调，换绑直接覆盖）。
+func (s *Service) BindOpenID(ctx context.Context, tenantID, id bson.ObjectID, openid string) error {
+	if openid == "" {
+		return errors.New("openId 为空")
+	}
+	return s.pats.Update(ctx, tenantID, id, bson.M{"open_id": openid})
+}
+
 // Create 建档：按电话自动认领已有患者（有则报错防重），认领不到才新建。
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, p *Patient) error {
 	if p.Name == "" {

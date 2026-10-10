@@ -35,23 +35,6 @@ func (h *Handler) registerAppointment(g *gin.RouterGroup) {
 	g.POST("/appointments/:id/done", mw.RequirePerm("appt.write"), h.done)
 	g.POST("/appointments/:id/noshow", mw.RequirePerm("appt.write"), h.noshow)
 	g.POST("/appointments/:id/cancel", mw.RequirePerm("appt.write"), h.cancel)
-	g.POST("/appointments/:id/payreg", mw.RequirePerm("appt.write"), h.payReg)
-}
-
-// payReg 前台收挂号费（现金/银行现场收，患者端走模拟支付；重复点幂等不重单）。
-func (h *Handler) payReg(c *gin.Context) {
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	method := c.PostForm("method")
-	if method == "" {
-		method = "cash"
-	}
-	if err := h.appts.PayReg(c.Request.Context(), mw.TenantID(c), id, method, mw.User(c).Name); err != nil {
-		web.SetFlash(c, "收费失败: "+err.Error())
-	} else {
-		h.audit(c, "billing.pay", "挂号费 "+id.Hex(), method)
-		web.SetFlash(c, "挂号费已收")
-	}
-	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
 // dayCol 周视图表头列：日期 + 星期 + 今天高亮 + 当天单数。
@@ -251,7 +234,6 @@ func (h *Handler) createAppt(c *gin.Context) {
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {
-		a.RegFee = t.RegFee
 		slotMinutes, slotCapacity = t.SlotConfig()
 	}
 	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a, slotMinutes, slotCapacity); err != nil {
@@ -266,7 +248,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
-// billPage 诊疗单据页：明细 + 开单完成 + 结算状态，可打印后交前台收费。
+// billPage 诊疗单据页：明细 + 开单完成，可打印。
 func (h *Handler) billPage(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	tid := mw.TenantID(c)
@@ -276,9 +258,8 @@ func (h *Handler) billPage(c *gin.Context) {
 		return
 	}
 	p, _ := h.pats.ByID(c.Request.Context(), tid, a.PatientID)
-	b, _ := h.bill.BillByRef(c.Request.Context(), tid, id.Hex())
 	items, _ := h.items.List(c.Request.Context(), tid, true)
-	web.Render(c, h.e, "dental/bill", gin.H{"A": a, "P": p, "Bill": b, "Services": items})
+	web.Render(c, h.e, "dental/bill", gin.H{"A": a, "P": p, "Services": items})
 }
 
 // checkin 前台签到：报手机号找到单 → 分配医生 + 排号。
@@ -317,20 +298,16 @@ func (h *Handler) done(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	charge, _ := strconv.ParseFloat(c.PostForm("charge"), 64)
 	items := parseApptItems(c)
-	deduct := false
-	if t := mw.Tenant(c); t != nil {
-		deduct = t.RegDeduct
-	}
-	next, err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge, deduct,
+	next, err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id, items, charge,
 		c.PostForm("diagnosis"), c.PostForm("result"), mw.User(c).Name)
 	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else if next != "" {
 		h.audit(c, audit.ActApptComplete, id.Hex(), "")
-		web.SetFlash(c, "已开单（待缴费），下一位："+next+"，请叫号")
+		web.SetFlash(c, "已开单，下一位："+next+"，请叫号")
 	} else {
 		h.audit(c, audit.ActApptComplete, id.Hex(), "")
-		web.SetFlash(c, "已开单（待缴费）")
+		web.SetFlash(c, "已开单")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
@@ -347,16 +324,12 @@ func (h *Handler) noshow(c *gin.Context) {
 
 func (h *Handler) cancel(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	// 门诊后台取消含待缴费：未收单作废后再取消（患者端只调 Cancel，动不了已开单的）
-	voided, err := h.appts.CancelUnpaid(c.Request.Context(), mw.TenantID(c), id)
+	// 门诊后台取消：booked/arrived/unpaid（历史单）均可取消
+	err := h.appts.CancelUnpaid(c.Request.Context(), mw.TenantID(c), id)
 	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())
 	} else {
-		detail := ""
-		if len(voided) > 0 {
-			detail = "作废: " + strings.Join(voided, ",")
-		}
-		h.audit(c, audit.ActApptCancel, id.Hex(), detail)
+		h.audit(c, audit.ActApptCancel, id.Hex(), "")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }

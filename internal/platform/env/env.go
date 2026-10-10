@@ -14,7 +14,7 @@ import (
 	"erp/internal/platform/tenant"
 )
 
-// Env 平台基础设施。业务服务（dental/billing）在 main 中直连装配，
+// Env 平台基础设施。业务服务（dental）在 main 中直连装配，
 // 不经过 Env，避免 god object。
 type Env struct {
 	Cfg      *config.Config

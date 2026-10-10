@@ -13,6 +13,7 @@ type Config struct {
 	Session SessionConfig `toml:"session"`
 	Storage StorageConfig `toml:"storage"`
 	Seed    SeedConfig    `toml:"seed"`
+	Wechat  WechatConfig  `toml:"wechat"`
 }
 
 type ServerConfig struct {
@@ -39,6 +40,12 @@ type SeedConfig struct {
 	Enabled      bool   `toml:"enabled"`
 	SysadminUser string `toml:"sysadmin_user"`
 	SysadminPass string `toml:"sysadmin_pass"`
+}
+
+// Wechat 小程序免密登录：空=未启用（建档/登录照常走，不绑 openId）。
+type WechatConfig struct {
+	AppID  string `toml:"appid"`
+	Secret string `toml:"secret"`
 }
 
 func Load(path string) (*Config, error) {

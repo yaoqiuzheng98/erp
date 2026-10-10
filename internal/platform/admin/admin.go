@@ -244,18 +244,14 @@ func (h *Handler) settingsPage(c *gin.Context) {
 }
 
 func (h *Handler) saveSettings(c *gin.Context) {
-	fee, _ := strconv.ParseFloat(c.PostForm("reg_fee"), 64)
-	deduct := c.PostForm("reg_deduct") == "on"
 	slotMinutes, _ := strconv.Atoi(c.PostForm("slot_minutes"))
 	slotCapacity, _ := strconv.Atoi(c.PostForm("slot_capacity"))
 	ctx := c.Request.Context()
-	if err := h.e.Tenants.SetBilling(ctx, mw.TenantID(c), fee, deduct); err != nil {
-		web.SetFlash(c, "保存失败: "+err.Error())
-	} else if err := h.e.Tenants.SetSchedule(ctx, mw.TenantID(c), slotMinutes, slotCapacity); err != nil {
+	if err := h.e.Tenants.SetSchedule(ctx, mw.TenantID(c), slotMinutes, slotCapacity); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
-		h.audit(c, audit.ActTenantSettings, "reg_fee+deduct+schedule",
-			c.PostForm("reg_fee")+" / "+c.PostForm("slot_minutes")+"min x"+c.PostForm("slot_capacity"))
+		h.audit(c, audit.ActTenantSettings, "schedule",
+			c.PostForm("slot_minutes")+"min x"+c.PostForm("slot_capacity"))
 		web.SetFlash(c, "门诊设置已保存")
 	}
 	c.Redirect(http.StatusFound, "/admin/settings")

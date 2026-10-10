@@ -120,3 +120,19 @@ func (g *Guard) RateLimit(n int) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// CORS 患者端 JSON 接口跨域放行：小程序无视跨域，H5（含本地 dev）靠它。
+// 会话走 Bearer 头（非 cookie），Allow-Origin 直接 * 即可。
+func CORS() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		if c.Request.Method == http.MethodOptions {
+			c.Status(http.StatusNoContent)
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}

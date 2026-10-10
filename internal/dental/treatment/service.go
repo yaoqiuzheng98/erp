@@ -156,17 +156,3 @@ func (s *Service) DeleteByAppt(ctx context.Context, tenantID, apptID bson.Object
 	_, _ = s.items.Col.DeleteOne(ctx,
 		bson.M{"tenant_id": tenantID, "appt_id": apptID})
 }
-
-// MarkPaid 收清联动：已开单→已收（条件更新，幂等）。
-func (s *Service) MarkPaid(ctx context.Context, tenantID, apptID bson.ObjectID) {
-	_, _ = s.items.Col.UpdateOne(ctx,
-		bson.M{"tenant_id": tenantID, "appt_id": apptID, "status": Billed},
-		bson.M{"$set": bson.M{"status": Paid}})
-}
-
-// MarkVoid 作废联动：已开单→作废（条件更新，幂等）。
-func (s *Service) MarkVoid(ctx context.Context, tenantID, apptID bson.ObjectID) {
-	_, _ = s.items.Col.UpdateOne(ctx,
-		bson.M{"tenant_id": tenantID, "appt_id": apptID, "status": Billed},
-		bson.M{"$set": bson.M{"status": Void}})
-}

@@ -11,14 +11,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// Tenant 门诊租户（一家门诊）。RegFee 挂号费（患者自助预约时收），0=不收。
-// Intro/Address/Phone/Hours/Notice/Gallery 为患者端首页展示的诊所信息，
-// Gallery 为 GridFS 图片 ID（hex）列表，多图画廊，门诊后台上传维护。
+// Tenant 门诊租户（一家门诊）。Intro/Address/Phone/Hours/Notice/Gallery
+// 为患者端首页展示的诊所信息，Gallery 为 GridFS 图片 ID（hex）列表，
+// 多图画廊，门诊后台上传维护。
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
-	RegFee    float64       `bson:"reg_fee"`
-	RegDeduct bool          `bson:"reg_deduct,omitempty"` // 挂号费抵扣最终诊疗费（开时已缴挂号费当定金抵）
 	// 放号配置：SlotMinutes 每 N 分钟一档（15/30/60，0=默认30），
 	// SlotCapacity 每档可约人数（0=默认1）。改配置只影响之后的新预约。
 	SlotMinutes  int       `bson:"slot_minutes,omitempty"`
@@ -112,16 +110,6 @@ func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {
 	}
 	t.ID = oid
 	return t, nil
-}
-
-// SetBilling 挂号费与抵扣开关一起存（门诊设置）。
-func (s *Service) SetBilling(ctx context.Context, id bson.ObjectID, fee float64, deduct bool) error {
-	if fee < 0 {
-		fee = 0
-	}
-	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id},
-		bson.M{"$set": bson.M{"reg_fee": fee, "reg_deduct": deduct}})
-	return err
 }
 
 // SetSchedule 放号粒度与每档人数一起存（门诊设置）：非法值直接报错，不落库。

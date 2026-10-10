@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 
-	"erp/internal/billing"
 	"erp/internal/dental/appointment"
 	"erp/internal/dental/catalog"
 	"erp/internal/dental/handler"
@@ -62,12 +61,11 @@ func main() {
 		Attach:   attach.New(d.Database, cfg.Storage.MaxImageMB),
 	}
 	// 业务服务直连装配（员工即 e.Auth 用户）
-	billingSvc := billing.New(d.Database, e.Seq)
 	patSvc := patient.New(d.Database)
 	catalogSvc := catalog.New(d.Database)
 	treatSvc := treatment.New(d.Database)
-	apptSvc := appointment.New(d.Database, e.Seq, billingSvc, patSvc, catalogSvc, e.Auth, treatSvc)
-	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, e.Auth, billingSvc, treatSvc)
+	apptSvc := appointment.New(d.Database, e.Seq, patSvc, catalogSvc, e.Auth, treatSvc)
+	dentalHandler := handler.New(e, patSvc, apptSvc, catalogSvc, e.Auth, treatSvc)
 
 	// 唯一索引（幂等）
 	usersCol := d.Database.Collection("users")
@@ -90,10 +88,6 @@ func main() {
 			slog.Error("ensure index", "col", ix.col, "err", err)
 			os.Exit(1)
 		}
-	}
-	if err := billingSvc.EnsureIndexes(ctx); err != nil {
-		slog.Error("ensure billing indexes", "err", err)
-		os.Exit(1)
 	}
 	if err := apptSvc.EnsureIndexes(ctx); err != nil {
 		slog.Error("ensure appointment indexes", "err", err)
@@ -126,7 +120,7 @@ func main() {
 	}
 
 	r := httpserver.Build(e, httpserver.Services{
-		Dental: dentalHandler, Billing: billingSvc,
+		Dental: dentalHandler,
 		Patients: patSvc, Appts: apptSvc, Catalog: catalogSvc,
 	}, tpl)
 	slog.Info("dental listening", "addr", cfg.Server.Addr)
