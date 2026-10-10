@@ -201,7 +201,7 @@ func (h *Web) apptsPage(c *gin.Context) {
 }
 
 func (h *Web) bookPage(c *gin.Context) {
-	doctors, _ := h.e.Auth.ListPractitioners(c.Request.Context(), mw.TenantID(c))
+	doctors, _ := h.e.Auth.ListActive(c.Request.Context(), mw.TenantID(c))
 	slotMinutes := appointment.DefaultSlotMinutes
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, _ = t.SlotConfig()

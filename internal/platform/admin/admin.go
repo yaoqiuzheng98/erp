@@ -93,7 +93,6 @@ func (h *Handler) createUser(c *gin.Context) {
 		Name:        c.PostForm("name"),
 		Phone:       c.PostForm("phone"),
 		RoleIDs:     h.scopedRoleIDs(c),
-		CanPractice: c.PostForm("can_practice") == "on",
 		IsTenantAdm: c.PostForm("is_admin") == "on",
 		Bio:         c.PostForm("bio"),
 	}
@@ -171,7 +170,6 @@ func (h *Handler) updateUser(c *gin.Context) {
 		"phone":           c.PostForm("phone"),
 		"bio":             c.PostForm("bio"),
 		"role_ids":        h.scopedRoleIDs(c),
-		"can_practice":    c.PostForm("can_practice") == "on",
 		"status":          status,
 		"is_tenant_admin": isAdm,
 	}

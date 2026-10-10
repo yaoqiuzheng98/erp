@@ -89,7 +89,7 @@
 - 价目是门诊主数据（名称租户内唯一，药品建分类=药品的条目，不走库存）。
 - 员工=用户：手机号+密码登录，后台建员工时设初始密码，本人可在
   `/app/password` 自助改密；入职/离职即账号启停，离职不影响历史单（快照名）。
-- 医生=勾选「可接诊」的在职员工；预约/签到只列可接诊员工。
+- 接诊医生=在职员工（全员可接诊）；预约/签到从在职员工中选。
 - 同医生同时段防重（已约/已到诊占位），前台与患者自助走同一入口。
 - 患者端（`/p/{门诊ID}` H5 + `/api/p/{门诊ID}` JSON，小程序预留同一批接口）：
   手机号+密码登录（门诊后台给患者配密），会话与员工体系隔离
@@ -103,8 +103,8 @@
 ```
 tenants      { _id, name, status, created_at }
 users        { _id, tenant_id, phone, password_hash, name, role_ids[],
-               can_practice, bio, avatar, hide_home, home_order(权重，大在前),
-               status, is_tenant_admin, last_login_at }  // 员工即用户
+               bio, avatar, hide_home, home_order(权重，大在前),
+               status, is_tenant_admin, last_login_at }  // 员工即用户，全员可接诊
 sys_admins   { _id, username, password_hash }          // 系统级，无 tenant_id
 roles        { _id, tenant_id, name, perm_codes[] }
 sessions     { _id(token), kind[tenant/sys/patient], user_id, tenant_id, expires_at, csrf }

@@ -42,7 +42,7 @@ var (
 	ErrPwdTooShort   = errors.New("密码至少 6 位")
 )
 
-// User 租户用户，即员工：手机号+密码登录，角色定权限，可接诊开关定能否排诊。
+// User 租户用户，即员工：手机号+密码登录，角色定权限。
 type User struct {
 	ID           bson.ObjectID   `bson:"_id,omitempty"`
 	TenantID     bson.ObjectID   `bson:"tenant_id"`
@@ -50,7 +50,6 @@ type User struct {
 	PasswordHash string          `bson:"password_hash"`
 	Name         string          `bson:"name"`
 	RoleIDs      []bson.ObjectID `bson:"role_ids"`
-	CanPractice  bool            `bson:"can_practice"`         // 可接诊：预约候选医生
 	Bio          string          `bson:"bio,omitempty"`        // 个人简介：患者端首页团队展示
 	HideHome     bool            `bson:"hide_home,omitempty"`  // 首页不展示该成员
 	HomeOrder    int             `bson:"home_order,omitempty"` // 首页展示权重（大在前，0=最后）
@@ -157,10 +156,10 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID) ([]User, err
 	return out, cur.All(ctx, &out)
 }
 
-// ListPractitioners 可接诊的在职员工：预约选医生、签到自动分配用。
-func (s *Service) ListPractitioners(ctx context.Context, tenantID bson.ObjectID) ([]User, error) {
+// ListActive 在职员工：预约选医生、签到自动分配用（全员可接诊）。
+func (s *Service) ListActive(ctx context.Context, tenantID bson.ObjectID) ([]User, error) {
 	cur, err := s.users.Find(ctx, bson.M{
-		"tenant_id": tenantID, "status": "active", "can_practice": true,
+		"tenant_id": tenantID, "status": "active",
 	})
 	if err != nil {
 		return nil, err
@@ -211,7 +210,7 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, u *User, p
 	return nil
 }
 
-// Update 更新员工资料（姓名/手机号/角色/可接诊/状态），不动密码。
+// Update 更新员工资料（姓名/手机号/角色/状态），不动密码。
 func (s *Service) Update(ctx context.Context, tenantID, id bson.ObjectID, set bson.M) error {
 	if p, ok := set["phone"].(string); ok {
 		if !ValidPhone(p) {

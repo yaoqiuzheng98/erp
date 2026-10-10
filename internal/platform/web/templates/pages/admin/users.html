@@ -13,7 +13,7 @@
         <h4 class="m-0">员工</h4>
         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#empModal">＋ 新增员工</button>
       </div>
-      <p class="text-muted small">员工用手机号+密码登录；勾选「可接诊」才会出现在预约的医生列表里。</p>
+      <p class="text-muted small">员工用手机号+密码登录；所有在职员工均可作为接诊医生出现在预约列表。</p>
 
       <div class="modal fade" id="empModal" tabindex="-1"><div class="modal-dialog modal-lg">
         <form method="post" action="/admin/users" class="modal-content" enctype="multipart/form-data">
@@ -47,10 +47,6 @@
             <div class="mb-2"><label class="form-label">头像</label>
               <input class="form-control form-control-sm" name="avatar" type="file" accept="image/*"></div>
             <div class="d-flex align-items-center gap-4">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" name="can_practice" id="new-can-practice">
-                <label class="form-check-label" for="new-can-practice">可接诊（医生）</label>
-              </div>
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="is_admin" id="new-is-admin">
                 <label class="form-check-label" for="new-is-admin">租户管理员（拥有全部权限）</label>
@@ -108,16 +104,12 @@
               {{if .Avatar}}<div class="mb-1"><img src="/app/attach/{{.Avatar}}" class="rounded" style="width:4em;height:4em;object-fit:cover" alt="头像"></div>{{end}}
               <input class="form-control form-control-sm" name="avatar" type="file" accept="image/*"></div>
             <div class="row g-2 align-items-end">
-              <div class="col-4"><label class="form-label">状态</label>
+              <div class="col-6"><label class="form-label">状态</label>
                 <select class="form-select form-select-sm" name="status">
                   <option value="active" {{if eq .Status "active"}}selected{{end}}>在职</option>
                   <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>离职</option>
                 </select></div>
-              <div class="col-4"><div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" name="can_practice" id="{{$eid}}-cp" {{if .CanPractice}}checked{{end}}>
-                <label class="form-check-label" for="{{$eid}}-cp">可接诊（医生）</label>
-              </div></div>
-              <div class="col-4"><div class="form-check form-switch">
+              <div class="col-6"><div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" name="is_admin" id="{{$eid}}-adm" {{if .IsTenantAdm}}checked{{end}}>
                 <label class="form-check-label" for="{{$eid}}-adm">门诊管理员</label>
               </div></div>
@@ -129,7 +121,7 @@
       {{end}}
 
       <div class="table-responsive d-none d-md-block"><table class="table table-sm bg-white align-middle">
-        <thead><tr><th></th><th>姓名</th><th>手机号</th><th>角色</th><th>可接诊</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
+        <thead><tr><th></th><th>姓名</th><th>手机号</th><th>角色</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Users}}
         {{$row := .}}
@@ -138,7 +130,6 @@
           <td class="text-nowrap">{{.Name}} {{if .IsTenantAdm}}<span class="badge bg-info text-dark">管理员</span>{{end}}</td>
           <td>{{.Phone}}</td>
           <td class="small">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</td>
-          <td>{{if .CanPractice}}是{{else}}<span class="text-muted">—</span>{{end}}</td>
           <td>{{if eq .Status "active"}}在职{{else}}离职{{end}}</td>
           <td class="text-muted small">{{date .LastLoginAt}}</td>
           <td class="text-nowrap">
@@ -148,7 +139,7 @@
           </td>
         </tr>
         {{else}}
-        <tr><td colspan="8" class="text-muted">暂无员工，先新增（设置医生勾选可接诊）</td></tr>
+        <tr><td colspan="7" class="text-muted">暂无员工，先新增</td></tr>
         {{end}}
         </tbody>
       </table></div>
@@ -163,7 +154,7 @@
             </span>
             <span class="small text-muted">{{if eq .Status "active"}}在职{{else}}离职{{end}}</span>
           </div>
-          <div class="small text-muted mt-1">{{.Phone}} · {{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}{{if .CanPractice}}· 可接诊{{end}}</div>
+          <div class="small text-muted mt-1">{{.Phone}} · {{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</div>
           <div class="d-flex gap-2 mt-2">
             <button class="btn btn-sm btn-outline-primary flex-grow-1" data-bs-toggle="modal" data-bs-target="#edit-{{hex .ID}}">编辑</button>
             <button class="btn btn-sm btn-outline-secondary flex-grow-1" data-bs-toggle="modal" data-bs-target="#pwdModal"
@@ -171,7 +162,7 @@
           </div>
         </div></div>
         {{else}}
-        <div class="text-muted">暂无员工，先新增（设置医生勾选可接诊）</div>
+        <div class="text-muted">暂无员工，先新增</div>
         {{end}}
       </div>
       <script>

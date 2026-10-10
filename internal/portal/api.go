@@ -241,9 +241,9 @@ func (h *API) clinic(c *gin.Context) {
 	})
 }
 
-// doctors 可接诊医生列表（公开，挂号选医生用）：只吐 id+name，不露手机号。
+// doctors 在职员工列表（挂号选医生用，全员可接诊）：只吐 id+name，不露手机号。
 func (h *API) doctors(c *gin.Context) {
-	list, err := h.e.Auth.ListPractitioners(c.Request.Context(), mw.TenantID(c))
+	list, err := h.e.Auth.ListActive(c.Request.Context(), mw.TenantID(c))
 	if err != nil {
 		fail(c, http.StatusInternalServerError, err.Error())
 		return

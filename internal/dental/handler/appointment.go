@@ -147,7 +147,7 @@ func (h *Handler) appointments(c *gin.Context) {
 	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), doctorHex, phone)
 	todayQ := weekQuery(tz.Today(), doctorHex, phone)
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
-	doctors, _ := h.users.ListPractitioners(c.Request.Context(), mw.TenantID(c))
+	doctors, _ := h.users.ListActive(c.Request.Context(), mw.TenantID(c))
 	slotMinutes := appointment.DefaultSlotMinutes
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, _ = t.SlotConfig()

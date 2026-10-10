@@ -73,7 +73,7 @@ func TestCreateConcurrentDoubleBook(t *testing.T) {
 	}
 	if _, err := db.Collection("users").InsertOne(ctx, bson.M{
 		"_id": did, "tenant_id": tid, "name": "重约医生",
-		"status": "active", "can_practice": true, "created_at": time.Now(),
+		"status": "active", "created_at": time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestListRange(t *testing.T) {
 	}
 	if _, err := db.Collection("users").InsertOne(ctx, bson.M{
 		"_id": did, "tenant_id": tid, "name": "范围医生",
-		"status": "active", "can_practice": true, "created_at": time.Now(),
+		"status": "active", "created_at": time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestSlotConfig(t *testing.T) {
 	}
 	if _, err := db.Collection("users").InsertOne(ctx, bson.M{
 		"_id": did, "tenant_id": tid, "name": "档位医生",
-		"status": "active", "can_practice": true, "created_at": time.Now(),
+		"status": "active", "created_at": time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}

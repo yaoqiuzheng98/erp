@@ -45,7 +45,7 @@ func (s *Service) stripe(key string) func() {
 	return m.Unlock
 }
 
-// New 装配预约服务；医生即"可接诊的在职员工"（用户）。
+// New 装配预约服务；接诊医生即在职员工。
 func New(db *mongo.Database, seq *seqno.Generator,
 	pats *patient.Service, users *auth.Service) *Service {
 	return &Service{
@@ -59,8 +59,8 @@ func (s *Service) doctorName(ctx context.Context, tenantID, doctorID bson.Object
 	if err != nil {
 		return "", errors.New("医生不存在")
 	}
-	if d.Status != "active" || !d.CanPractice {
-		return "", errors.New("医生不在职或不可接诊")
+	if d.Status != "active" {
+		return "", errors.New("医生不在职")
 	}
 	return d.Name, nil
 }
@@ -187,18 +187,18 @@ func (s *Service) setStatus(ctx context.Context, tenantID, id bson.ObjectID, fro
 	return s.appts.FindByID(ctx, tenantID, id)
 }
 
-// pickDoctor 签到分配：无指定医生时轮流取首位可接诊医生。
+// pickDoctor 签到分配：无指定医生时取首位在职员工。
 func (s *Service) pickDoctor(ctx context.Context, tenantID bson.ObjectID) (bson.ObjectID, string, error) {
-	docs, err := s.users.ListPractitioners(ctx, tenantID)
+	docs, err := s.users.ListActive(ctx, tenantID)
 	if err != nil || len(docs) == 0 {
-		return bson.NilObjectID, "", errors.New("暂无可接诊医生")
+		return bson.NilObjectID, "", errors.New("暂无在职员工")
 	}
 	d := docs[0]
 	return d.ID, d.Name, nil
 }
 
 // CheckIn 签到：booked → done（签到即完成）。已指定医生则保留（医生失效则自动改派）；
-// 未指定医生则轮流取首位可接诊医生。返回最终医生名。
+// 未指定医生则取首位在职员工。返回最终医生名。
 func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (string, error) {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
