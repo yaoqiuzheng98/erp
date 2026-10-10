@@ -3,9 +3,11 @@ package appointment
 import (
 	"context"
 	"errors"
+	"fmt"
 	"hash/fnv"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -83,6 +85,12 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	}); n >= int64(capacity) {
 		return errors.New("该时段已约满，换个时间试试")
 	}
+	// 预约编号：YY + 日期(紧凑) + 月内序号，如 YY202610100001。
+	n, err := s.seq.NextValue(ctx, tenantID, "APPT")
+	if err != nil {
+		return err
+	}
+	a.No = fmt.Sprintf("YY%s%04d", strings.ReplaceAll(a.Date, "-", ""), n)
 	a.TenantID, a.Status, a.CreatedAt = tenantID, Booked, time.Now()
 	id, err := s.appts.Insert(ctx, tenantID, a)
 	if err != nil {

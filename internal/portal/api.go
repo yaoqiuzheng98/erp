@@ -274,7 +274,7 @@ func (h *API) myAppointments(c *gin.Context) {
 func apptJSON(a appointment.Appointment) gin.H {
 	return gin.H{
 		"id": a.ID.Hex(), "date": a.Date, "slot": a.Slot,
-		"doctor": a.Doctor,
+		"doctor": a.Doctor, "no": a.No,
 		"status": a.Status, "status_name": a.StatusName(),
 	}
 }

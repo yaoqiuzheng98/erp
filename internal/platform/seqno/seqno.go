@@ -36,3 +36,22 @@ func (g *Generator) Next(ctx context.Context, tenantID bson.ObjectID, rule strin
 	}
 	return fmt.Sprintf("%s-%s-%04d", rule, ym, doc.Value), nil
 }
+
+// NextValue 原子自增并返回裸计数值（调用方自组编号格式，如预约号）。
+func (g *Generator) NextValue(ctx context.Context, tenantID bson.ObjectID, rule string) (int64, error) {
+	ym := tz.MonthKey()
+	key := fmt.Sprintf("%s:%s:%s", tenantID.Hex(), rule, ym)
+	var doc struct {
+		Value int64 `bson:"value"`
+	}
+	opts := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
+	err := g.col.FindOneAndUpdate(ctx,
+		bson.M{"_id": key},
+		bson.M{"$inc": bson.M{"value": 1}},
+		opts,
+	).Decode(&doc)
+	if err != nil {
+		return 0, err
+	}
+	return doc.Value, nil
+}
