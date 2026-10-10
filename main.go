@@ -87,10 +87,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if err := apptSvc.EnsureIndexes(ctx); err != nil {
-		slog.Error("ensure appointment indexes", "err", err)
-		os.Exit(1)
-	}
 	if err := patSvc.EnsureIndexes(ctx); err != nil {
 		slog.Error("ensure patient indexes", "err", err)
 		os.Exit(1)

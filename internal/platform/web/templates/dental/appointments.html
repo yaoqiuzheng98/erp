@@ -126,7 +126,7 @@
                 <span class="badge {{.Badge}}">{{.StatusName}}</span>
               </div>
               <div class="small mt-1"><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>
-                <span class="text-muted">{{.Doctor}} · {{.DisplayItem}}</span>{{if .QueueNo}} <span class="badge bg-info text-dark">排{{.QueueNo}}号</span>{{end}}</div>
+                <span class="text-muted">{{.Doctor}} · {{.DisplayItem}}</span></div>
               {{if .Items}}<div class="small text-muted">{{range .Items}}{{.Name}}x{{.Qty}} ¥{{printf "%.2f" .Amount}}<br>{{end}}</div>{{end}}
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>

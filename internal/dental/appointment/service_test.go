@@ -58,9 +58,6 @@ func testSvc(t *testing.T) (*Service, *mongo.Database, context.Context) {
 	})
 	seq := seqno.New(db)
 	svc := New(db, seq, patient.New(db), catalog.New(db), auth.NewService(db))
-	if err := svc.EnsureIndexes(ctx); err != nil {
-		t.Fatalf("ensure appt indexes: %v", err)
-	}
 	return svc, db, ctx
 }
 

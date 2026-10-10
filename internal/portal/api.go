@@ -302,12 +302,12 @@ func (h *API) myAppointments(c *gin.Context) {
 	list = visibleAppts(list)
 	out := make([]gin.H, 0, len(list))
 	for _, a := range list {
-		out = append(out, apptJSON(a, h.appts.Position(c.Request.Context(), p.TenantID, a.ID)))
+		out = append(out, apptJSON(a))
 	}
 	ok(c, out)
 }
 
-func apptJSON(a appointment.Appointment, pos int) gin.H {
+func apptJSON(a appointment.Appointment) gin.H {
 	items := make([]gin.H, 0, len(a.Items))
 	for _, it := range a.Items {
 		items = append(items, gin.H{"name": it.Name, "qty": it.Qty, "price": it.Price, "amount": it.Amount})
@@ -316,7 +316,6 @@ func apptJSON(a appointment.Appointment, pos int) gin.H {
 		"id": a.ID.Hex(), "date": a.Date, "slot": a.Slot,
 		"doctor": a.Doctor, "item": a.DisplayItem(), "items": items,
 		"status": a.Status, "status_name": a.StatusName(),
-		"queue_no": a.QueueNo, "queue_pos": pos,
 	}
 }
 

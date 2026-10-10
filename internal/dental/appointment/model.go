@@ -38,7 +38,6 @@ type Appointment struct {
 	Slot        string        `bson:"slot"` // HH:MM
 	Item        string        `bson:"item"` // 自由文本兜底（无价目时填）
 	Items       []ApptItem    `bson:"items,omitempty"`
-	QueueNo     int           `bson:"queue_no,omitempty"` // 当天当医生排号（签到分配）
 	Status      string        `bson:"status"`
 }
 

@@ -245,24 +245,17 @@ func (h *Handler) createAppt(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
-// checkin 前台签到：报手机号找到单 → 分配医生 + 排号。
+// checkin 前台签到：登记到院，未指定医生的自动分配。
 func (h *Handler) checkin(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	doc, no, err := h.appts.CheckIn(c.Request.Context(), mw.TenantID(c), id)
+	doc, err := h.appts.CheckIn(c.Request.Context(), mw.TenantID(c), id)
 	if err != nil {
 		web.SetFlash(c, "签到失败: "+err.Error())
 	} else {
-		h.audit(c, audit.ActApptCheckin, doc+" "+queueNo(no), "")
-		web.SetFlash(c, "签到成功 → "+doc+" "+queueNo(no))
+		h.audit(c, audit.ActApptCheckin, doc, "")
+		web.SetFlash(c, "已签到，接诊医生："+doc)
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
-}
-
-func queueNo(no int) string {
-	if no <= 0 {
-		return ""
-	}
-	return strconv.Itoa(no) + "号"
 }
 
 func (h *Handler) noshow(c *gin.Context) {

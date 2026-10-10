@@ -108,20 +108,6 @@ func (s *Service) doctorName(ctx context.Context, tenantID, doctorID bson.Object
 	return d.Name, nil
 }
 
-// EnsureIndexes 排号部分唯一：只有已取号（queue_no>0）的单据参与唯一约束。
-// 注意不能用 sparse——复合稀疏索引会把缺字段当 null，同医生同天第二单就撞键。
-func (s *Service) EnsureIndexes(ctx context.Context) error {
-	// 删掉历史错误版本（同名不同选项会报 IndexOptionsConflict）。
-	_ = s.appts.Col.Indexes().DropOne(ctx, "tenant_id_1_doctor_id_1_date_1_queue_no_1")
-	_, err := s.appts.Col.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "doctor_id", Value: 1},
-			{Key: "date", Value: 1}, {Key: "queue_no", Value: 1}},
-		Options: options.Index().SetUnique(true).
-			SetPartialFilterExpression(bson.M{"queue_no": bson.M{"$gt": 0}}),
-	})
-	return err
-}
-
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, slotMinutes, slotCapacity int) error {
 	p, err := s.pats.ByID(ctx, tenantID, a.PatientID)
 	if err != nil {
@@ -259,7 +245,7 @@ func (s *Service) activeLoad(ctx context.Context, tenantID, doctorID bson.Object
 	return n
 }
 
-// pickDoctor 签到分配：有空闲医生（当天手上没活）用第一个；
+// pickDoctor 签到分配：有空闲医生（当天手上没候诊单）用第一个；
 // 都没有则取当天负载最小的医生。无可接诊医生时报错。
 func (s *Service) pickDoctor(ctx context.Context, tenantID bson.ObjectID, date string) (bson.ObjectID, string, error) {
 	docs, err := s.users.ListPractitioners(ctx, tenantID)
@@ -280,81 +266,41 @@ func (s *Service) pickDoctor(ctx context.Context, tenantID bson.ObjectID, date s
 	return best.ID, best.Name, nil
 }
 
-// nextQueueNo 当天当医生下一个排号（已用号+1）。
-// 注意：排号一旦分配就占号，必须统计所有带号单据（noshow/cancel 的单仍占号），
-// 否则下一位签到会撞唯一索引。
-func (s *Service) nextQueueNo(ctx context.Context, tenantID, doctorID bson.ObjectID, date string) int {
-	n, _ := s.appts.Count(ctx, tenantID, bson.M{
-		"doctor_id": doctorID, "date": date,
-		"queue_no": bson.M{"$gt": 0},
-	})
-	return int(n) + 1
-}
-
-// CheckIn 签到：booked → arrived。已指定医生则进该医生队列（医生失效则自动改派）；
-// 未指定医生则按空闲优先/最短队分配。返回最终医生名与排号。
-func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (string, int, error) {
+// CheckIn 签到：booked → arrived。已指定医生则保留（医生失效则自动改派）；
+// 未指定医生则按空闲优先/最短负载分配。返回最终医生名。
+func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (string, error) {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
-		return "", 0, err
+		return "", err
 	}
 	if a.Status != Booked {
-		return "", 0, ErrBadStatus
+		return "", ErrBadStatus
 	}
 	docID, docName := a.DoctorID, a.Doctor
 	if docID.IsZero() {
 		var err error
 		docID, docName, err = s.pickDoctor(ctx, tenantID, a.Date)
 		if err != nil {
-			return "", 0, err
+			return "", err
 		}
 	} else if name, err := s.doctorName(ctx, tenantID, docID); err != nil {
 		docID, docName, err = s.pickDoctor(ctx, tenantID, a.Date)
 		if err != nil {
-			return "", 0, err
+			return "", err
 		}
 	} else {
 		docName = name
 	}
-	set := bson.M{"status": Arrived, "doctor_id": docID, "doctor": docName}
-	// 排号带重试：同号撞唯一索引则重取；状态被人动过（matched=0）则报状态错，不重试
-	var lastErr error
-	for i := 0; i < 3; i++ {
-		qno := s.nextQueueNo(ctx, tenantID, docID, a.Date)
-		set["queue_no"] = qno
-		matched, err := s.appts.UpdateWhere(ctx, tenantID,
-			bson.M{"_id": id, "status": Booked}, set)
-		if err != nil {
-			if !mongo.IsDuplicateKeyError(err) {
-				return "", 0, err
-			}
-			lastErr = err
-			continue
-		}
-		if matched == 0 {
-			return "", 0, ErrBadStatus
-		}
-		return docName, qno, nil
-	}
-	return "", 0, lastErr
-}
-
-// Position 排位：候诊=前面人数+1（1 即下一位就到自己），其他状态=-1。
-func (s *Service) Position(ctx context.Context, tenantID, id bson.ObjectID) int {
-	a, err := s.appts.FindByID(ctx, tenantID, id)
+	matched, err := s.appts.UpdateWhere(ctx, tenantID,
+		bson.M{"_id": id, "status": Booked},
+		bson.M{"status": Arrived, "doctor_id": docID, "doctor": docName})
 	if err != nil {
-		return -1
+		return "", err
 	}
-	switch a.Status {
-	case Arrived:
-		n, _ := s.appts.Count(ctx, tenantID, bson.M{
-			"doctor_id": a.DoctorID, "date": a.Date, "status": Arrived,
-			"queue_no": bson.M{"$lt": a.QueueNo},
-		})
-		return int(n) + 1
-	default:
-		return -1
+	if matched == 0 {
+		return "", ErrBadStatus
 	}
+	return docName, nil
 }
 
 func (s *Service) NoShow(ctx context.Context, tenantID, id bson.ObjectID) error {

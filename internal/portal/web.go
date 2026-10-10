@@ -199,13 +199,9 @@ func (h *Web) apptsPage(c *gin.Context) {
 	ctx := c.Request.Context()
 	appts, _ := h.appts.OfPatient(ctx, p.TenantID, p.ID)
 	appts = visibleAppts(appts)
-	pos := map[string]int{}
-	for _, a := range appts {
-		pos[a.ID.Hex()] = h.appts.Position(ctx, p.TenantID, a.ID)
-	}
 	web.Render(c, h.e, "portal/appts", gin.H{
 		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name,
-		"Appts": appts, "Pos": pos,
+		"Appts": appts,
 	})
 }
 
