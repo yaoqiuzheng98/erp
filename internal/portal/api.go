@@ -287,7 +287,7 @@ func (h *API) team(c *gin.Context) {
 		out = append(out, gin.H{
 			"name": m.Name, "roles": m.Roles, "bio": m.Bio,
 			"avatar": m.Avatar, "title": m.Title, "years": m.Years,
-			"specialty": m.Specialty, "tags": m.Tags,
+			"specialty": m.Specialty,
 		})
 	}
 	ok(c, out)

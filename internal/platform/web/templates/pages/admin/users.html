@@ -51,8 +51,6 @@
                 <input class="form-control form-control-sm" name="years" type="number" min="0" max="80" placeholder="如 12"></div>
               <div class="col-6"><label class="form-label">专科</label>
                 <input class="form-control form-control-sm" name="specialty" placeholder="如 口腔正畸专科"></div>
-              <div class="col-6"><label class="form-label">擅长标签</label>
-                <input class="form-control form-control-sm" name="tags" placeholder="逗号分隔，如 牙齿矫正，隐形矫正"></div>
             </div>
             <div class="mb-2"><label class="form-label">头像</label>
               <input class="form-control form-control-sm" name="avatar" type="file" accept="image/*"></div>
@@ -117,8 +115,6 @@
                 <input class="form-control form-control-sm" name="years" type="number" min="0" max="80" value="{{if .Years}}{{.Years}}{{end}}" placeholder="如 12"></div>
               <div class="col-6"><label class="form-label">专科</label>
                 <input class="form-control form-control-sm" name="specialty" value="{{.Specialty}}" placeholder="如 口腔正畸专科"></div>
-              <div class="col-6"><label class="form-label">擅长标签</label>
-                <input class="form-control form-control-sm" name="tags" value="{{range $i, $t := .Tags}}{{if $i}}，{{end}}{{$t}}{{end}}" placeholder="逗号分隔"></div>
             </div>
             <div class="mb-2"><label class="form-label">头像 <span class="text-muted">（不选则保持原图）</span></label>
               {{if .Avatar}}<div class="mb-1"><img src="/app/attach/{{.Avatar}}" class="rounded" style="width:4em;height:4em;object-fit:cover" alt="头像"></div>{{end}}
