@@ -24,6 +24,8 @@ type Tenant struct {
 	Status       string    `bson:"status"` // active / suspended
 	Intro        string    `bson:"intro,omitempty"`
 	Address      string    `bson:"address,omitempty"`
+	Lat          float64   `bson:"lat,omitempty"` // 一键导航纬度（门诊后台维护）
+	Lng          float64   `bson:"lng,omitempty"` // 一键导航经度
 	Phone        string    `bson:"phone,omitempty"`
 	Hours        string    `bson:"hours,omitempty"`
 	Notice       string    `bson:"notice,omitempty"`
@@ -132,9 +134,10 @@ func (s *Service) SetSchedule(ctx context.Context, id bson.ObjectID, minutes, ca
 }
 
 // SetProfile 更新诊所介绍信息（门诊后台门诊设置维护，患者端首页展示）。
-func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, intro, address, phone, hours, notice string) error {
+func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, intro, address, phone, hours, notice string, lat, lng float64) error {
 	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
 		"intro": intro, "address": address, "phone": phone, "hours": hours, "notice": notice,
+		"lat": lat, "lng": lng,
 	}})
 	return err
 }

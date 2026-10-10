@@ -269,13 +269,15 @@ func (h *Handler) homePage(c *gin.Context) {
 	})
 }
 
-// saveHomeProfile 诊所介绍信息（介绍/公告/地址/电话/营业时间）。
+// saveHomeProfile 诊所介绍信息（介绍/公告/地址/经纬度/电话/营业时间）。
 func (h *Handler) saveHomeProfile(c *gin.Context) {
 	ctx := c.Request.Context()
 	tid := mw.TenantID(c)
+	lat, _ := strconv.ParseFloat(c.PostForm("lat"), 64)
+	lng, _ := strconv.ParseFloat(c.PostForm("lng"), 64)
 	if err := h.e.Tenants.SetProfile(ctx, tid,
 		c.PostForm("intro"), c.PostForm("address"), c.PostForm("phone"),
-		c.PostForm("hours"), c.PostForm("notice")); err != nil {
+		c.PostForm("hours"), c.PostForm("notice"), lat, lng); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
 		h.audit(c, audit.ActTenantHome, "profile", "")

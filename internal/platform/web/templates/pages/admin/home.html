@@ -26,6 +26,10 @@
               <input class="form-control form-control-sm" name="phone" value="{{.Data.Tenant.Phone}}" inputmode="tel"></div>
             <div class="col-6 col-md-3"><label class="form-label">营业时间</label>
               <input class="form-control form-control-sm" name="hours" value="{{.Data.Tenant.Hours}}" placeholder="如 9:00-18:00"></div>
+            <div class="col-6 col-md-3"><label class="form-label">纬度 lat</label>
+              <input class="form-control form-control-sm" name="lat" type="number" step="any" value="{{if .Data.Tenant.Lat}}{{.Data.Tenant.Lat}}{{end}}" placeholder="一键导航用"></div>
+            <div class="col-6 col-md-3"><label class="form-label">经度 lng</label>
+              <input class="form-control form-control-sm" name="lng" type="number" step="any" value="{{if .Data.Tenant.Lng}}{{.Data.Tenant.Lng}}{{end}}" placeholder="一键导航用"></div>
           </div>
           <div class="mt-2"><button class="btn btn-sm btn-primary">保存介绍</button></div>
         </form>
