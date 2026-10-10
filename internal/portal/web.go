@@ -193,7 +193,6 @@ func (h *Web) apptsPage(c *gin.Context) {
 	p := Patient(c)
 	ctx := c.Request.Context()
 	appts, _ := h.appts.OfPatient(ctx, p.TenantID, p.ID)
-	appts = visibleAppts(appts)
 	web.Render(c, h.e, "portal/appts", gin.H{
 		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name,
 		"Appts": appts,
