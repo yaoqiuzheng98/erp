@@ -26,7 +26,6 @@ type Appointment struct {
 	Doctor      string        `bson:"doctor"` // 接诊医生快照（签到时最终确定）
 	Date        string        `bson:"date"` // YYYY-MM-DD
 	Slot        string        `bson:"slot"` // HH:MM
-	Item        string        `bson:"item"` // 主诉/就诊事由
 	Status      string        `bson:"status"`
 }
 

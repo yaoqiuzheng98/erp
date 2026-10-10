@@ -274,7 +274,7 @@ func (h *API) myAppointments(c *gin.Context) {
 func apptJSON(a appointment.Appointment) gin.H {
 	return gin.H{
 		"id": a.ID.Hex(), "date": a.Date, "slot": a.Slot,
-		"doctor": a.Doctor, "item": a.Item,
+		"doctor": a.Doctor,
 		"status": a.Status, "status_name": a.StatusName(),
 	}
 }
@@ -282,7 +282,6 @@ func apptJSON(a appointment.Appointment) gin.H {
 type bookReq struct {
 	Date string `json:"date"`
 	Slot string `json:"slot"`
-	Item string `json:"item"`
 }
 
 func (h *API) createAppointment(c *gin.Context) {
@@ -294,7 +293,7 @@ func (h *API) createAppointment(c *gin.Context) {
 	}
 	a := &appointment.Appointment{
 		PatientID: p.ID,
-		Date: in.Date, Slot: in.Slot, Item: in.Item,
+		Date: in.Date, Slot: in.Slot,
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {

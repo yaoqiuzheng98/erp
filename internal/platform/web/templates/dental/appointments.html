@@ -54,8 +54,6 @@
                   {{range .Data.Slots}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
                 </select></div>
             </div>
-            <div class="mt-2"><label class="form-label">主诉/就诊事由</label>
-              <input class="form-control form-control-sm" name="item" required></div>
           </div>
           <div class="modal-footer"><button class="btn btn-sm btn-primary">预约</button></div>
         </form>
@@ -103,7 +101,7 @@
                 <span class="badge {{.Badge}}">{{.StatusName}}</span>
               </div>
               <div class="small mt-1"><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>
-                <span class="text-muted">{{.Doctor}} · {{.Item}}</span></div>
+                <span class="text-muted">{{.Doctor}}</span></div>
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}

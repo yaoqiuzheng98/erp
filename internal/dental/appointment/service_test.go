@@ -77,7 +77,7 @@ func TestCreateConcurrentDoubleBook(t *testing.T) {
 			defer wg.Done()
 			errs[i] = svc.Create(ctx, tid, &Appointment{
 				PatientID: pid,
-				Date: "2026-10-06", Slot: "10:00", Item: "测试",
+				Date: "2026-10-06", Slot: "10:00",
 			}, 0, 0)
 		}(i)
 	}
@@ -175,7 +175,7 @@ func TestSlotConfig(t *testing.T) {
 	mk := func(date, slot string, minutes, capacity int) error {
 		return svc.Create(ctx, tid, &Appointment{
 			PatientID: pid,
-			Date: date, Slot: slot, Item: "测试",
+			Date: date, Slot: slot,
 		}, minutes, capacity)
 	}
 	// 默认 30 分钟档：09:10 不对齐拒绝，09:30 通过

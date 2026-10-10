@@ -14,7 +14,6 @@
       <b>{{.Date}} {{.Slot}}</b>
       <span class="badge {{.Badge}}">{{.StatusName}}</span>
     </div>
-    <div class="small text-muted">{{.Doctor}} · {{.Item}}</div>
     {{if eq .Status "booked"}}
     <form method="post" action="/p/{{$.Data.Tid}}/appointments/{{hex .ID}}/cancel" class="mt-1"
           onsubmit="return confirm('确认取消这次预约？')">

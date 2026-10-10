@@ -167,7 +167,6 @@ func (h *Handler) createAppt(c *gin.Context) {
 	a := &appointment.Appointment{
 		PatientID: patID,
 		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
-		Item: c.PostForm("item"),
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {

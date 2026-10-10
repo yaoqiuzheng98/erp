@@ -222,7 +222,7 @@ func (h *Web) book(c *gin.Context) {
 	}
 	a := &appointment.Appointment{
 		PatientID: p.ID,
-		Date: c.PostForm("date"), Slot: c.PostForm("slot"), Item: c.PostForm("item"),
+		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	if t := mw.Tenant(c); t != nil {
