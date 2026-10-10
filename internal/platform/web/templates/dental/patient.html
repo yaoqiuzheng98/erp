@@ -45,21 +45,6 @@
               <button class="btn btn-sm btn-outline-primary flex-shrink-0">设置</button>
             </form>
           </div></div>
-          <div class="card mt-3"><div class="card-body">
-            <h6>影像资料 <span class="text-muted small">牙片/口内照</span></h6>
-            <form method="post" action="/app/patients/{{hex .Data.P.ID}}/attach" enctype="multipart/form-data" class="d-flex gap-2 mb-2">
-              <input type="hidden" name="_csrf" value="{{.CSRF}}">
-              <input class="form-control form-control-sm flex-grow-1" name="file" type="file" required>
-              <button class="btn btn-sm btn-outline-primary flex-shrink-0">上传</button>
-            </form>
-            <div class="list-group list-group-flush">
-              {{range .Data.Files}}
-              <a class="list-group-item list-group-item-action py-1 px-0" href="/app/attach/{{hex .ID}}" target="_blank" rel="noopener">{{.Filename}} <small class="text-muted">{{.Size}}字节 · {{date .CreatedAt}}</small></a>
-              {{else}}
-              <div class="text-muted small">暂无影像</div>
-              {{end}}
-            </div>
-          </div></div>
         </div>
       </div>
     </main>

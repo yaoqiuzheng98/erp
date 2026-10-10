@@ -16,7 +16,6 @@ func (h *Handler) registerPatient(g *gin.RouterGroup) {
 	g.GET("/patients", mw.RequirePerm("patient.read"), h.patients)
 	g.POST("/patients", mw.RequirePerm("patient.write"), h.createPatient)
 	g.GET("/patients/:id", mw.RequirePerm("patient.read"), h.patient)
-	g.POST("/patients/:id/attach", mw.RequirePerm("patient.write"), h.uploadAttach)
 	g.POST("/patients/:id/password", mw.RequirePerm("patient.write"), h.setPassword)
 }
 
@@ -58,9 +57,8 @@ func (h *Handler) patient(c *gin.Context) {
 		return
 	}
 	appts, _ := h.appts.OfPatient(c.Request.Context(), tid, id)
-	files, _ := h.e.Attach.ListByOwner(c.Request.Context(), tid, "patient", id)
 	web.Render(c, h.e, "dental/patient", gin.H{
-		"P": p, "Appts": appts, "Files": files,
+		"P": p, "Appts": appts,
 	})
 }
 
@@ -71,38 +69,6 @@ func (h *Handler) setPassword(c *gin.Context) {
 		web.SetFlash(c, "设置失败: "+err.Error())
 	} else {
 		web.SetFlash(c, "患者端密码已设置")
-	}
-	c.Redirect(http.StatusFound, "/app/patients/"+id.Hex())
-}
-
-// uploadAttach 患者档案附件（牙片/口内照）：multipart file 字段。
-func (h *Handler) uploadAttach(c *gin.Context) {
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	tid := mw.TenantID(c)
-	if _, err := h.pats.ByID(c.Request.Context(), tid, id); err != nil {
-		web.SetFlash(c, "患者不存在")
-		c.Redirect(http.StatusFound, "/app/patients")
-		return
-	}
-	fh, err := c.FormFile("file")
-	if err != nil {
-		web.SetFlash(c, "请选择文件")
-		c.Redirect(http.StatusFound, "/app/patients/"+id.Hex())
-		return
-	}
-	f, err := fh.Open()
-	if err != nil {
-		web.SetFlash(c, "文件打开失败")
-		c.Redirect(http.StatusFound, "/app/patients/"+id.Hex())
-		return
-	}
-	defer f.Close()
-	if _, err := h.e.Attach.Save(c.Request.Context(), tid,
-		"patient", id, fh.Filename, fh.Header.Get("Content-Type"), f,
-		mw.User(c).Name); err != nil {
-		web.SetFlash(c, "上传失败: "+err.Error())
-	} else {
-		web.SetFlash(c, "影像已上传")
 	}
 	c.Redirect(http.StatusFound, "/app/patients/"+id.Hex())
 }
