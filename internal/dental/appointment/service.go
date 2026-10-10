@@ -159,6 +159,26 @@ func (s *Service) OfPatient(ctx context.Context, tenantID, patID bson.ObjectID) 
 	return s.appts.FindMany(ctx, tenantID, bson.M{"patient_id": patID})
 }
 
+// BookedCounts 某日期区间内已预约单按日期+时段计数（余量接口用）。
+func (s *Service) BookedCounts(ctx context.Context, tenantID bson.ObjectID, from, to string) (map[string]map[string]int64, error) {
+	list, err := s.appts.FindMany(ctx, tenantID, bson.M{
+		"date": bson.M{"$gte": from, "$lte": to}, "status": Booked,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]map[string]int64{}
+	for _, a := range list {
+		m, ok := out[a.Date]
+		if !ok {
+			m = map[string]int64{}
+			out[a.Date] = m
+		}
+		m[a.Slot]++
+	}
+	return out, nil
+}
+
 func (s *Service) setStatus(ctx context.Context, tenantID, id bson.ObjectID, from []string, to string) (*Appointment, error) {
 	// 条件更新一步到位：并发第二人命中为 0，直接报状态错，不会把别人的流转覆盖掉
 	matched, err := s.appts.UpdateWhere(ctx, tenantID,

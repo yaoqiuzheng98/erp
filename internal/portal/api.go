@@ -8,8 +8,9 @@ import (
 	"erp/internal/dental/patient"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
-	mw "erp/internal/platform/middleware"
+	mw 	"erp/internal/platform/middleware"
 	"erp/internal/platform/session"
+	"erp/internal/platform/tz"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -43,6 +44,7 @@ func (h *API) Register(g *gin.RouterGroup) {
 	g.GET("/clinic", h.clinic)
 	g.GET("/team", h.team)
 	g.GET("/slots", h.slots)
+	g.GET("/availability", h.requirePatient, h.availability)
 	g.GET("/appointments", h.requirePatient, h.myAppointments)
 	g.POST("/appointments", h.requirePatient, h.createAppointment)
 	g.POST("/appointments/:id/cancel", h.requirePatient, h.cancelAppointment)
@@ -224,6 +226,40 @@ func (h *API) slots(c *gin.Context) {
 		"slot_minutes": minutes, "slot_capacity": capacity,
 		"slots": appointment.DaySlots(minutes),
 	})
+}
+
+// availability 余量：日期区间内各时段已约数 + 放号配置，前端算满位。
+// from/to 默认今天起 7 天（YYYY-MM-DD），非法回落默认，最多 60 天。
+func (h *API) availability(c *gin.Context) {
+	from, to := c.Query("from"), c.Query("to")
+	if _, ok := tz.DayStart(from); !ok {
+		from = tz.Today()
+	}
+	if _, ok := tz.DayStart(to); !ok || to < from {
+		to = plusDays(from, 6)
+	}
+	if to > plusDays(from, 60) {
+		to = plusDays(from, 60)
+	}
+	minutes, capacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
+	if t := mw.Tenant(c); t != nil {
+		minutes, capacity = t.SlotConfig()
+	}
+	days, err := h.appts.BookedCounts(c.Request.Context(), mw.TenantID(c), from, to)
+	if err != nil {
+		fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ok(c, gin.H{
+		"slot_minutes": minutes, "slot_capacity": capacity,
+		"slots": appointment.DaySlots(minutes), "days": days,
+	})
+}
+
+// plusDays 日期加 N 天（入参已校验合法）。
+func plusDays(day string, n int) string {
+	d, _ := tz.DayStart(day)
+	return d.AddDate(0, 0, n).Format("2006-01-02")
 }
 
 // clinic 诊所首页信息（公开）：名称/介绍/地址/电话/营业时间/公告/挂号费。
