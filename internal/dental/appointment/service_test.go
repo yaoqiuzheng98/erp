@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"erp/internal/dental/patient"
-	"erp/internal/platform/auth"
 	"erp/internal/platform/seqno"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -56,7 +55,7 @@ func testSvc(t *testing.T) (*Service, *mongo.Database, context.Context) {
 		_ = cli.Disconnect(ctx)
 	})
 	seq := seqno.New(db)
-	svc := New(db, seq, patient.New(db), auth.NewService(db))
+	svc := New(db, seq, patient.New(db))
 	return svc, db, ctx
 }
 
@@ -65,15 +64,8 @@ func TestCreateConcurrentDoubleBook(t *testing.T) {
 	svc, db, ctx := testSvc(t)
 	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
 	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
-	did, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ef")
 	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
 		"_id": pid, "tenant_id": tid, "name": "重约测试", "created_at": time.Now(),
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Collection("users").InsertOne(ctx, bson.M{
-		"_id": did, "tenant_id": tid, "name": "重约医生",
-		"status": "active", "created_at": time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +76,7 @@ func TestCreateConcurrentDoubleBook(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			errs[i] = svc.Create(ctx, tid, &Appointment{
-				PatientID: pid, DoctorID: did,
+				PatientID: pid,
 				Date: "2026-10-06", Slot: "10:00", Item: "测试",
 			}, 0, 0)
 		}(i)
@@ -175,21 +167,14 @@ func TestSlotConfig(t *testing.T) {
 	svc, db, ctx := testSvc(t)
 	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
 	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ee")
-	did, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ef")
 	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
 		"_id": pid, "tenant_id": tid, "name": "档位测试", "created_at": time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Collection("users").InsertOne(ctx, bson.M{
-		"_id": did, "tenant_id": tid, "name": "档位医生",
-		"status": "active", "created_at": time.Now(),
-	}); err != nil {
-		t.Fatal(err)
-	}
 	mk := func(date, slot string, minutes, capacity int) error {
 		return svc.Create(ctx, tid, &Appointment{
-			PatientID: pid, DoctorID: did,
+			PatientID: pid,
 			Date: date, Slot: slot, Item: "测试",
 		}, minutes, capacity)
 	}

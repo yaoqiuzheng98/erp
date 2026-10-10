@@ -42,7 +42,6 @@ func (h *API) Register(g *gin.RouterGroup) {
 	g.POST("/logout", h.logout)
 	g.GET("/clinic", h.clinic)
 	g.GET("/team", h.team)
-	g.GET("/doctors", h.doctors)
 	g.GET("/slots", h.slots)
 	g.GET("/appointments", h.requirePatient, h.myAppointments)
 	g.POST("/appointments", h.requirePatient, h.createAppointment)
@@ -241,20 +240,6 @@ func (h *API) clinic(c *gin.Context) {
 	})
 }
 
-// doctors 在职员工列表（挂号选医生用，全员可接诊）：只吐 id+name，不露手机号。
-func (h *API) doctors(c *gin.Context) {
-	list, err := h.e.Auth.ListActive(c.Request.Context(), mw.TenantID(c))
-	if err != nil {
-		fail(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	out := make([]gin.H, 0, len(list))
-	for _, u := range list {
-		out = append(out, gin.H{"id": u.ID.Hex(), "name": u.Name})
-	}
-	ok(c, out)
-}
-
 // team 首页团队（公开）：与 SSR 首页同名单（在职/有角色/未隐藏），头像只回文件 id，
 // 图片走 /p/:tid/gallery/:id 公开白名单接口取。
 func (h *API) team(c *gin.Context) {
@@ -295,10 +280,9 @@ func apptJSON(a appointment.Appointment) gin.H {
 }
 
 type bookReq struct {
-	DoctorID string `json:"doctor_id"`
-	Date     string `json:"date"`
-	Slot     string `json:"slot"`
-	Item     string `json:"item"`
+	Date string `json:"date"`
+	Slot string `json:"slot"`
+	Item string `json:"item"`
 }
 
 func (h *API) createAppointment(c *gin.Context) {
@@ -308,9 +292,8 @@ func (h *API) createAppointment(c *gin.Context) {
 		fail(c, http.StatusBadRequest, "参数错误")
 		return
 	}
-	docID, _ := bson.ObjectIDFromHex(in.DoctorID)
 	a := &appointment.Appointment{
-		PatientID: p.ID, DoctorID: docID,
+		PatientID: p.ID,
 		Date: in.Date, Slot: in.Slot, Item: in.Item,
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity

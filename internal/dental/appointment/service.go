@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"erp/internal/dental/patient"
-	"erp/internal/platform/auth"
 	"erp/internal/platform/repo"
 	"erp/internal/platform/seqno"
 	"erp/internal/platform/tz"
@@ -30,7 +29,6 @@ type Service struct {
 	seq   *seqno.Generator
 	appts *repo.TenantRepo[Appointment]
 	pats  *patient.Service
-	users *auth.Service
 	// stripes 同键串行锁（防并发重约）：key 越细粒度并发越高，
 	// 同 key 同时只进一个。单实例部署有效（compose 单副本），扩多副本换分布式锁。
 	stripes [64]sync.Mutex
@@ -45,25 +43,15 @@ func (s *Service) stripe(key string) func() {
 	return m.Unlock
 }
 
-// New 装配预约服务；接诊医生即在职员工。
+// New 装配预约服务。
 func New(db *mongo.Database, seq *seqno.Generator,
-	pats *patient.Service, users *auth.Service) *Service {
+	pats *patient.Service) *Service {
 	return &Service{
 		db: db, seq: seq, appts: repo.NewTenantRepo[Appointment](db, "appointments"),
-		pats: pats, users: users,
+		pats: pats,
 	}
 }
 
-func (s *Service) doctorName(ctx context.Context, tenantID, doctorID bson.ObjectID) (string, error) {
-	d, err := s.users.UserByID(ctx, tenantID, doctorID)
-	if err != nil {
-		return "", errors.New("医生不存在")
-	}
-	if d.Status != "active" {
-		return "", errors.New("医生不在职")
-	}
-	return d.Name, nil
-}
 
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, slotMinutes, slotCapacity int) error {
 	p, err := s.pats.ByID(ctx, tenantID, a.PatientID)
@@ -71,9 +59,9 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		return errors.New("患者不存在")
 	}
 	minutes, capacity := NormSlotConfig(slotMinutes, slotCapacity)
-	// 同医生同档串行化：查（档内人数）与写（插入）之间不许插并发，否则同档超售。
+	// 同档串行化：查（档内人数）与写（插入）之间不许插并发，否则同档超售。
 	// 档位严格对齐后同档即同时刻，锁键直接用日期+时段。
-	unlock := s.stripe("slot:" + a.DoctorID.Hex() + ":" + a.Date + ":" + a.Slot)
+	unlock := s.stripe("slot:" + a.Date + ":" + a.Slot)
 	defer unlock()
 	// 日期时段只收合法格式，脏数据进库后筛选查不到
 	if _, ok := tz.DayStart(a.Date); !ok {
@@ -87,21 +75,13 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		return errors.New("预约时间不在放号时段内")
 	}
 	a.PatientName = p.Name
-	// 医生可选：选了则校验并快照
-	if !a.DoctorID.IsZero() {
-		name, err := s.doctorName(ctx, tenantID, a.DoctorID)
-		if err != nil {
-			return err
-		}
-		a.Doctor = name
-		// 同医生同档防超售（自助约诊必需；前台走同一入口同样受检）。
-		// 未完结的 noshow/cancel 不占档。
-		if n, _ := s.appts.Count(ctx, tenantID, bson.M{
-			"doctor_id": a.DoctorID, "date": a.Date, "slot": a.Slot,
-			"status": Booked,
-		}); n >= int64(capacity) {
-			return errors.New("该时段已约满，换个时间试试")
-		}
+	// 同档防超售：同一日期同一档只收 capacity 个（自助约诊必需；前台走同一入口同样受检）。
+	// noshow/cancel 的不占档。
+	if n, _ := s.appts.Count(ctx, tenantID, bson.M{
+		"date": a.Date, "slot": a.Slot,
+		"status": Booked,
+	}); n >= int64(capacity) {
+		return errors.New("该时段已约满，换个时间试试")
 	}
 	a.TenantID, a.Status, a.CreatedAt = tenantID, Booked, time.Now()
 	id, err := s.appts.Insert(ctx, tenantID, a)

@@ -53,11 +53,6 @@
                   <option value="">选择时段</option>
                   {{range .Data.Slots}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
                 </select></div>
-              <div class="col-12"><label class="form-label">接诊医生</label>
-                <select class="form-select form-select-sm" name="doctor_id" required>
-                  <option value="">选择医生</option>
-                  {{range .Data.Doctors}}<option value="{{hex .ID}}">{{.Name}}</option>{{end}}
-                </select></div>
             </div>
             <div class="mt-2"><label class="form-label">主诉/就诊事由</label>
               <input class="form-control form-control-sm" name="item" required></div>

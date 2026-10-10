@@ -201,13 +201,12 @@ func (h *Web) apptsPage(c *gin.Context) {
 }
 
 func (h *Web) bookPage(c *gin.Context) {
-	doctors, _ := h.e.Auth.ListActive(c.Request.Context(), mw.TenantID(c))
 	slotMinutes := appointment.DefaultSlotMinutes
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, _ = t.SlotConfig()
 	}
 	web.Render(c, h.e, "portal/book", gin.H{
-		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "book", "Doctors": doctors,
+		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "book",
 		"Today": tz.Today(), "Slots": appointment.DaySlots(slotMinutes),
 	})
 }
@@ -221,9 +220,8 @@ func (h *Web) book(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/p/"+h.tenant(c)+"/book")
 		return
 	}
-	docID, _ := bson.ObjectIDFromHex(c.PostForm("doctor_id"))
 	a := &appointment.Appointment{
-		PatientID: p.ID, DoctorID: docID,
+		PatientID: p.ID,
 		Date: c.PostForm("date"), Slot: c.PostForm("slot"), Item: c.PostForm("item"),
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity

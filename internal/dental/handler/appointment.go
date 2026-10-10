@@ -164,9 +164,8 @@ func (h *Handler) appointments(c *gin.Context) {
 
 func (h *Handler) createAppt(c *gin.Context) {
 	patID, _ := bson.ObjectIDFromHex(c.PostForm("patient_id"))
-	docID, _ := bson.ObjectIDFromHex(c.PostForm("doctor_id"))
 	a := &appointment.Appointment{
-		PatientID: patID, DoctorID: docID,
+		PatientID: patID,
 		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
 		Item: c.PostForm("item"),
 	}
