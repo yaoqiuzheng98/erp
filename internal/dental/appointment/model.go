@@ -9,14 +9,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-// 预约状态机：booked(预约) → arrived(签到/候诊) → done(完成，前台线下接诊后标记)；
-// 分支 noshow(爽约) / cancel(取消)。
+// 预约状态机：booked(预约) → done(完成，签到即完成)；分支 noshow(爽约) / cancel(取消)。
 const (
-	Booked  = "booked"
-	Arrived = "arrived"
-	Done    = "done"
-	NoShow  = "noshow"
-	Cancel  = "cancel"
+	Booked = "booked"
+	Done   = "done"
+	NoShow = "noshow"
+	Cancel = "cancel"
 )
 
 // ApptItem 预约/结算明细行：下单时快照 Name/Price，防价目改价影响历史单。
@@ -119,7 +117,6 @@ type statusMeta struct{ Name, Badge string }
 
 var statusMetas = map[string]statusMeta{
 	Booked:  {"已预约", "bg-primary"},
-	Arrived: {"候诊中", "bg-info text-dark"},
 	Done:    {"已完成", "bg-success"},
 	NoShow:  {"爽约", "bg-warning text-dark"},
 	Cancel:  {"已取消", "bg-secondary"},

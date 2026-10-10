@@ -2,23 +2,14 @@
 {{$a := .A}}
 <div class="d-flex flex-wrap gap-1 align-items-center mt-1">
   {{if eq $a.Status "booked"}}
-  <form method="post" action="/app/appointments/{{hex $a.ID}}/checkin" class="m-0">
+  <form method="post" action="/app/appointments/{{hex $a.ID}}/checkin" class="m-0"
+        onsubmit="return confirm('确认已接诊完成？')">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <button class="btn btn-sm btn-outline-primary">签到</button></form>
+    <button class="btn btn-sm btn-outline-success">完成</button></form>
   <form method="post" action="/app/appointments/{{hex $a.ID}}/noshow" class="m-0">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <button class="btn btn-sm btn-outline-warning">爽约</button></form>
   <form method="post" action="/app/appointments/{{hex $a.ID}}/cancel" class="m-0">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <button class="btn btn-sm btn-outline-danger">取消</button></form>
-  {{end}}
-  {{if eq $a.Status "arrived"}}
-  <form method="post" action="/app/appointments/{{hex $a.ID}}/done" class="m-0"
-        onsubmit="return confirm('确认已完成本次接诊？')">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <button class="btn btn-sm btn-outline-success">完成</button></form>
-  <form method="post" action="/app/appointments/{{hex $a.ID}}/cancel" class="m-0"
-        onsubmit="return confirm('确认取消该预约？')">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <button class="btn btn-sm btn-outline-danger">取消</button></form>
   {{end}}

@@ -30,7 +30,6 @@ func (h *Handler) registerAppointment(g *gin.RouterGroup) {
 	g.POST("/appointments/:id/checkin", mw.RequirePerm("appt.write"), h.checkin)
 	// 兼容旧版缓存页面上的 /arrive 入口（行为同签到）。
 	g.POST("/appointments/:id/arrive", mw.RequirePerm("appt.write"), h.checkin)
-	g.POST("/appointments/:id/done", mw.RequirePerm("appt.write"), h.done)
 	g.POST("/appointments/:id/noshow", mw.RequirePerm("appt.write"), h.noshow)
 	g.POST("/appointments/:id/cancel", mw.RequirePerm("appt.write"), h.cancel)
 }
@@ -246,7 +245,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
-// checkin 前台签到：登记到院，未指定医生的自动分配。
+// checkin 前台签到：booked → done（签到即完成），未指定医生的自动分配。
 func (h *Handler) checkin(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	doc, err := h.appts.CheckIn(c.Request.Context(), mw.TenantID(c), id)
@@ -254,19 +253,7 @@ func (h *Handler) checkin(c *gin.Context) {
 		web.SetFlash(c, "签到失败: "+err.Error())
 	} else {
 		h.audit(c, audit.ActApptCheckin, doc, "")
-		web.SetFlash(c, "已签到，接诊医生："+doc)
-	}
-	c.Redirect(http.StatusFound, "/app/appointments")
-}
-
-// done 完成：候诊 → 已完成（前台线下接诊后手动收尾）。
-func (h *Handler) done(c *gin.Context) {
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	if err := h.appts.Complete(c.Request.Context(), mw.TenantID(c), id); err != nil {
-		web.SetFlash(c, "操作失败: "+err.Error())
-	} else {
-		h.audit(c, audit.ActApptComplete, id.Hex(), "")
-		web.SetFlash(c, "已完成")
+		web.SetFlash(c, "签到完成，接诊医生："+doc)
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
@@ -283,7 +270,7 @@ func (h *Handler) noshow(c *gin.Context) {
 
 func (h *Handler) cancel(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	// 门诊后台取消：booked/arrived/unpaid（历史单）均可取消
+	// 门诊后台取消已预约单
 	err := h.appts.CancelUnpaid(c.Request.Context(), mw.TenantID(c), id)
 	if err != nil {
 		web.SetFlash(c, "操作失败: "+err.Error())

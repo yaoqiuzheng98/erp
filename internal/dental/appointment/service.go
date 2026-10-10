@@ -138,9 +138,10 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		}
 		a.Doctor = name
 		// 同医生同档防超售（自助约诊必需；前台走同一入口同样受检）。
+		// 未完结的 noshow/cancel 不占档。
 		if n, _ := s.appts.Count(ctx, tenantID, bson.M{
 			"doctor_id": a.DoctorID, "date": a.Date, "slot": a.Slot,
-			"status": bson.M{"$in": []string{Booked, Arrived}},
+			"status": Booked,
 		}); n >= int64(capacity) {
 			return errors.New("该时段已约满，换个时间试试")
 		}
@@ -236,38 +237,18 @@ func (s *Service) setStatus(ctx context.Context, tenantID, id bson.ObjectID, fro
 	return s.appts.FindByID(ctx, tenantID, id)
 }
 
-// activeLoad 当天某医生手上候诊单数。
-func (s *Service) activeLoad(ctx context.Context, tenantID, doctorID bson.ObjectID, date string) int64 {
-	n, _ := s.appts.Count(ctx, tenantID, bson.M{
-		"doctor_id": doctorID, "date": date,
-		"status": Arrived,
-	})
-	return n
-}
-
-// pickDoctor 签到分配：有空闲医生（当天手上没候诊单）用第一个；
-// 都没有则取当天负载最小的医生。无可接诊医生时报错。
-func (s *Service) pickDoctor(ctx context.Context, tenantID bson.ObjectID, date string) (bson.ObjectID, string, error) {
+// pickDoctor 签到分配：无指定医生时轮流取首位可接诊医生。
+func (s *Service) pickDoctor(ctx context.Context, tenantID bson.ObjectID) (bson.ObjectID, string, error) {
 	docs, err := s.users.ListPractitioners(ctx, tenantID)
 	if err != nil || len(docs) == 0 {
 		return bson.NilObjectID, "", errors.New("暂无可接诊医生")
 	}
-	for _, d := range docs {
-		if s.activeLoad(ctx, tenantID, d.ID, date) == 0 {
-			return d.ID, d.Name, nil
-		}
-	}
-	best, bestLoad := docs[0], s.activeLoad(ctx, tenantID, docs[0].ID, date)
-	for _, d := range docs[1:] {
-		if l := s.activeLoad(ctx, tenantID, d.ID, date); l < bestLoad {
-			best, bestLoad = d, l
-		}
-	}
-	return best.ID, best.Name, nil
+	d := docs[0]
+	return d.ID, d.Name, nil
 }
 
-// CheckIn 签到：booked → arrived。已指定医生则保留（医生失效则自动改派）；
-// 未指定医生则按空闲优先/最短负载分配。返回最终医生名。
+// CheckIn 签到：booked → done（签到即完成）。已指定医生则保留（医生失效则自动改派）；
+// 未指定医生则轮流取首位可接诊医生。返回最终医生名。
 func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (string, error) {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
@@ -279,12 +260,12 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (stri
 	docID, docName := a.DoctorID, a.Doctor
 	if docID.IsZero() {
 		var err error
-		docID, docName, err = s.pickDoctor(ctx, tenantID, a.Date)
+		docID, docName, err = s.pickDoctor(ctx, tenantID)
 		if err != nil {
 			return "", err
 		}
 	} else if name, err := s.doctorName(ctx, tenantID, docID); err != nil {
-		docID, docName, err = s.pickDoctor(ctx, tenantID, a.Date)
+		docID, docName, err = s.pickDoctor(ctx, tenantID)
 		if err != nil {
 			return "", err
 		}
@@ -293,7 +274,7 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (stri
 	}
 	matched, err := s.appts.UpdateWhere(ctx, tenantID,
 		bson.M{"_id": id, "status": Booked},
-		bson.M{"status": Arrived, "doctor_id": docID, "doctor": docName})
+		bson.M{"status": Done, "doctor_id": docID, "doctor": docName})
 	if err != nil {
 		return "", err
 	}
@@ -303,19 +284,13 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (stri
 	return docName, nil
 }
 
-// Complete 完成：前台线下接诊完手动标记，arrived → done。
-func (s *Service) Complete(ctx context.Context, tenantID, id bson.ObjectID) error {
-	_, err := s.setStatus(ctx, tenantID, id, []string{Arrived}, Done)
-	return err
-}
-
 func (s *Service) NoShow(ctx context.Context, tenantID, id bson.ObjectID) error {
 	_, err := s.setStatus(ctx, tenantID, id, []string{Booked}, NoShow)
 	return err
 }
 
 func (s *Service) Cancel(ctx context.Context, tenantID, id bson.ObjectID) error {
-	_, err := s.setStatus(ctx, tenantID, id, []string{Booked, Arrived}, Cancel)
+	_, err := s.setStatus(ctx, tenantID, id, []string{Booked}, Cancel)
 	return err
 }
 
@@ -326,7 +301,7 @@ func (s *Service) CancelUnpaid(ctx context.Context, tenantID, id bson.ObjectID) 
 		return err
 	}
 	switch a.Status {
-	case Booked, Arrived:
+	case Booked:
 	default:
 		return ErrBadStatus
 	}
