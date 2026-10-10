@@ -87,7 +87,7 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		return errors.New("预约时间不在放号时段内")
 	}
 	a.PatientName = p.Name
-	// 医生可选：不选则签到时分配；选了则校验并快照
+	// 医生可选：选了则校验并快照
 	if !a.DoctorID.IsZero() {
 		name, err := s.doctorName(ctx, tenantID, a.DoctorID)
 		if err != nil {
@@ -187,18 +187,8 @@ func (s *Service) setStatus(ctx context.Context, tenantID, id bson.ObjectID, fro
 	return s.appts.FindByID(ctx, tenantID, id)
 }
 
-// pickDoctor 签到分配：无指定医生时取首位在职员工。
-func (s *Service) pickDoctor(ctx context.Context, tenantID bson.ObjectID) (bson.ObjectID, string, error) {
-	docs, err := s.users.ListActive(ctx, tenantID)
-	if err != nil || len(docs) == 0 {
-		return bson.NilObjectID, "", errors.New("暂无在职员工")
-	}
-	d := docs[0]
-	return d.ID, d.Name, nil
-}
-
-// CheckIn 签到：booked → done（签到即完成）。已指定医生则保留（医生失效则自动改派）；
-// 未指定医生则取首位在职员工。返回最终医生名。
+// CheckIn 签到即完成：booked → done。医生只认建档写入的快照，不再分配/改派。
+// 返回预约上的医生名（预约时未选则为空）。
 func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (string, error) {
 	a, err := s.appts.FindByID(ctx, tenantID, id)
 	if err != nil {
@@ -207,31 +197,15 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id bson.ObjectID) (stri
 	if a.Status != Booked {
 		return "", ErrBadStatus
 	}
-	docID, docName := a.DoctorID, a.Doctor
-	if docID.IsZero() {
-		var err error
-		docID, docName, err = s.pickDoctor(ctx, tenantID)
-		if err != nil {
-			return "", err
-		}
-	} else if name, err := s.doctorName(ctx, tenantID, docID); err != nil {
-		docID, docName, err = s.pickDoctor(ctx, tenantID)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		docName = name
-	}
 	matched, err := s.appts.UpdateWhere(ctx, tenantID,
-		bson.M{"_id": id, "status": Booked},
-		bson.M{"status": Done, "doctor_id": docID, "doctor": docName})
+		bson.M{"_id": id, "status": Booked}, bson.M{"status": Done})
 	if err != nil {
 		return "", err
 	}
 	if matched == 0 {
 		return "", ErrBadStatus
 	}
-	return docName, nil
+	return a.Doctor, nil
 }
 
 func (s *Service) NoShow(ctx context.Context, tenantID, id bson.ObjectID) error {

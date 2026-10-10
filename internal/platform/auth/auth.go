@@ -156,7 +156,7 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID) ([]User, err
 	return out, cur.All(ctx, &out)
 }
 
-// ListActive 在职员工：预约选医生、签到自动分配用（全员可接诊）。
+// ListActive 在职员工：挂号选医生用（全员可接诊）。
 func (s *Service) ListActive(ctx context.Context, tenantID bson.ObjectID) ([]User, error) {
 	cur, err := s.users.Find(ctx, bson.M{
 		"tenant_id": tenantID, "status": "active",
@@ -164,8 +164,8 @@ func (s *Service) ListActive(ctx context.Context, tenantID bson.ObjectID) ([]Use
 	if err != nil {
 		return nil, err
 	}
-	var out []User
-	return out, cur.All(ctx, &out)
+	var act []User
+	return act, cur.All(ctx, &act)
 }
 
 // Create 新建员工：姓名/手机号/初始密码必填，手机号租户内唯一。

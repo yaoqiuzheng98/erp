@@ -186,7 +186,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
 
-// checkin 前台签到：booked → done（签到即完成），未指定医生的自动分配。
+// checkin 前台签到：booked → done（签到即完成）。
 func (h *Handler) checkin(c *gin.Context) {
 	id, _ := bson.ObjectIDFromHex(c.Param("id"))
 	doc, err := h.appts.CheckIn(c.Request.Context(), mw.TenantID(c), id)
@@ -194,7 +194,11 @@ func (h *Handler) checkin(c *gin.Context) {
 		web.SetFlash(c, "签到失败: "+err.Error())
 	} else {
 		h.audit(c, audit.ActApptCheckin, doc, "")
-		web.SetFlash(c, "签到完成，接诊医生："+doc)
+		msg := "签到完成"
+		if doc != "" {
+			msg += "，接诊医生：" + doc
+		}
+		web.SetFlash(c, msg)
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")
 }
