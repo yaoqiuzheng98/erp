@@ -106,7 +106,10 @@ func (s *Service) Count(ctx context.Context) (int64, error) {
 }
 
 func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {
-	t := &Tenant{Name: name, Status: "active", CreatedAt: time.Now()}
+	// 新建门诊默认营业时间（9:00-12:00 14:00-18:00），展示串同步写。
+	t := &Tenant{Name: name, Status: "active", CreatedAt: time.Now(),
+		HoursSeg: append([]model.HourSeg(nil), DefaultBizSegs...),
+		Hours:    BizSegText(DefaultBizSegs)}
 	res, err := s.col.InsertOne(ctx, t)
 	if err != nil {
 		return nil, err
@@ -122,8 +125,11 @@ func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {
 // hourRe HH:MM 24小时制（营业时段输入校验用）。
 var hourRe = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
 
-// MaxBizSegs 营业时段最多分段（上午+下午，中午休息）。
+// MaxBizSegs 营业时段分段（上午+下午，中午休息）：两段必填。
 const MaxBizSegs = 2
+
+// DefaultBizSegs 新建门诊默认营业时间（9:00-12:00 14:00-18:00）。
+var DefaultBizSegs = []model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}
 
 // hourMin HH:MM → 当天分钟数（已校验合法才调）。
 func hourMin(h string) int {
@@ -135,17 +141,17 @@ func trimHour(h string) string {
 	return strings.TrimLeft(h[:2], "0") + h[2:]
 }
 
-// NormBusinessHours 营业时段归一：空段跳过，最多两段，每段起<止，段间不重叠，
-// 返回按开始排序的结果。输入全空返回 nil（= 清除配置，回落全天）。
+// NormBusinessHours 营业时段归一：早晚两段必填（中午休息），每段起止成对、
+// HH:MM、起早于止，段间不重叠，返回按开始排序的结果。
 func NormBusinessHours(segs []model.HourSeg) ([]model.HourSeg, error) {
-	out := make([]model.HourSeg, 0, len(segs))
+	if len(segs) != MaxBizSegs {
+		return nil, errors.New("营业时间早晚两段都要填")
+	}
+	out := make([]model.HourSeg, 0, MaxBizSegs)
 	for _, s := range segs {
 		o, c := strings.TrimSpace(s.Open), strings.TrimSpace(s.Close)
-		if o == "" && c == "" {
-			continue
-		}
 		if o == "" || c == "" {
-			return nil, errors.New("营业时段起止要成对填")
+			return nil, errors.New("营业时间早晚两段都要填")
 		}
 		if !hourRe.MatchString(o) || !hourRe.MatchString(c) {
 			return nil, errors.New("营业时间格式不对，用 HH:MM（如 09:00）")
@@ -155,17 +161,11 @@ func NormBusinessHours(segs []model.HourSeg) ([]model.HourSeg, error) {
 		}
 		out = append(out, model.HourSeg{Open: o, Close: c})
 	}
-	if len(out) > MaxBizSegs {
-		return nil, errors.New("营业时段最多分两段")
-	}
 	sort.Slice(out, func(i, j int) bool { return hourMin(out[i].Open) < hourMin(out[j].Open) })
 	for i := 1; i < len(out); i++ {
 		if hourMin(out[i].Open) < hourMin(out[i-1].Close) {
 			return nil, errors.New("两段营业时间不能重叠")
 		}
-	}
-	if len(out) == 0 {
-		return nil, nil
 	}
 	return out, nil
 }
@@ -192,15 +192,11 @@ func (t *Tenant) HoursText() string {
 	return t.Hours
 }
 
-// SetBusinessHours 存营业时段（门诊设置）：校验通过才落库，展示串同步派生；
-// 全空=清除配置（时段清空，展示串保留原样）。
+// SetBusinessHours 存营业时段（门诊设置）：早晚两段必填，校验通过才落库，
+// 展示串同步派生。
 func (s *Service) SetBusinessHours(ctx context.Context, id bson.ObjectID, segs []model.HourSeg) error {
 	norm, err := NormBusinessHours(segs)
 	if err != nil {
-		return err
-	}
-	if len(norm) == 0 {
-		_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$unset": bson.M{"hours_seg": ""}})
 		return err
 	}
 	_, err = s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{

@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -210,8 +211,9 @@ func (p Pager) Next() int     { return p.Page + 1 }
 const flashCookie = "erp_flash"
 
 // SetFlash 设置一次性提示消息（cookie 携带，下一次渲染后清除）。
+// cookie 值只允许 ASCII，中文先 QueryEscape，否则 net/http 会静默剥掉非 ASCII 字节。
 func SetFlash(c *gin.Context, msg string) {
-	c.SetCookie(flashCookie, msg, 30, "/", "", false, true)
+	c.SetCookie(flashCookie, url.QueryEscape(msg), 30, "/", "", false, true)
 }
 
 func takeFlash(c *gin.Context) string {
@@ -220,5 +222,8 @@ func takeFlash(c *gin.Context) string {
 		return ""
 	}
 	c.SetCookie(flashCookie, "", -1, "/", "", false, true)
+	if s, err := url.QueryUnescape(v); err == nil {
+		return s
+	}
 	return v
 }

@@ -61,12 +61,45 @@ func TestSetBusinessHoursRoundTrip(t *testing.T) {
 	if err := svc.SetBusinessHours(ctx, id, []model.HourSeg{{Open: "12:00", Close: "09:00"}}); err == nil {
 		t.Fatal("bad segs should fail")
 	}
-	// 全空=清除
-	if err := svc.SetBusinessHours(ctx, id, nil); err != nil {
-		t.Fatalf("clear: %v", err)
+	// 留空不落库（早晚两段必填）
+	if err := svc.SetBusinessHours(ctx, id, nil); err == nil {
+		t.Fatal("empty segs should fail")
 	}
 	got, _ = svc.ByID(ctx, id)
-	if len(got.BusinessHours()) != 0 {
-		t.Fatalf("after clear = %+v", got.BusinessHours())
+	if len(got.BusinessHours()) != 2 {
+		t.Fatalf("bad saves must not overwrite: %+v", got.BusinessHours())
+	}
+}
+
+// TestCreateDefaultBiz 新建门诊默认营业时间（9:00-12:00 14:00-18:00）。
+func TestCreateDefaultBiz(t *testing.T) {
+	uri := os.Getenv("MONGO_TEST_URL")
+	if uri == "" {
+		uri = "mongodb://127.0.0.1:27018"
+	}
+	ctx := context.Background()
+	cli, err := mongo.Connect(options.Client().ApplyURI(uri))
+	if err != nil {
+		t.Skipf("mongo unavailable: %v", err)
+	}
+	ping, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := cli.Ping(ping, nil); err != nil {
+		t.Skipf("mongo ping failed: %v", err)
+	}
+	db := cli.Database("erp_unittest_tenant")
+	svc := NewService(db)
+	nt, err := svc.Create(ctx, "默认时段门诊")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_, _ = db.Collection("tenants").DeleteOne(ctx, bson.M{"_id": nt.ID})
+		_ = cli.Disconnect(ctx)
+	})
+	if len(nt.BusinessHours()) != 2 || nt.HoursText() != "9:00-12:00 14:00-18:00" {
+		t.Fatalf("default = %+v %q", nt.BusinessHours(), nt.HoursText())
 	}
 }

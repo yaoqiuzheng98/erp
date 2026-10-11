@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -31,5 +32,20 @@ func TestPagerPages(t *testing.T) {
 	}
 	if (Pager{Page: 1, Size: 20, Total: 0}).Pages() != 1 {
 		t.Fatal("empty should be 1 page")
+	}
+}
+
+func TestFlashChineseRoundTrip(t *testing.T) {
+	// 中文 flash 经 cookie 往返不丢（net/http 会剥非 ASCII，必须先转义）。
+	c := ctxOf("/x")
+	SetFlash(c, "门诊设置已保存")
+	h := c.Writer.Header().Get("Set-Cookie")
+	if h == "" {
+		t.Fatal("no set-cookie")
+	}
+	c2 := ctxOf("/y")
+	c2.Request.Header.Set("Cookie", h[strings.Index(h, "erp_flash="):strings.Index(h, ";")])
+	if got := takeFlash(c2); got != "门诊设置已保存" {
+		t.Fatalf("flash = %q", got)
 	}
 }
