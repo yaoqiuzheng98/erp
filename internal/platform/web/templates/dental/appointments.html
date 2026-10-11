@@ -46,10 +46,10 @@
               <div class="col-6"><label class="form-label">日期</label>
                 <div class="input-group input-group-sm">
                   <span class="input-group-text">📅</span>
-                  <input class="form-control form-control-sm" name="date" type="date" required title="选择预约日期">
+                  <input class="form-control form-control-sm" id="appt-date" name="date" type="date" required title="选择预约日期">
                 </div></div>
               <div class="col-6"><label class="form-label">到诊时段</label>
-                <select class="form-select form-select-sm" name="slot" required title="选择到诊时段">
+                <select class="form-select form-select-sm" id="appt-slot" name="slot" required title="选择到诊时段">
                   <option value="">选择时段</option>
                   {{range .Data.Slots}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
                 </select></div>
@@ -77,6 +77,8 @@
         .week-grid th, .week-grid td { border: 1px solid #dee2e6; }
         .week-grid td { min-width: 10em; }
         .week-grid th.week-time, .week-grid td.week-time { position: sticky; left: 0; background: #fff; z-index: 2; }
+        .cell-add { cursor: pointer; min-height: 2.2em; border: 1px dashed #d7e0dc; border-radius: .375rem; color: #b9cdc4; display: flex; align-items: center; justify-content: center; }
+        .cell-add:hover { background: #f2f8f5; color: #45b498; border-color: #45b498; }
       </style>
       <div class="table-responsive"><table class="table table-sm bg-white align-middle week-grid" style="min-width:76em">
         <thead><tr>
@@ -90,9 +92,10 @@
         {{$r := .}}
         <tr>
           <td class="week-time text-muted text-nowrap">{{$r.Label}}</td>
-          {{range $r.Cells}}
+          {{range $i, $cell := $r.Cells}}
+          {{$d := index $.Data.Days $i}}
           <td class="align-top">
-            {{range .}}
+            {{range $cell}}
             <div class="border rounded p-1 mb-1 bg-light">
               <div class="d-flex justify-content-between align-items-center gap-1">
                 <b>{{.Slot}}</b>
@@ -103,12 +106,36 @@
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
+            {{if and (eq (len $cell) 0) (ge $r.Hour 0)}}
+            <div class="cell-add" data-date="{{$d.Date}}" data-hour="{{$r.Label}}" role="button" tabindex="0"
+                 title="点此为 {{$d.Date}} {{$r.Label}} 新建预约">＋</div>
+            {{end}}
           </td>
           {{end}}
         </tr>
         {{end}}
         </tbody>
       </table></div>
+      <script>
+        // 点空格子：按该格日期+整点预填新建预约弹窗。
+        document.querySelectorAll('.cell-add').forEach(function (el) {
+          function open() {
+            document.getElementById('appt-date').value = el.dataset.date;
+            var sel = document.getElementById('appt-slot');
+            var prefix = (el.dataset.hour || '').slice(0, 2) + ':';
+            var matched = '';
+            for (var i = 0; i < sel.options.length; i++) {
+              if (sel.options[i].value.indexOf(prefix) === 0) { matched = sel.options[i].value; break; }
+            }
+            sel.value = matched;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('apptModal')).show();
+          }
+          el.addEventListener('click', open);
+          el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+          });
+        });
+      </script>
     </main>
   </div>
 </div>
