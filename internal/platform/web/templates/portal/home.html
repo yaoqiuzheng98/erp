@@ -10,15 +10,11 @@
     <div class="small opacity-75">{{.Data.Clinic}}</div>
     <h4 class="mb-0">{{.Data.Name}}，你好 🦷</h4>
   </div>
-  {{if .Data.Gallery}}
-  <div class="gallery-track mb-3"><div class="gallery-scroll">
-    {{range .Data.Gallery}}
-    <img src="/p/{{$.Data.Tid}}/gallery/{{.}}" class="flex-shrink-0" style="width:14em;height:9em;object-fit:cover;border-radius:.5rem" alt="{{$.Data.Clinic}}">
-    {{end}}
-    {{range .Data.Gallery}}
-    <img src="/p/{{$.Data.Tid}}/gallery/{{.}}" class="flex-shrink-0" style="width:14em;height:9em;object-fit:cover;border-radius:.5rem" alt="" aria-hidden="true">
-    {{end}}
-  </div></div>
+  {{if .Data.HeroImage}}
+  <img src="/p/{{.Data.Tid}}/gallery/{{.Data.HeroImage}}" class="w-100 mb-3" style="border-radius:.5rem" alt="{{.Data.Clinic}}">
+  {{end}}
+  {{if .Data.ClinicImage}}
+  <img src="/p/{{.Data.Tid}}/gallery/{{.Data.ClinicImage}}" class="w-100 mb-3" style="border-radius:.5rem" alt="门诊环境">
   {{end}}
   {{if or .Data.Address .Data.Hours}}
   <div class="card portal-card mb-3"><div class="card-body py-2 small">

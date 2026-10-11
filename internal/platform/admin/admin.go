@@ -36,12 +36,11 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 
 	g.GET("/settings", mw.RequirePerm("admin.settings"), h.settingsPage)
 	g.POST("/settings", mw.RequirePerm("admin.settings"), h.saveSettings)
-	g.POST("/settings/gallery/:id/delete", mw.RequirePerm("admin.settings"), h.deleteGalleryPhoto)
 
 	g.GET("/home", mw.RequirePerm("admin.settings"), h.homePage)
 	g.POST("/home/profile", mw.RequirePerm("admin.settings"), h.saveHomeProfile)
-	g.POST("/home/gallery", mw.RequirePerm("admin.settings"), h.uploadGallery)
-	g.POST("/home/gallery/:id/delete", mw.RequirePerm("admin.settings"), h.deleteGalleryPhoto)
+	g.POST("/home/image/:kind", mw.RequirePerm("admin.settings"), h.uploadHomeImage)
+	g.POST("/home/image/:kind/delete", mw.RequirePerm("admin.settings"), h.deleteHomeImage)
 	g.POST("/home/staff/:id", mw.RequirePerm("admin.settings"), h.saveHomeStaff)
 	g.POST("/home/staff/:id/top", mw.RequirePerm("admin.settings"), h.topHomeStaff)
 
@@ -273,49 +272,83 @@ func (h *Handler) saveHomeProfile(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/admin/home")
 }
 
-// uploadGallery 门诊图多张批量上传。
-func (h *Handler) uploadGallery(c *gin.Context) {
+// uploadHomeImage 首页图位上传（kind=hero 顶部大图 / clinic 门诊卡图）：单张，换图即删旧图。
+func (h *Handler) uploadHomeImage(c *gin.Context) {
 	ctx := c.Request.Context()
 	tid := mw.TenantID(c)
-	coverErr := ""
-	n := 0
-	if mf, err := c.MultipartForm(); err == nil && mf != nil {
-		for _, fh := range mf.File["photos"] {
-			if fh == nil || fh.Filename == "" {
-				continue
-			}
-			func() {
-				f, err := fh.Open()
-				if err != nil {
-					coverErr = "图片打开失败"
-					return
-				}
-				defer f.Close()
-				a, err := h.e.Attach.Save(ctx, tid, "tenant", tid,
-					fh.Filename, fh.Header.Get("Content-Type"), f, mw.User(c).Name)
-				if err != nil {
-					coverErr = "图片上传失败: " + err.Error()
-					return
-				}
-				if err := h.e.Tenants.AddGalleryPhoto(ctx, tid, a.ID.Hex()); err != nil {
-					coverErr = "保存失败: " + err.Error()
-					return
-				}
-				n++
-			}()
-			if coverErr != "" {
-				break
-			}
+	kind := c.Param("kind")
+	fh, err := c.FormFile("file")
+	if err != nil || fh == nil || fh.Filename == "" {
+		web.SetFlash(c, "请选择图片")
+		c.Redirect(http.StatusFound, "/admin/home")
+		return
+	}
+	f, err := fh.Open()
+	if err != nil {
+		web.SetFlash(c, "图片打开失败")
+		c.Redirect(http.StatusFound, "/admin/home")
+		return
+	}
+	defer f.Close()
+	a, err := h.e.Attach.Save(ctx, tid, "tenant", tid, fh.Filename, fh.Header.Get("Content-Type"), f, mw.User(c).Name)
+	if err != nil {
+		web.SetFlash(c, "上传失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/admin/home")
+		return
+	}
+	t, _ := h.e.Tenants.ByID(ctx, tid)
+	old := ""
+	if t != nil {
+		if kind == "hero" {
+			old = t.HeroImage
+		} else if kind == "clinic" {
+			old = t.ClinicImage
 		}
 	}
-	if coverErr != "" {
-		web.SetFlash(c, coverErr)
-	} else if n == 0 {
-		web.SetFlash(c, "请选择图片")
-	} else {
-		h.audit(c, audit.ActTenantHome, "gallery.add", strconv.Itoa(n))
-		web.SetFlash(c, "门诊图已上传")
+	if err := h.e.Tenants.SetHomeImage(ctx, tid, kind, a.ID.Hex()); err != nil {
+		web.SetFlash(c, "保存失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/admin/home")
+		return
 	}
+	if old != "" {
+		if oldID, err := bson.ObjectIDFromHex(old); err == nil {
+			_ = h.e.Attach.Delete(ctx, tid, oldID)
+		}
+	}
+	h.audit(c, audit.ActTenantHome, "image."+kind, a.ID.Hex())
+	web.SetFlash(c, "图片已更新")
+	c.Redirect(http.StatusFound, "/admin/home")
+}
+
+// deleteHomeImage 删除首页图位。
+func (h *Handler) deleteHomeImage(c *gin.Context) {
+	ctx := c.Request.Context()
+	tid := mw.TenantID(c)
+	kind := c.Param("kind")
+	t, err := h.e.Tenants.ByID(ctx, tid)
+	if err != nil {
+		web.SetFlash(c, "门诊不存在")
+		c.Redirect(http.StatusFound, "/admin/home")
+		return
+	}
+	cur := ""
+	if kind == "hero" {
+		cur = t.HeroImage
+	} else if kind == "clinic" {
+		cur = t.ClinicImage
+	}
+	if cur != "" {
+		if oid, err := bson.ObjectIDFromHex(cur); err == nil {
+			_ = h.e.Attach.Delete(ctx, tid, oid)
+		}
+	}
+	if err := h.e.Tenants.ClearHomeImage(ctx, tid, kind); err != nil {
+		web.SetFlash(c, "删除失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/admin/home")
+		return
+	}
+	h.audit(c, audit.ActTenantHome, "image."+kind+".delete", cur)
+	web.SetFlash(c, "图片已删除")
 	c.Redirect(http.StatusFound, "/admin/home")
 }
 
@@ -355,31 +388,6 @@ func (h *Handler) topHomeStaff(c *gin.Context) {
 		web.SetFlash(c, "已置顶")
 	}
 	c.Redirect(http.StatusFound, "/admin/home")
-}
-
-// deleteGalleryPhoto 门诊图库删除一张（库记录 + GridFS 文件一起删）。
-func (h *Handler) deleteGalleryPhoto(c *gin.Context) {
-	ctx := c.Request.Context()
-	tid := mw.TenantID(c)
-	fid := c.Param("id")
-	if oid, err := bson.ObjectIDFromHex(fid); err == nil {
-		if err := h.e.Attach.Delete(ctx, tid, oid); err != nil {
-			web.SetFlash(c, "删除图片失败: "+err.Error())
-			c.Redirect(http.StatusFound, "/admin/settings")
-			return
-		}
-	}
-	if err := h.e.Tenants.RemoveGalleryPhoto(ctx, tid, fid); err != nil {
-		web.SetFlash(c, "删除失败: "+err.Error())
-	} else {
-		web.SetFlash(c, "门诊图已删除")
-	}
-	// 两个入口复用：首页配置来的回首页，门诊设置来的回设置
-	back := "/admin/settings"
-	if strings.Contains(c.Request.URL.Path, "/home/gallery/") {
-		back = "/admin/home"
-	}
-	c.Redirect(http.StatusFound, back)
 }
 
 // ---------- 审计 ----------

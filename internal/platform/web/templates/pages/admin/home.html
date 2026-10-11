@@ -23,26 +23,49 @@
         </form>
       </div></div></div>
       <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-body">
-        <h6>门诊图 <span class="text-muted small">第 1 张作门诊卡照片，全部图轮播首页横幅，可多选批量上传</span></h6>
-        {{if .Data.Tenant.Gallery}}
-        <div class="d-flex flex-wrap gap-2 mb-2">
-          {{range .Data.Tenant.Gallery}}
-          <div class="position-relative">
-            <img src="/app/attach/{{.}}" class="rounded" style="width:6em;height:6em;object-fit:cover" alt="门诊图">
-            <form method="post" action="/admin/home/gallery/{{.}}/delete" class="m-0"
-                  onsubmit="return confirm('确认删除这张门诊图？')">
-              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <button class="btn btn-sm btn-danger position-absolute top-0 end-0 px-2 py-1">×</button>
+        <h6 class="mb-2">首页图片 <span class="text-muted small">单张，换图即覆盖旧图</span></h6>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label">顶部大图 <span class="text-muted small">（首页最上方）</span></label>
+            {{if .Data.Tenant.HeroImage}}
+            <div class="position-relative mb-2" style="width:100%">
+              <img src="/app/attach/{{.Data.Tenant.HeroImage}}" class="rounded w-100" style="height:8em;object-fit:cover" alt="顶部大图">
+              <form method="post" action="/admin/home/image/hero/delete" class="m-0"
+                    onsubmit="return confirm('确认删除顶部大图？')">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button class="btn btn-sm btn-danger position-absolute top-0 end-0 px-2 py-1">×</button>
+              </form>
+            </div>
+            {{else}}
+            <div class="text-muted small mb-2">未上传</div>
+            {{end}}
+            <form method="post" action="/admin/home/image/hero" enctype="multipart/form-data" class="d-flex gap-2">
+              <input type="hidden" name="_csrf" value="{{.CSRF}}">
+              <input class="form-control form-control-sm" name="file" type="file" accept="image/*" required>
+              <button class="btn btn-sm btn-primary flex-shrink-0">上传</button>
             </form>
           </div>
-          {{end}}
+          <div class="col-6">
+            <label class="form-label">门诊卡图 <span class="text-muted small">（医生团队入口那块）</span></label>
+            {{if .Data.Tenant.ClinicImage}}
+            <div class="position-relative mb-2" style="width:100%">
+              <img src="/app/attach/{{.Data.Tenant.ClinicImage}}" class="rounded w-100" style="height:8em;object-fit:cover" alt="门诊卡图">
+              <form method="post" action="/admin/home/image/clinic/delete" class="m-0"
+                    onsubmit="return confirm('确认删除门诊卡图？')">
+                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+                <button class="btn btn-sm btn-danger position-absolute top-0 end-0 px-2 py-1">×</button>
+              </form>
+            </div>
+            {{else}}
+            <div class="text-muted small mb-2">未上传</div>
+            {{end}}
+            <form method="post" action="/admin/home/image/clinic" enctype="multipart/form-data" class="d-flex gap-2">
+              <input type="hidden" name="_csrf" value="{{.CSRF}}">
+              <input class="form-control form-control-sm" name="file" type="file" accept="image/*" required>
+              <button class="btn btn-sm btn-primary flex-shrink-0">上传</button>
+            </form>
+          </div>
         </div>
-        {{end}}
-        <form method="post" action="/admin/home/gallery" enctype="multipart/form-data" class="d-flex gap-2">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <input class="form-control form-control-sm flex-grow-1" name="photos" type="file" accept="image/*" multiple required>
-          <button class="btn btn-sm btn-primary flex-shrink-0">上传</button>
-        </form>
       </div></div></div>
       </div>
       <div class="card mb-3"><div class="card-body">

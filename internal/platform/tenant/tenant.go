@@ -11,8 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// Tenant 门诊租户（一家门诊）。Address/Hours 与 Gallery（GridFS 图片 ID hex 列表）
-// 为患者端展示的诊所信息，多图画廊门诊后台上传维护。
+// Tenant 门诊租户（一家门诊）。Address/Hours 与 HeroImage/ClinicImage
+// （GridFS 文件 ID hex）为患者端展示的诊所信息，门诊后台上传维护。
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
@@ -23,7 +23,8 @@ type Tenant struct {
 	Status       string    `bson:"status"` // active / suspended
 	Address      string    `bson:"address,omitempty"`
 	Hours        string    `bson:"hours,omitempty"`
-	Gallery      []string  `bson:"gallery,omitempty"`
+	HeroImage    string    `bson:"hero_image,omitempty"`   // 首页顶部大图（GridFS 文件 ID hex）
+	ClinicImage  string    `bson:"clinic_image,omitempty"` // 门诊卡图（医生团队入口那块）
 	CreatedAt    time.Time `bson:"created_at"`
 }
 
@@ -135,15 +136,34 @@ func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, address, hou
 	return err
 }
 
-// AddGalleryPhoto 门诊图库追加一张（GridFS 文件 ID hex）。
-func (s *Service) AddGalleryPhoto(ctx context.Context, id bson.ObjectID, fileID string) error {
-	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$push": bson.M{"gallery": fileID}})
+// homeImageField 图位 kind → bson 字段名（hero=首页大图，clinic=门诊卡图）。
+func homeImageField(kind string) (string, bool) {
+	switch kind {
+	case "hero":
+		return "hero_image", true
+	case "clinic":
+		return "clinic_image", true
+	}
+	return "", false
+}
+
+// SetHomeImage 设置首页图位（GridFS 文件 ID hex）。
+func (s *Service) SetHomeImage(ctx context.Context, id bson.ObjectID, kind, fileID string) error {
+	field, ok := homeImageField(kind)
+	if !ok {
+		return errors.New("未知图位")
+	}
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{field: fileID}})
 	return err
 }
 
-// RemoveGalleryPhoto 门诊图库删除一张。
-func (s *Service) RemoveGalleryPhoto(ctx context.Context, id bson.ObjectID, fileID string) error {
-	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$pull": bson.M{"gallery": fileID}})
+// ClearHomeImage 清空首页图位。
+func (s *Service) ClearHomeImage(ctx context.Context, id bson.ObjectID, kind string) error {
+	field, ok := homeImageField(kind)
+	if !ok {
+		return errors.New("未知图位")
+	}
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$unset": bson.M{field: ""}})
 	return err
 }
 

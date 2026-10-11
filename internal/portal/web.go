@@ -138,26 +138,23 @@ func (h *Web) home(c *gin.Context) {
 	p := Patient(c)
 	data := gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name}
 	if t := mw.Tenant(c); t != nil {
-		data["Address"], data["Gallery"] = t.Address, t.Gallery
-		data["Hours"] = t.Hours
+		data["Address"], data["HeroImage"] = t.Address, t.HeroImage
+		data["ClinicImage"], data["Hours"] = t.ClinicImage, t.Hours
 	}
 	// 首页团队：全部在职、有角色、未隐藏的成员，按排序号展示
 	data["Team"] = teamMembers(c.Request.Context(), h.e, p.TenantID)
 	web.Render(c, h.e, "portal/home", data)
 }
 
-// gallery 首页公开图片（无需患者登录）：门诊图库 + 首页可见成员的大头照。
+// gallery 首页公开图片（无需患者登录）：首页两图位 + 首页可见成员的大头照。
 // 白名单制：不在名单里的 ID 一律 404，防止用 ID 猜解患者影像。
 func (h *Web) gallery(c *gin.Context) {
 	t := mw.Tenant(c)
 	fid := c.Param("id")
 	allowed := false
 	if t != nil {
-		for _, g := range t.Gallery {
-			if g == fid {
-				allowed = true
-				break
-			}
+		if fid != "" && (fid == t.HeroImage || fid == t.ClinicImage) {
+			allowed = true
 		}
 		if !allowed {
 			for _, m := range teamMembers(c.Request.Context(), h.e, t.ID) {
