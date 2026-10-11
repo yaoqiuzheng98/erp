@@ -24,6 +24,9 @@ import (
 
 var ErrBadStatus = errors.New("状态不允许该操作")
 
+// ErrOneActive 一人只能保留一笔已预约（自助与前台同一入口）。
+var ErrOneActive = errors.New("每人只能保留一笔已预约的单")
+
 // slotRe HH:MM 24小时制。
 var slotRe = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
 
@@ -44,6 +47,17 @@ func (s *Service) stripe(key string) func() {
 	m := &s.stripes[h.Sum32()%uint32(len(s.stripes))]
 	m.Lock()
 	return m.Unlock
+}
+
+// EnsureIndexes 一人一单部分唯一索引（只看 booked，done/noshow/cancel 不占）：
+// 先查后建的竞态由索引兜底，并发第二人直接 duplicate key。
+func (s *Service) EnsureIndexes(ctx context.Context) error {
+	_, err := s.appts.Col.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "patient_id", Value: 1}},
+		Options: options.Index().SetUnique(true).
+			SetPartialFilterExpression(bson.M{"status": Booked}),
+	})
+	return err
 }
 
 // New 装配预约服务。
@@ -90,6 +104,12 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	}); n >= int64(capacity) {
 		return errors.New("该时段已约满，换个时间试试")
 	}
+	// 一人一单：已有已预约的不再建（自助与前台同一入口；并发竞态由部分唯一索引兜底）。
+	if n, _ := s.appts.Count(ctx, tenantID, bson.M{
+		"patient_id": a.PatientID, "status": Booked,
+	}); n > 0 {
+		return ErrOneActive
+	}
 	// 预约编号：YY + 日期(紧凑) + 月内序号，如 YY202610100001。
 	n, err := s.seq.NextValue(ctx, tenantID, "APPT")
 	if err != nil {
@@ -99,6 +119,10 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	a.TenantID, a.Status, a.CreatedAt = tenantID, Booked, time.Now()
 	id, err := s.appts.Insert(ctx, tenantID, a)
 	if err != nil {
+		// 并发两人都通过预检时，唯一索引拦下第二个，转友好提示。
+		if mongo.IsDuplicateKeyError(err) {
+			return ErrOneActive
+		}
 		return errors.New("建单失败: " + err.Error())
 	}
 	a.ID = id

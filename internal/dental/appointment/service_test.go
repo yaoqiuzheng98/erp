@@ -57,6 +57,10 @@ func testSvc(t *testing.T) (*Service, *mongo.Database, context.Context) {
 	})
 	seq := seqno.New(db)
 	svc := New(db, seq, patient.New(db))
+	// 与生产启动一致先建索引（一人一单并发单测依赖部分唯一索引）。
+	if err := svc.EnsureIndexes(ctx); err != nil {
+		t.Fatalf("ensure indexes: %v", err)
+	}
 	return svc, db, ctx
 }
 
@@ -112,7 +116,7 @@ func TestListRange(t *testing.T) {
 		if _, err := db.Collection("appointments").InsertOne(ctx, bson.M{
 			"tenant_id": tid, "patient_id": pid, "patient_name": "范围测试",
 			"date": date, "slot": slot,
-			"status": Booked, "created_at": time.Now(),
+			"status": Done, "created_at": time.Now(),
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -151,15 +155,16 @@ func TestListRange(t *testing.T) {
 func TestSlotConfig(t *testing.T) {
 	svc, db, ctx := testSvc(t)
 	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
-	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ee")
-	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
-		"_id": pid, "tenant_id": tid, "name": "档位测试", "created_at": time.Now(),
-	}); err != nil {
-		t.Fatal(err)
-	}
 	mk := func(date, slot string, minutes, capacity int) error {
+		// 档位/人数单测与一人一单无关，每次换新患者（同档第二人也本就该是别人）。
+		npid := bson.NewObjectID()
+		if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+			"_id": npid, "tenant_id": tid, "name": "档位测试", "created_at": time.Now(),
+		}); err != nil {
+			t.Fatal(err)
+		}
 		return svc.Create(ctx, tid, &Appointment{
-			PatientID: pid,
+			PatientID: npid,
 			Date: date, Slot: slot,
 		}, minutes, capacity, nil)
 	}
@@ -198,16 +203,17 @@ func TestSlotConfig(t *testing.T) {
 func TestCreateBizHours(t *testing.T) {
 	svc, db, ctx := testSvc(t)
 	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
-	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
-	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
-		"_id": pid, "tenant_id": tid, "name": "时段测试", "created_at": time.Now(),
-	}); err != nil {
-		t.Fatal(err)
-	}
 	biz := []model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}
 	mk := func(slot string) error {
+		// 时段单测与一人一单无关，每次换新患者。
+		npid := bson.NewObjectID()
+		if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+			"_id": npid, "tenant_id": tid, "name": "时段测试", "created_at": time.Now(),
+		}); err != nil {
+			t.Fatal(err)
+		}
 		return svc.Create(ctx, tid, &Appointment{
-			PatientID: pid,
+			PatientID: npid,
 			Date: "2026-10-09", Slot: slot,
 		}, 30, 1, biz)
 	}
@@ -221,5 +227,83 @@ func TestCreateBizHours(t *testing.T) {
 			(err != nil && !strings.Contains(err.Error(), "不在营业时间内")) {
 			t.Fatalf("out-biz %s should fail, got %v", s, err)
 		}
+	}
+}
+
+// TestCreateOneActive 一人只能保留一笔已预约：第二笔拒，取消后可再约。
+func TestCreateOneActive(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ee")
+	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+		"_id": pid, "tenant_id": tid, "name": "一单测试", "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mk := func(date, slot string) error {
+		return svc.Create(ctx, tid, &Appointment{
+			PatientID: pid,
+			Date: date, Slot: slot,
+		}, 30, 10, nil)
+	}
+	if err := mk("2026-10-20", "10:00"); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	if err := mk("2026-10-21", "11:00"); err == nil ||
+		(err != nil && !strings.Contains(err.Error(), "一笔已预约")) {
+		t.Fatalf("second active should fail, got %v", err)
+	}
+	// 取消后可再约
+	list, err := svc.OfPatient(ctx, tid, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range list {
+		if a.Status == Booked {
+			if err := svc.Cancel(ctx, tid, a.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := mk("2026-10-21", "11:00"); err != nil {
+		t.Fatalf("after cancel: %v", err)
+	}
+}
+
+// TestCreateOneActiveConcurrent 同人并发约不同档：只能成功一个（唯一索引兜底预检竞态）。
+func TestCreateOneActiveConcurrent(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ee")
+	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+		"_id": pid, "tenant_id": tid, "name": "一单并发测试", "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i, slot := range []string{"10:00", "11:00"} {
+		wg.Add(1)
+		go func(i int, slot string) {
+			defer wg.Done()
+			errs[i] = svc.Create(ctx, tid, &Appointment{
+				PatientID: pid,
+				Date: "2026-10-22", Slot: slot,
+			}, 30, 10, nil)
+		}(i, slot)
+	}
+	wg.Wait()
+	ok, fail := 0, 0
+	for _, err := range errs {
+		if err == nil {
+			ok++
+		} else if strings.Contains(err.Error(), "一笔已预约") {
+			fail++
+		} else {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	if ok != 1 || fail != 1 {
+		t.Fatalf("ok=%d fail=%d, want 1/1", ok, fail)
 	}
 }
