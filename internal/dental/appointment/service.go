@@ -137,13 +137,10 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID, date string,
 	return list, total, err
 }
 
-// ListRange 按日期闭区间查（周视图用）：同 List 的医生/电话筛选，
-// 按日期+时段排序，不分页（周数据有界，limit 只做兜底）。
-func (s *Service) ListRange(ctx context.Context, tenantID bson.ObjectID, start, end string, doctorID bson.ObjectID, phone string, limit int64) ([]Appointment, error) {
+// ListRange 按日期闭区间查（周视图用）：电话筛选，按日期+时段排序，
+// 不分页（周数据有界，limit 只做兜底）。
+func (s *Service) ListRange(ctx context.Context, tenantID bson.ObjectID, start, end string, phone string, limit int64) ([]Appointment, error) {
 	f := bson.M{"date": bson.M{"$gte": start, "$lte": end}}
-	if !doctorID.IsZero() {
-		f["doctor_id"] = doctorID
-	}
 	if phone != "" {
 		f["patient_id"] = bson.M{"$in": s.patientIDsForPhone(ctx, tenantID, phone)}
 	}

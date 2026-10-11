@@ -66,10 +66,6 @@
           <a class="btn btn-outline-secondary" href="/app/appointments?{{.Data.NextQ}}">下周 →</a>
         </div>
         <span class="small text-muted">{{.Data.WeekStart}} ~ {{.Data.WeekEnd}} · 本周 {{.Data.WeekTotal}} 单</span>
-        <select class="form-select form-select-sm flex-grow-1" name="doctor_id" style="min-width:8em;flex-basis:0">
-          <option value="">全部医生</option>
-          {{range .Data.Doctors}}<option value="{{hex .ID}}" {{if eq (hex .ID) $.Data.DoctorID}}selected{{end}}>{{.Name}}</option>{{end}}
-        </select>
         <input class="form-control form-control-sm flex-grow-1" name="phone" value="{{.Data.Phone}}" placeholder="报手机号签到" aria-label="报手机号签到" inputmode="tel" style="min-width:8em;flex-basis:0">
         <button class="btn btn-sm btn-outline-secondary flex-shrink-0">筛选</button>
       </form>

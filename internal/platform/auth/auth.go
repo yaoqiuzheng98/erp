@@ -160,18 +160,6 @@ func (s *Service) List(ctx context.Context, tenantID bson.ObjectID) ([]User, err
 	return out, cur.All(ctx, &out)
 }
 
-// ListActive 在职员工：挂号选医生用（全员可接诊）。
-func (s *Service) ListActive(ctx context.Context, tenantID bson.ObjectID) ([]User, error) {
-	cur, err := s.users.Find(ctx, bson.M{
-		"tenant_id": tenantID, "status": "active",
-	})
-	if err != nil {
-		return nil, err
-	}
-	var act []User
-	return act, cur.All(ctx, &act)
-}
-
 // Create 新建员工：姓名/手机号/初始密码必填，手机号租户内唯一。
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, u *User, plain string) error {
 	u.Name = strings.TrimSpace(u.Name)

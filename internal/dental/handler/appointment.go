@@ -63,13 +63,10 @@ func hourOf(slot string) int {
 	return -1
 }
 
-// weekQuery 组翻周链接的保留参数（医生/电话筛选不断）。
-func weekQuery(week, doctorID, phone string) template.URL {
+// weekQuery 组翻周链接的保留参数（电话筛选不断）。
+func weekQuery(week, phone string) template.URL {
 	v := url.Values{}
 	v.Set("week", week)
-	if doctorID != "" {
-		v.Set("doctor_id", doctorID)
-	}
 	if phone != "" {
 		v.Set("phone", phone)
 	}
@@ -85,9 +82,8 @@ func (h *Handler) appointments(c *gin.Context) {
 		}
 	}
 	days := tz.WeekOf(anchor)
-	doctorID, _ := bson.ObjectIDFromHex(c.Query("doctor_id"))
 	phone := c.Query("phone")
-	list, err := h.appts.ListRange(c.Request.Context(), mw.TenantID(c), days[0], days[6], doctorID, phone, 1000)
+	list, err := h.appts.ListRange(c.Request.Context(), mw.TenantID(c), days[0], days[6], phone, 1000)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
@@ -138,16 +134,10 @@ func (h *Handler) appointments(c *gin.Context) {
 		rows = append(rows, *cells[hr])
 	}
 	mon, _ := tz.DayStart(days[0])
-	// 零值医生不进链接（否则翻周 URL 挂一串 0）。
-	doctorHex := ""
-	if !doctorID.IsZero() {
-		doctorHex = doctorID.Hex()
-	}
-	prevQ := weekQuery(mon.AddDate(0, 0, -7).Format("2006-01-02"), doctorHex, phone)
-	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), doctorHex, phone)
-	todayQ := weekQuery(tz.Today(), doctorHex, phone)
+	prevQ := weekQuery(mon.AddDate(0, 0, -7).Format("2006-01-02"), phone)
+	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), phone)
+	todayQ := weekQuery(tz.Today(), phone)
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
-	doctors, _ := h.users.ListActive(c.Request.Context(), mw.TenantID(c))
 	slotMinutes := appointment.DefaultSlotMinutes
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, _ = t.SlotConfig()
@@ -156,8 +146,8 @@ func (h *Handler) appointments(c *gin.Context) {
 		"Days": cols, "Rows": rows, "WeekStart": days[0], "WeekEnd": days[6],
 		"WeekTotal": len(list), "WeekMonday": days[0],
 		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
-		"DoctorID": doctorHex, "Phone": phone,
-		"Patients": pats, "Doctors": doctors,
+		"Phone": phone,
+		"Patients": pats,
 		"Slots": appointment.DaySlots(slotMinutes),
 	})
 }
