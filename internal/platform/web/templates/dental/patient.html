@@ -37,27 +37,6 @@
               </tbody>
             </table></div>
           </div></div>
-          <div class="card mt-3"><div class="card-body">
-            <h6>预约记录</h6>
-            <div class="table-responsive"><table class="table table-sm mb-0">
-              <thead><tr><th>日期时段</th><th>医生</th><th>状态</th></tr></thead>
-              <tbody>
-              {{range .Data.Appts}}
-              <tr><td>{{.Date}} {{.Slot}}</td><td>{{.Doctor}}</td><td>{{.StatusName}}</td></tr>
-              {{else}}
-              <tr><td colspan="3" class="text-muted">暂无预约记录</td></tr>
-              {{end}}
-              </tbody>
-            </table></div>
-          </div></div>
-          <div class="card mt-3"><div class="card-body">
-            <h6>患者端密码 <span class="text-muted small">配置后患者可凭手机号+密码登录查询</span></h6>
-            <form method="post" action="/app/patients/{{hex .Data.P.ID}}/password" class="d-flex gap-2 mb-2">
-              <input type="hidden" name="_csrf" value="{{.CSRF}}">
-              <input class="form-control form-control-sm flex-grow-1" name="password" type="password" minlength="6" placeholder="新密码（至少6位）" required>
-              <button class="btn btn-sm btn-outline-primary flex-shrink-0">设置</button>
-            </form>
-          </div></div>
         </div>
       </div>
     </main>
