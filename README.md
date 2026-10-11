@@ -113,8 +113,7 @@ audit_logs   { _id, tenant_id, user_id, action(audit.Act* 常量), target, detai
 attachments  { _id, tenant_id, owner_type, owner_id, filename,
                path, size, mime, uploaded_by }
 notifications{ _id, tenant_id, user_id, type, title, link, read_at }
-patients     { _id, tenant_id, name, phone, password_hash, gender, birth,
-               allergy, history, note }
+patients     { _id, tenant_id, name, phone, password_hash, open_id }
 appointments { _id, tenant_id, patient_id, patient_name, doctor_id, doctor,
                date, slot, item, items[], queue_no,
                reg_fee, reg_paid, status, charge, charge_no }  // 只管约号+显示快照
