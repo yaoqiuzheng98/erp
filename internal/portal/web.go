@@ -11,6 +11,7 @@ import (
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
+	"erp/internal/platform/model"
 	"erp/internal/platform/session"
 	"erp/internal/platform/tz"
 	"erp/internal/platform/web"
@@ -139,7 +140,7 @@ func (h *Web) home(c *gin.Context) {
 	data := gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name}
 	if t := mw.Tenant(c); t != nil {
 		data["Address"], data["HeroImage"] = t.Address, t.HeroImage
-		data["ClinicImage"], data["Hours"] = t.ClinicImage, t.Hours
+		data["ClinicImage"], data["Hours"] = t.ClinicImage, t.HoursText()
 	}
 	// 首页团队：全部在职、有角色、未隐藏的成员，按排序号展示
 	data["Team"] = teamMembers(c.Request.Context(), h.e, p.TenantID)
@@ -200,12 +201,14 @@ func (h *Web) apptsPage(c *gin.Context) {
 
 func (h *Web) bookPage(c *gin.Context) {
 	slotMinutes := appointment.DefaultSlotMinutes
+	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, _ = t.SlotConfig()
+		biz = t.BusinessHours()
 	}
 	web.Render(c, h.e, "portal/book", gin.H{
 		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "book",
-		"Today": tz.Today(), "Slots": appointment.DaySlots(slotMinutes),
+		"Today": tz.Today(), "Slots": appointment.DaySlotsIn(slotMinutes, biz),
 	})
 }
 
@@ -223,10 +226,12 @@ func (h *Web) book(c *gin.Context) {
 		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
+	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
+		biz = t.BusinessHours()
 	}
-	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity); err != nil {
+	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz); err != nil {
 		slog.Error("portal book failed", "tenant", p.TenantID.Hex(), "patient", p.ID.Hex(),
 			"doctor", a.DoctorID.Hex(), "date", a.Date, "slot", a.Slot, "err", err)
 		web.SetFlash(c, "预约失败: "+err.Error())

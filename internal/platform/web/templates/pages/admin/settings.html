@@ -25,8 +25,20 @@
           <div class="mb-2"><label class="form-label">每档人数</label>
             <input class="form-control form-control-sm" name="slot_capacity" type="number" min="1" max="10" step="1"
                    value="{{.Data.SlotCapacity}}">
-            <div class="form-text">同一医生同时段可约人数，默认 1 人。</div></div>
-          <div class="form-text mb-2">诊所介绍、门诊图、人员展示请到「<a href="/admin/home">首页配置</a>」维护。</div>
+            <div class="form-text">该诊所同一时间段可约人数（全诊所一档共用，不分医生），默认 1 人。</div></div>
+          <div class="mb-2"><label class="form-label">营业时间 <span class="text-muted">（分两段，中午休息；首页门诊卡与可约时段都按这个来）</span></label>
+            <div class="row g-2">
+              <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text">上午</span>
+                <input class="form-control" type="time" name="biz_am_open" value="{{.Data.AMOpen}}">
+                <span class="input-group-text">至</span>
+                <input class="form-control" type="time" name="biz_am_close" value="{{.Data.AMClose}}"></div></div>
+              <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text">下午</span>
+                <input class="form-control" type="time" name="biz_pm_open" value="{{.Data.PMOpen}}">
+                <span class="input-group-text">至</span>
+                <input class="form-control" type="time" name="biz_pm_close" value="{{.Data.PMClose}}"></div></div>
+            </div>
+            <div class="form-text">如上午 09:00-12:00、下午 14:00-18:00；只填一段也行（另一段留空）；全空=全天放号。改完患者端首页和可约时段同步变，不用发版。</div></div>
+          <div class="form-text mb-2">诊所地址、门诊图、人员展示请到「<a href="/admin/home">首页配置</a>」维护。</div>
           <button class="btn btn-sm btn-primary">保存</button>
         </form>
       </div></div>

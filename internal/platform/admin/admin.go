@@ -10,6 +10,7 @@ import (
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
 	mw "erp/internal/platform/middleware"
+	"erp/internal/platform/model"
 	"erp/internal/platform/rbac"
 	"erp/internal/platform/web"
 
@@ -227,15 +228,36 @@ func (h *Handler) createRole(c *gin.Context) {
 func (h *Handler) settingsPage(c *gin.Context) {
 	t := mw.Tenant(c)
 	mins, cap := t.SlotConfig()
-	web.Render(c, h.e, "admin/settings", gin.H{"Tenant": t, "SlotMinutes": mins, "SlotCapacity": cap})
+	segs := t.BusinessHours()
+	var am, pm model.HourSeg
+	if len(segs) > 0 {
+		am = segs[0]
+	}
+	if len(segs) > 1 {
+		pm = segs[1]
+	}
+	web.Render(c, h.e, "admin/settings", gin.H{
+		"Tenant": t, "SlotMinutes": mins, "SlotCapacity": cap,
+		"AMOpen": am.Open, "AMClose": am.Close, "PMOpen": pm.Open, "PMClose": pm.Close,
+	})
 }
 
 func (h *Handler) saveSettings(c *gin.Context) {
 	slotMinutes, _ := strconv.Atoi(c.PostForm("slot_minutes"))
 	slotCapacity, _ := strconv.Atoi(c.PostForm("slot_capacity"))
 	ctx := c.Request.Context()
-	if err := h.e.Tenants.SetSchedule(ctx, mw.TenantID(c), slotMinutes, slotCapacity); err != nil {
+	tid := mw.TenantID(c)
+	if err := h.e.Tenants.SetSchedule(ctx, tid, slotMinutes, slotCapacity); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/admin/settings")
+		return
+	}
+	segs := []model.HourSeg{
+		{Open: c.PostForm("biz_am_open"), Close: c.PostForm("biz_am_close")},
+		{Open: c.PostForm("biz_pm_open"), Close: c.PostForm("biz_pm_close")},
+	}
+	if err := h.e.Tenants.SetBusinessHours(ctx, tid, segs); err != nil {
+		web.SetFlash(c, "放号已保存，营业时间保存失败: "+err.Error())
 	} else {
 		h.audit(c, audit.ActTenantSettings, "schedule",
 			c.PostForm("slot_minutes")+"min x"+c.PostForm("slot_capacity"))
@@ -258,12 +280,11 @@ func (h *Handler) homePage(c *gin.Context) {
 	})
 }
 
-// saveHomeProfile 诊所信息（地址/营业时间，患者端首页展示）。
+// saveHomeProfile 诊所地址（患者端首页展示）。营业时间已移到门诊设置按段维护。
 func (h *Handler) saveHomeProfile(c *gin.Context) {
 	ctx := c.Request.Context()
 	tid := mw.TenantID(c)
-	if err := h.e.Tenants.SetProfile(ctx, tid,
-		c.PostForm("address"), c.PostForm("hours")); err != nil {
+	if err := h.e.Tenants.SetProfile(ctx, tid, c.PostForm("address")); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
 	} else {
 		h.audit(c, audit.ActTenantHome, "profile", "")

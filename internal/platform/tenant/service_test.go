@@ -1,0 +1,72 @@
+package tenant
+
+import (
+	"context"
+	"os"
+	"testing"
+	"time"
+
+	"erp/internal/platform/model"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+)
+
+// TestSetBusinessHoursRoundTrip 时段落库往返：展示串同步派生，清空回落。
+func TestSetBusinessHoursRoundTrip(t *testing.T) {
+	uri := os.Getenv("MONGO_TEST_URL")
+	if uri == "" {
+		uri = "mongodb://127.0.0.1:27018"
+	}
+	ctx := context.Background()
+	cli, err := mongo.Connect(options.Client().ApplyURI(uri))
+	if err != nil {
+		t.Skipf("mongo unavailable: %v", err)
+	}
+	ping, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := cli.Ping(ping, nil); err != nil {
+		t.Skipf("mongo ping failed: %v", err)
+	}
+	db := cli.Database("erp_unittest_tenant")
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = db.Drop(ctx)
+		_ = cli.Disconnect(ctx)
+	})
+	svc := NewService(db)
+	id, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	if _, err := db.Collection("tenants").InsertOne(ctx, bson.M{
+		"_id": id, "name": "时段门诊", "status": "active", "hours": "老文本",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	segs := []model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}
+	if err := svc.SetBusinessHours(ctx, id, segs); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	got, err := svc.ByID(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.BusinessHours()) != 2 || got.HoursText() != "9:00-12:00 14:00-18:00" {
+		t.Fatalf("roundtrip = %+v %q", got.BusinessHours(), got.HoursText())
+	}
+	if got.Hours != "9:00-12:00 14:00-18:00" {
+		t.Fatalf("hours display not synced: %q", got.Hours)
+	}
+	// 非法不落库
+	if err := svc.SetBusinessHours(ctx, id, []model.HourSeg{{Open: "12:00", Close: "09:00"}}); err == nil {
+		t.Fatal("bad segs should fail")
+	}
+	// 全空=清除
+	if err := svc.SetBusinessHours(ctx, id, nil); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	got, _ = svc.ByID(ctx, id)
+	if len(got.BusinessHours()) != 0 {
+		t.Fatalf("after clear = %+v", got.BusinessHours())
+	}
+}

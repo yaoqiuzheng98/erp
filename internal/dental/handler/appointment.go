@@ -12,6 +12,7 @@ import (
 	"erp/internal/dental/appointment"
 	"erp/internal/platform/audit"
 	mw "erp/internal/platform/middleware"
+	"erp/internal/platform/model"
 	"erp/internal/platform/tz"
 	"erp/internal/platform/web"
 
@@ -139,8 +140,10 @@ func (h *Handler) appointments(c *gin.Context) {
 	todayQ := weekQuery(tz.Today(), phone)
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
 	slotMinutes := appointment.DefaultSlotMinutes
+	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, _ = t.SlotConfig()
+		biz = t.BusinessHours()
 	}
 	web.Render(c, h.e, "dental/appointments", gin.H{
 		"Days": cols, "Rows": rows, "WeekStart": days[0], "WeekEnd": days[6],
@@ -148,7 +151,7 @@ func (h *Handler) appointments(c *gin.Context) {
 		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
 		"Phone": phone,
 		"Patients": pats,
-		"Slots": appointment.DaySlots(slotMinutes),
+		"Slots": appointment.DaySlotsIn(slotMinutes, biz),
 	})
 }
 
@@ -159,10 +162,12 @@ func (h *Handler) createAppt(c *gin.Context) {
 		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
+	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
+		biz = t.BusinessHours()
 	}
-	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a, slotMinutes, slotCapacity); err != nil {
+	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a, slotMinutes, slotCapacity, biz); err != nil {
 		slog.Error("backoffice appt failed", "tenant", mw.TenantID(c).Hex(),
 			"patient", a.PatientID.Hex(), "doctor", a.DoctorID.Hex(),
 			"date", a.Date, "slot", a.Slot, "err", err)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"erp/internal/dental/patient"
+	"erp/internal/platform/model"
 	"erp/internal/platform/seqno"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -78,7 +79,7 @@ func TestCreateConcurrentDoubleBook(t *testing.T) {
 			errs[i] = svc.Create(ctx, tid, &Appointment{
 				PatientID: pid,
 				Date: "2026-10-06", Slot: "10:00",
-			}, 0, 0)
+			}, 0, 0, nil)
 		}(i)
 	}
 	wg.Wait()
@@ -160,7 +161,7 @@ func TestSlotConfig(t *testing.T) {
 		return svc.Create(ctx, tid, &Appointment{
 			PatientID: pid,
 			Date: date, Slot: slot,
-		}, minutes, capacity)
+		}, minutes, capacity, nil)
 	}
 	// 默认 30 分钟档：09:10 不对齐拒绝，09:30 通过
 	if err := mk("2026-10-06", "09:10", 0, 0); err == nil {
@@ -190,5 +191,35 @@ func TestSlotConfig(t *testing.T) {
 	}
 	if err := mk("2026-10-08", "10:30", 60, 1); err == nil {
 		t.Fatal("hourly misaligned should fail")
+	}
+}
+
+// TestCreateBizHours 配了分段只收段内档（防绕过直调午休时间）。
+func TestCreateBizHours(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+		"_id": pid, "tenant_id": tid, "name": "时段测试", "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	biz := []model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}
+	mk := func(slot string) error {
+		return svc.Create(ctx, tid, &Appointment{
+			PatientID: pid,
+			Date: "2026-10-09", Slot: slot,
+		}, 30, 1, biz)
+	}
+	for _, s := range []string{"09:00", "11:30", "14:00", "17:30"} {
+		if err := mk(s); err != nil {
+			t.Fatalf("in-biz %s: %v", s, err)
+		}
+	}
+	for _, s := range []string{"08:30", "12:00", "12:30", "13:30", "18:00"} {
+		if err := mk(s); err == nil ||
+			(err != nil && !strings.Contains(err.Error(), "不在营业时间内")) {
+			t.Fatalf("out-biz %s should fail, got %v", s, err)
+		}
 	}
 }

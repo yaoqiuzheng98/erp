@@ -17,8 +17,7 @@
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="mb-2"><label class="form-label">地址 <span class="text-muted">（首页门诊卡展示）</span></label>
             <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>
-          <div class="mb-2"><label class="form-label">营业时间 <span class="text-muted">（首页门诊卡展示）</span></label>
-            <input class="form-control form-control-sm" name="hours" value="{{.Data.Tenant.Hours}}" placeholder="如 9:00-18:00"></div>
+          <div class="form-text mb-2">营业时间已移到「<a href="/admin/settings">门诊设置</a>」按早晚两段维护。</div>
           <div class="mt-2"><button class="btn btn-sm btn-primary">保存</button></div>
         </form>
       </div></div></div>

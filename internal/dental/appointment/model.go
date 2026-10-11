@@ -42,20 +42,77 @@ type Slot struct {
 	Label string `json:"label"`
 }
 
-// DaySlots 当天放号档位（8:00 起约，20:00 为最晚起约，非法粒度回落默认）。
+// DaySlots 当天放号档位（未配营业时段时：8:00 起约，20:00 为最晚起约，非法粒度回落默认）。
 func DaySlots(minutes int) []Slot {
+	return DaySlotsIn(minutes, nil)
+}
+
+// DaySlotsIn 按营业时段生成档位（中午休息等分段营业用）：只收落在时段内的
+// 档起点（午夜起网格对齐）；segs 为空回落全天。脏时段跳过，不炸整单。
+func DaySlotsIn(minutes int, segs []model.HourSeg) []Slot {
 	if minutes != 15 && minutes != 30 && minutes != 60 {
 		minutes = DefaultSlotMinutes
 	}
-	var out []Slot
-	for start := 8 * 60; start <= 20*60; start += minutes {
+	emit := func(start int, out *[]Slot) {
 		end := start + minutes
-		out = append(out, Slot{
+		*out = append(*out, Slot{
 			Value: fmt.Sprintf("%02d:%02d", start/60, start%60),
 			Label: fmt.Sprintf("%02d:%02d-%02d:%02d", start/60, start%60, end/60, end%60),
 		})
 	}
+	var out []Slot
+	if len(segs) == 0 {
+		for start := 8 * 60; start <= 20*60; start += minutes {
+			emit(start, &out)
+		}
+		return out
+	}
+	for _, s := range segs {
+		o, c := segMinutes(s.Open), segMinutes(s.Close)
+		if o < 0 || o >= c {
+			continue
+		}
+		// 起点向上对齐到放号网格，且整档必须落在段内。
+		for start := (o + minutes - 1) / minutes * minutes; start+minutes <= c; start += minutes {
+			emit(start, &out)
+		}
+	}
 	return out
+}
+
+// segMinutes HH:MM → 当天分钟数，非法返回 -1。
+func segMinutes(h string) int {
+	if len(h) != 5 || h[2] != ':' {
+		return -1
+	}
+	for _, i := range []int{0, 1, 3, 4} {
+		if h[i] < '0' || h[i] > '9' {
+			return -1
+		}
+	}
+	hh := int(h[0]-'0')*10 + int(h[1]-'0')
+	mm := int(h[3]-'0')*10 + int(h[4]-'0')
+	if hh > 23 || mm > 59 {
+		return -1
+	}
+	return hh*60 + mm
+}
+
+// slotInBiz 时段档是否整个落在营业时段内（建单防绕过用；segs 为空不限）。
+func slotInBiz(slot string, minutes int, segs []model.HourSeg) bool {
+	if len(segs) == 0 {
+		return true
+	}
+	s := segMinutes(slot)
+	if s < 0 {
+		return false
+	}
+	for _, g := range segs {
+		if o, c := segMinutes(g.Open), segMinutes(g.Close); o >= 0 && o <= s && s+minutes <= c {
+			return true
+		}
+	}
+	return false
 }
 
 // NormSlotConfig 下单配置归一（0/非法回落默认，防脏调用）。

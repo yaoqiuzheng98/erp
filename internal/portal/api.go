@@ -9,6 +9,7 @@ import (
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
 	mw 	"erp/internal/platform/middleware"
+	"erp/internal/platform/model"
 	"erp/internal/platform/session"
 	"erp/internal/platform/tz"
 
@@ -219,12 +220,14 @@ func (h *API) logout(c *gin.Context) {
 
 func (h *API) slots(c *gin.Context) {
 	minutes, capacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
+	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		minutes, capacity = t.SlotConfig()
+		biz = t.BusinessHours()
 	}
 	ok(c, gin.H{
 		"slot_minutes": minutes, "slot_capacity": capacity,
-		"slots": appointment.DaySlots(minutes),
+		"slots": appointment.DaySlotsIn(minutes, biz),
 	})
 }
 
@@ -242,8 +245,10 @@ func (h *API) availability(c *gin.Context) {
 		to = plusDays(from, 60)
 	}
 	minutes, capacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
+	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		minutes, capacity = t.SlotConfig()
+		biz = t.BusinessHours()
 	}
 	days, err := h.appts.BookedCounts(c.Request.Context(), mw.TenantID(c), from, to)
 	if err != nil {
@@ -252,7 +257,7 @@ func (h *API) availability(c *gin.Context) {
 	}
 	ok(c, gin.H{
 		"slot_minutes": minutes, "slot_capacity": capacity,
-		"slots": appointment.DaySlots(minutes), "days": days,
+		"slots": appointment.DaySlotsIn(minutes, biz), "days": days,
 	})
 }
 
@@ -270,7 +275,7 @@ func (h *API) clinic(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{
-		"name": t.Name, "address": t.Address, "hours": t.Hours,
+		"name": t.Name, "address": t.Address, "hours": t.HoursText(),
 		"hero_image": t.HeroImage, "clinic_image": t.ClinicImage,
 	})
 }
@@ -329,10 +334,12 @@ func (h *API) createAppointment(c *gin.Context) {
 		Date: in.Date, Slot: in.Slot,
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
+	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
+		biz = t.BusinessHours()
 	}
-	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity); err != nil {
+	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz); err != nil {
 		fail(c, http.StatusBadRequest, err.Error())
 		return
 	}

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"erp/internal/dental/patient"
+	"erp/internal/platform/model"
 	"erp/internal/platform/repo"
 	"erp/internal/platform/seqno"
 	"erp/internal/platform/tz"
@@ -55,7 +56,7 @@ func New(db *mongo.Database, seq *seqno.Generator,
 }
 
 
-func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, slotMinutes, slotCapacity int) error {
+func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, slotMinutes, slotCapacity int, biz []model.HourSeg) error {
 	p, err := s.pats.ByID(ctx, tenantID, a.PatientID)
 	if err != nil {
 		return errors.New("患者不存在")
@@ -75,6 +76,10 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	// 档位对齐：只收放号档起点（如 30 分钟档只收 :00/:30），界面只给档位下拉，这里防绕过直调
 	if mm, _ := strconv.Atoi(a.Slot[3:]); mm%minutes != 0 {
 		return errors.New("预约时间不在放号时段内")
+	}
+	// 营业时段：配了分段只收段内档（防绕过界面直调中午休息时间，前台补录同样受检）。
+	if !slotInBiz(a.Slot, minutes, biz) {
+		return errors.New("该时间不在营业时间内")
 	}
 	a.PatientName = p.Name
 	// 同档防超售：同一日期同一档只收 capacity 个（自助约诊必需；前台走同一入口同样受检）。

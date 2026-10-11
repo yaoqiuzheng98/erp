@@ -4,7 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"sort"
+	"strings"
 	"time"
+
+	"erp/internal/platform/model"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -22,10 +27,15 @@ type Tenant struct {
 	SlotCapacity int       `bson:"slot_capacity,omitempty"`
 	Status       string    `bson:"status"` // active / suspended
 	Address      string    `bson:"address,omitempty"`
-	Hours        string    `bson:"hours,omitempty"`
-	HeroImage    string    `bson:"hero_image,omitempty"`   // 首页顶部大图（GridFS 文件 ID hex）
-	ClinicImage  string    `bson:"clinic_image,omitempty"` // 门诊卡图（医生团队入口那块）
-	CreatedAt    time.Time `bson:"created_at"`
+	// Hours 展示串（首页门诊卡用）：配了 HoursSeg 则每次保存时按段派生，
+	// 未配则沿用老文本（兼容历史数据）。
+	Hours string `bson:"hours,omitempty"`
+	// HoursSeg 营业时段（门诊设置维护，最多两段，中午休息即两段）：
+	// 为空表示未配置，放号回落全天。
+	HoursSeg     []model.HourSeg `bson:"hours_seg,omitempty"`
+	HeroImage    string          `bson:"hero_image,omitempty"`   // 首页顶部大图（GridFS 文件 ID hex）
+	ClinicImage  string          `bson:"clinic_image,omitempty"` // 门诊卡图（医生团队入口那块）
+	CreatedAt    time.Time       `bson:"created_at"`
 }
 
 var ErrSuspended = errors.New("租户已停用")
@@ -109,6 +119,96 @@ func (s *Service) Create(ctx context.Context, name string) (*Tenant, error) {
 	return t, nil
 }
 
+// hourRe HH:MM 24小时制（营业时段输入校验用）。
+var hourRe = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
+
+// MaxBizSegs 营业时段最多分段（上午+下午，中午休息）。
+const MaxBizSegs = 2
+
+// hourMin HH:MM → 当天分钟数（已校验合法才调）。
+func hourMin(h string) int {
+	return int(h[0]-'0')*600 + int(h[1]-'0')*60 + int(h[3]-'0')*10 + int(h[4]-'0')
+}
+
+// trimHour 去前导零（09:00→9:00，展示串与用户写法一致）。
+func trimHour(h string) string {
+	return strings.TrimLeft(h[:2], "0") + h[2:]
+}
+
+// NormBusinessHours 营业时段归一：空段跳过，最多两段，每段起<止，段间不重叠，
+// 返回按开始排序的结果。输入全空返回 nil（= 清除配置，回落全天）。
+func NormBusinessHours(segs []model.HourSeg) ([]model.HourSeg, error) {
+	out := make([]model.HourSeg, 0, len(segs))
+	for _, s := range segs {
+		o, c := strings.TrimSpace(s.Open), strings.TrimSpace(s.Close)
+		if o == "" && c == "" {
+			continue
+		}
+		if o == "" || c == "" {
+			return nil, errors.New("营业时段起止要成对填")
+		}
+		if !hourRe.MatchString(o) || !hourRe.MatchString(c) {
+			return nil, errors.New("营业时间格式不对，用 HH:MM（如 09:00）")
+		}
+		if hourMin(o) >= hourMin(c) {
+			return nil, errors.New("营业时段开始要早于结束")
+		}
+		out = append(out, model.HourSeg{Open: o, Close: c})
+	}
+	if len(out) > MaxBizSegs {
+		return nil, errors.New("营业时段最多分两段")
+	}
+	sort.Slice(out, func(i, j int) bool { return hourMin(out[i].Open) < hourMin(out[j].Open) })
+	for i := 1; i < len(out); i++ {
+		if hourMin(out[i].Open) < hourMin(out[i-1].Close) {
+			return nil, errors.New("两段营业时间不能重叠")
+		}
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+// BizSegText 时段展示串（如 9:00-12:00 14:00-18:00，段间空格隔开）。
+func BizSegText(segs []model.HourSeg) string {
+	parts := make([]string, 0, len(segs))
+	for _, s := range segs {
+		parts = append(parts, trimHour(s.Open)+"-"+trimHour(s.Close))
+	}
+	return strings.Join(parts, " ")
+}
+
+// BusinessHours 生效的营业时段（空=未配置，调用方回落全天）。
+func (t *Tenant) BusinessHours() []model.HourSeg {
+	return t.HoursSeg
+}
+
+// HoursText 首页展示的营业时间：配了时段按段派生，否则沿用老文本。
+func (t *Tenant) HoursText() string {
+	if len(t.HoursSeg) > 0 {
+		return BizSegText(t.HoursSeg)
+	}
+	return t.Hours
+}
+
+// SetBusinessHours 存营业时段（门诊设置）：校验通过才落库，展示串同步派生；
+// 全空=清除配置（时段清空，展示串保留原样）。
+func (s *Service) SetBusinessHours(ctx context.Context, id bson.ObjectID, segs []model.HourSeg) error {
+	norm, err := NormBusinessHours(segs)
+	if err != nil {
+		return err
+	}
+	if len(norm) == 0 {
+		_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$unset": bson.M{"hours_seg": ""}})
+		return err
+	}
+	_, err = s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
+		"hours_seg": norm, "hours": BizSegText(norm),
+	}})
+	return err
+}
+
 // SetSchedule 放号粒度与每档人数一起存（门诊设置）：非法值直接报错，不落库。
 func (s *Service) SetSchedule(ctx context.Context, id bson.ObjectID, minutes, capacity int) error {
 	allowed := false
@@ -128,10 +228,11 @@ func (s *Service) SetSchedule(ctx context.Context, id bson.ObjectID, minutes, ca
 	return err
 }
 
-// SetProfile 更新诊所信息（门诊后台首页配置维护，患者端首页展示）。
-func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, address, hours string) error {
+// SetProfile 更新诊所地址（门诊后台首页配置维护，患者端首页展示）。
+// 营业时间已移到门诊设置按段维护，不在这里改。
+func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, address string) error {
 	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
-		"address": address, "hours": hours,
+		"address": address,
 	}})
 	return err
 }
