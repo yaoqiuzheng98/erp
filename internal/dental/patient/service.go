@@ -55,18 +55,6 @@ func (s *Service) ByID(ctx context.Context, tenantID, id bson.ObjectID) (*Patien
 	return s.pats.FindByID(ctx, tenantID, id)
 }
 
-// SetPassword 门诊后台配置患者端登录密码。
-func (s *Service) SetPassword(ctx context.Context, tenantID, id bson.ObjectID, plain string) error {
-	if len(plain) < 6 {
-		return errors.New("密码至少6位")
-	}
-	hash, err := auth.HashPassword(plain)
-	if err != nil {
-		return err
-	}
-	return s.pats.Update(ctx, tenantID, id, bson.M{"password_hash": hash})
-}
-
 // Login 患者端登录：电话定位 + 密码校验。未配密码拒绝。
 func (s *Service) Login(ctx context.Context, tenantID bson.ObjectID, phone, password string) (*Patient, error) {
 	p, err := s.pats.FindOne(ctx, tenantID, bson.M{"phone": phone})
