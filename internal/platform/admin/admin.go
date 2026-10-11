@@ -91,11 +91,10 @@ func (h *Handler) usersPage(c *gin.Context) {
 func (h *Handler) createUser(c *gin.Context) {
 	years, _ := strconv.Atoi(c.PostForm("years"))
 	u := &auth.User{
-		Name:        c.PostForm("name"),
-		Phone:       c.PostForm("phone"),
-		RoleIDs:     h.scopedRoleIDs(c),
-		IsTenantAdm: c.PostForm("is_admin") == "on",
-		Bio:         c.PostForm("bio"),
+		Name:    c.PostForm("name"),
+		Phone:   c.PostForm("phone"),
+		RoleIDs: h.scopedRoleIDs(c),
+		Bio:     c.PostForm("bio"),
 		Title:       strings.TrimSpace(c.PostForm("title")),
 		Years:       years,
 	}
@@ -154,30 +153,15 @@ func (h *Handler) updateUser(c *gin.Context) {
 	if u, err := h.e.Auth.UserByID(c.Request.Context(), mw.TenantID(c), id); err == nil {
 		oldAvatar = u.Avatar
 	}
-	isAdm := c.PostForm("is_admin") == "on"
-	// 护栏：不能取消自己的管理员身份，也不能取消最后一个管理员
 	years, _ := strconv.Atoi(c.PostForm("years"))
-	if me := mw.User(c); me != nil && id == me.ID && !isAdm {
-		web.SetFlash(c, "不能取消自己的管理员身份")
-		c.Redirect(http.StatusFound, "/admin/users")
-		return
-	}
-	if !isAdm {
-		if n, _ := h.e.Auth.CountAdmins(c.Request.Context(), mw.TenantID(c)); n <= 1 {
-			web.SetFlash(c, "至少保留一位门诊管理员")
-			c.Redirect(http.StatusFound, "/admin/users")
-			return
-		}
-	}
 	set := bson.M{
 		"name":            c.PostForm("name"),
 		"phone":           c.PostForm("phone"),
 		"bio":             c.PostForm("bio"),
 		"title":           strings.TrimSpace(c.PostForm("title")),
 		"years":           years,
-		"role_ids":        h.scopedRoleIDs(c),
-		"status":          status,
-		"is_tenant_admin": isAdm,
+		"role_ids": h.scopedRoleIDs(c),
+		"status":   status,
 	}
 	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())

@@ -52,12 +52,6 @@
             </div>
             <div class="mb-2"><label class="form-label">头像</label>
               <input class="form-control form-control-sm" name="avatar" type="file" accept="image/*"></div>
-            <div class="d-flex align-items-center gap-4">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="is_admin" id="new-is-admin">
-                <label class="form-check-label" for="new-is-admin">租户管理员（拥有全部权限）</label>
-              </div>
-            </div>
           </div>
           <div class="modal-footer"><button class="btn btn-sm btn-primary">新增员工</button></div>
         </form>
@@ -115,17 +109,11 @@
             <div class="mb-2"><label class="form-label">头像 <span class="text-muted">（不选则保持原图）</span></label>
               {{if .Avatar}}<div class="mb-1"><img src="/app/attach/{{.Avatar}}" class="rounded" style="width:4em;height:4em;object-fit:cover" alt="头像"></div>{{end}}
               <input class="form-control form-control-sm" name="avatar" type="file" accept="image/*"></div>
-            <div class="row g-2 align-items-end">
-              <div class="col-6"><label class="form-label">状态</label>
-                <select class="form-select form-select-sm" name="status">
-                  <option value="active" {{if eq .Status "active"}}selected{{end}}>在职</option>
-                  <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>离职</option>
-                </select></div>
-              <div class="col-6"><div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" name="is_admin" id="{{$eid}}-adm" {{if .IsTenantAdm}}checked{{end}}>
-                <label class="form-check-label" for="{{$eid}}-adm">门诊管理员</label>
-              </div></div>
-            </div>
+            <div class="mb-2"><label class="form-label">状态</label>
+              <select class="form-select form-select-sm" name="status">
+                <option value="active" {{if eq .Status "active"}}selected{{end}}>在职</option>
+                <option value="disabled" {{if eq .Status "disabled"}}selected{{end}}>离职</option>
+              </select></div>
           </div>
           <div class="modal-footer"><button class="btn btn-sm btn-primary">保存</button></div>
         </form>

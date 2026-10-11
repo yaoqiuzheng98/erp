@@ -125,11 +125,6 @@ func (s *Service) UserByID(ctx context.Context, tenantID, id bson.ObjectID) (*Us
 	return &u, nil
 }
 
-// CountAdmins 门诊管理员人数（取消管理员身份前的护栏）。
-func (s *Service) CountAdmins(ctx context.Context, tenantID bson.ObjectID) (int64, error) {
-	return s.users.CountDocuments(ctx, bson.M{"tenant_id": tenantID, "is_tenant_admin": true})
-}
-
 // SortByWeight 首页权重排序（Strategy/Comparator：权重降序，同重按姓名升序）。
 // portal 的 teamMember 与 admin 的用户列表复用同一比较器，改规则只改这里。
 func SortByWeight[T any](list []T, weight func(T) int, name func(T) string) {
