@@ -11,9 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// Tenant 门诊租户（一家门诊）。Intro/Address/Phone/Hours/Notice/Gallery
-// 为患者端首页展示的诊所信息，Gallery 为 GridFS 图片 ID（hex）列表，
-// 多图画廊，门诊后台上传维护。
+// Tenant 门诊租户（一家门诊）。Address/Hours 与 Gallery（GridFS 图片 ID hex 列表）
+// 为患者端展示的诊所信息，多图画廊门诊后台上传维护。
 type Tenant struct {
 	ID        bson.ObjectID `bson:"_id,omitempty"`
 	Name      string        `bson:"name"`
@@ -22,13 +21,8 @@ type Tenant struct {
 	SlotMinutes  int       `bson:"slot_minutes,omitempty"`
 	SlotCapacity int       `bson:"slot_capacity,omitempty"`
 	Status       string    `bson:"status"` // active / suspended
-	Intro        string    `bson:"intro,omitempty"`
 	Address      string    `bson:"address,omitempty"`
-	Lat          float64   `bson:"lat,omitempty"` // 一键导航纬度（门诊后台维护）
-	Lng          float64   `bson:"lng,omitempty"` // 一键导航经度
-	Phone        string    `bson:"phone,omitempty"`
 	Hours        string    `bson:"hours,omitempty"`
-	Notice       string    `bson:"notice,omitempty"`
 	Gallery      []string  `bson:"gallery,omitempty"`
 	CreatedAt    time.Time `bson:"created_at"`
 }
@@ -133,11 +127,10 @@ func (s *Service) SetSchedule(ctx context.Context, id bson.ObjectID, minutes, ca
 	return err
 }
 
-// SetProfile 更新诊所介绍信息（门诊后台门诊设置维护，患者端首页展示）。
-func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, intro, address, phone, hours, notice string, lat, lng float64) error {
+// SetProfile 更新诊所信息（门诊后台首页配置维护，患者端首页展示）。
+func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, address, hours string) error {
 	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
-		"intro": intro, "address": address, "phone": phone, "hours": hours, "notice": notice,
-		"lat": lat, "lng": lng,
+		"address": address, "hours": hours,
 	}})
 	return err
 }

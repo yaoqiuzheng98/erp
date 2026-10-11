@@ -9,33 +9,21 @@
     {{template "partial/apptop" .}}
     <main class="p-2 p-md-4">
       {{template "partial/flash" .}}
-      <h4 class="mb-3">首页配置 <span class="text-muted small">患者端首页所有内容都在这里配</span></h4>
+      <h4 class="mb-3">首页配置 <span class="text-muted small">患者端首页与医生团队页展示内容</span></h4>
       <div class="row g-3 mb-3">
       <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-body">
-        <h6>诊所介绍</h6>
+        <h6>门诊信息</h6>
         <form method="post" action="/admin/home/profile">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <div class="mb-2"><label class="form-label">公告 <span class="text-muted">（首页横幅，空则不显示）</span></label>
-            <input class="form-control form-control-sm" name="notice" value="{{.Data.Tenant.Notice}}" placeholder="如 国庆期间正常接诊"></div>
-          <div class="mb-2"><label class="form-label">诊所介绍</label>
-            <textarea class="form-control form-control-sm" name="intro" rows="3" placeholder="如 建于2018年，专注种植/正畸…">{{.Data.Tenant.Intro}}</textarea></div>
-          <div class="row g-2">
-            <div class="col-12 col-md-6"><label class="form-label">地址</label>
-              <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>
-            <div class="col-6 col-md-3"><label class="form-label">咨询电话</label>
-              <input class="form-control form-control-sm" name="phone" value="{{.Data.Tenant.Phone}}" inputmode="tel"></div>
-            <div class="col-6 col-md-3"><label class="form-label">营业时间</label>
-              <input class="form-control form-control-sm" name="hours" value="{{.Data.Tenant.Hours}}" placeholder="如 9:00-18:00"></div>
-            <div class="col-6 col-md-3"><label class="form-label">纬度 lat</label>
-              <input class="form-control form-control-sm" name="lat" type="number" step="any" value="{{if .Data.Tenant.Lat}}{{.Data.Tenant.Lat}}{{end}}" placeholder="一键导航用"></div>
-            <div class="col-6 col-md-3"><label class="form-label">经度 lng</label>
-              <input class="form-control form-control-sm" name="lng" type="number" step="any" value="{{if .Data.Tenant.Lng}}{{.Data.Tenant.Lng}}{{end}}" placeholder="一键导航用"></div>
-          </div>
-          <div class="mt-2"><button class="btn btn-sm btn-primary">保存介绍</button></div>
+          <div class="mb-2"><label class="form-label">地址 <span class="text-muted">（首页门诊卡展示）</span></label>
+            <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>
+          <div class="mb-2"><label class="form-label">营业时间 <span class="text-muted">（首页门诊卡展示）</span></label>
+            <input class="form-control form-control-sm" name="hours" value="{{.Data.Tenant.Hours}}" placeholder="如 9:00-18:00"></div>
+          <div class="mt-2"><button class="btn btn-sm btn-primary">保存</button></div>
         </form>
       </div></div></div>
       <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-body">
-        <h6>门诊图 <span class="text-muted small">首页画廊，可多选批量上传</span></h6>
+        <h6>门诊图 <span class="text-muted small">第 1 张作门诊卡照片，全部图轮播首页横幅，可多选批量上传</span></h6>
         {{if .Data.Tenant.Gallery}}
         <div class="d-flex flex-wrap gap-2 mb-2">
           {{range .Data.Tenant.Gallery}}
@@ -58,9 +46,9 @@
       </div></div></div>
       </div>
       <div class="card mb-3"><div class="card-body">
-      <h6 class="mb-2">人员展示 <span class="text-muted small">权重越大越前（0或留空排最后），新员工自动排最后；勾选隐藏的不出现在首页</span></h6>
+      <h6 class="mb-2">医生团队 <span class="text-muted small">团队页展示顺序：权重越大越前（0或留空排最后）；勾选隐藏的不出现在团队页；头像/职称/年限/简介在员工页维护</span></h6>
       <div class="table-responsive d-none d-md-block"><table class="table table-sm align-middle mb-0">
-        <thead><tr><th>姓名</th><th>角色</th><th>简介</th><th>权重</th><th>首页隐藏</th><th>操作</th></tr></thead>
+        <thead><tr><th>姓名</th><th>角色</th><th>简介</th><th>权重</th><th>团队页隐藏</th><th>操作</th></tr></thead>
         <tbody>
         {{range .Data.Users}}
         {{$row := .}}
@@ -97,7 +85,7 @@
           <div class="small text-muted mb-1">{{if .Bio}}{{.Bio}}{{else}}暂无简介，去员工页编辑{{end}}</div>
           <div class="d-flex gap-2 align-items-center mb-1">
             <label class="form-check form-switch m-0 small flex-shrink-0">
-              <input class="form-check-input" form="{{$mid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}> 首页隐藏</label>
+              <input class="form-check-input" form="{{$mid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}> 团队页隐藏</label>
           </div>
           <div class="d-flex gap-2 align-items-center">
             <input class="form-control form-control-sm text-end flex-grow-1" form="{{$mid}}" name="home_order" type="number" min="0" step="1" value="{{.HomeOrder}}" title="权重，越大越前，0排最后">

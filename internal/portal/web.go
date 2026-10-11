@@ -138,9 +138,8 @@ func (h *Web) home(c *gin.Context) {
 	p := Patient(c)
 	data := gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "home", "Name": p.Name}
 	if t := mw.Tenant(c); t != nil {
-		data["Intro"], data["Address"] = t.Intro, t.Address
-		data["Phone"], data["Hours"] = t.Phone, t.Hours
-		data["Notice"], data["Gallery"] = t.Notice, t.Gallery
+		data["Address"], data["Gallery"] = t.Address, t.Gallery
+		data["Hours"] = t.Hours
 	}
 	// 首页团队：全部在职、有角色、未隐藏的成员，按排序号展示
 	data["Team"] = teamMembers(c.Request.Context(), h.e, p.TenantID)

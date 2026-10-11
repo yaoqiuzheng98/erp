@@ -262,7 +262,7 @@ func plusDays(day string, n int) string {
 	return d.AddDate(0, 0, n).Format("2006-01-02")
 }
 
-// clinic 诊所首页信息（公开）：名称/介绍/地址/电话/营业时间/公告/挂号费。
+// clinic 诊所信息（公开）：名称/地址/营业时间/图库（患者端首页展示用）。
 func (h *API) clinic(c *gin.Context) {
 	t := mw.Tenant(c)
 	if t == nil {
@@ -270,9 +270,7 @@ func (h *API) clinic(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{
-		"name": t.Name, "intro": t.Intro, "address": t.Address,
-		"lat": t.Lat, "lng": t.Lng,
-		"phone": t.Phone, "hours": t.Hours, "notice": t.Notice,
+		"name": t.Name, "address": t.Address, "hours": t.Hours,
 		"gallery": t.Gallery,
 	})
 }
