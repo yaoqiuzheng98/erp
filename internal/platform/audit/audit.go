@@ -23,6 +23,7 @@ const (
 	ActTenantToggle   = "tenant.toggle"
 	ActTenantDelete   = "tenant.delete"
 	ActTenantSettings = "tenant.settings"
+	ActTenantAdmin    = "tenant.admin_set" // 系统后台配置门诊管理员（改手机号/重置密码）
 	ActTenantHome     = "tenant.home"
 	ActStaffTop       = "staff.top"
 	ActPatientCreate  = "patient.create"

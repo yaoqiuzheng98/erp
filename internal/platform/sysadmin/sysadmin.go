@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type Handler struct {
@@ -24,6 +25,7 @@ func Register(g *gin.RouterGroup, e *env.Env) {
 	g.GET("/tenants", h.tenants)
 	g.POST("/tenants", h.createTenant)
 	g.POST("/tenants/:id/toggle", h.toggleTenant)
+	g.POST("/tenants/:id/admin", h.setTenantAdmin)
 	g.POST("/tenants/:id/delete", h.deleteTenant)
 	g.GET("/audit", h.auditLog)
 }
@@ -39,11 +41,94 @@ func (h *Handler) home(c *gin.Context) {
 }
 
 func (h *Handler) tenants(c *gin.Context) {
+	ctx := c.Request.Context()
 	skip, limit, pager := web.ParsePager(c, 20)
-	list, _ := h.e.Tenants.List(c.Request.Context(), skip, limit)
-	total, _ := h.e.Tenants.Count(c.Request.Context())
+	list, _ := h.e.Tenants.List(ctx, skip, limit)
+	total, _ := h.e.Tenants.Count(ctx)
 	pager.Total = total
-	web.Render(c, h.e, "sys/tenants", gin.H{"Tenants": list, "Pager": pager})
+	// 各门诊管理员手机号（列表展示 + 配置弹窗回显）：取最早创建的 is_tenant_admin。
+	adminPhone := map[string]string{}
+	if len(list) > 0 {
+		ids := make([]bson.ObjectID, 0, len(list))
+		for _, t := range list {
+			ids = append(ids, t.ID)
+		}
+		cur, err := h.e.DB.C("users").Find(ctx,
+			bson.M{"tenant_id": bson.M{"$in": ids}, "is_tenant_admin": true},
+			options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+		if err == nil {
+			var users []auth.User
+			if cur.All(ctx, &users) == nil {
+				for _, u := range users {
+					if _, ok := adminPhone[u.TenantID.Hex()]; !ok {
+						adminPhone[u.TenantID.Hex()] = u.Phone
+					}
+				}
+			}
+		}
+	}
+	web.Render(c, h.e, "sys/tenants", gin.H{"Tenants": list, "Pager": pager, "AdminPhone": adminPhone})
+}
+
+// adminOf 门诊的管理员账号（最早创建的 is_tenant_admin）。
+func (h *Handler) adminOf(c *gin.Context, tenantID bson.ObjectID) (*auth.User, error) {
+	var admin auth.User
+	err := h.e.DB.C("users").FindOne(c.Request.Context(),
+		bson.M{"tenant_id": tenantID, "is_tenant_admin": true},
+		options.FindOne().SetSort(bson.D{{Key: "_id", Value: 1}})).Decode(&admin)
+	if err != nil {
+		return nil, err
+	}
+	return &admin, nil
+}
+
+// setTenantAdmin 系统后台配置门诊管理员：改手机号；密码留空不改，填了即重置。
+func (h *Handler) setTenantAdmin(c *gin.Context) {
+	ctx := c.Request.Context()
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	t, err := h.e.Tenants.ByID(ctx, id)
+	if err != nil {
+		web.SetFlash(c, "门诊不存在")
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	admin, err := h.adminOf(c, id)
+	if err != nil {
+		web.SetFlash(c, "该门诊没有管理员账号")
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	phone := c.PostForm("phone")
+	if !auth.ValidPhone(phone) {
+		web.SetFlash(c, "手机号格式不正确")
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	if phone != admin.Phone {
+		if err := h.e.Auth.Update(ctx, id, admin.ID, bson.M{"phone": phone}); err != nil {
+			web.SetFlash(c, "保存失败（手机号可能已被本门诊其他员工占用）: "+err.Error())
+			c.Redirect(http.StatusFound, "/sysadmin/tenants")
+			return
+		}
+	}
+	if pass := c.PostForm("pass"); pass != "" {
+		if len(pass) < auth.MinPasswordLen {
+			web.SetFlash(c, "密码至少 6 位")
+			c.Redirect(http.StatusFound, "/sysadmin/tenants")
+			return
+		}
+		if err := h.e.Auth.SetPassword(ctx, id, admin.ID, pass); err != nil {
+			web.SetFlash(c, "重置密码失败: "+err.Error())
+			c.Redirect(http.StatusFound, "/sysadmin/tenants")
+			return
+		}
+	}
+	h.e.Audit.Log(ctx, audit.Entry{
+		Username: "sysadmin", Action: audit.ActTenantAdmin, Target: t.Name, Detail: phone,
+		IP: c.ClientIP(),
+	})
+	web.SetFlash(c, "管理员已更新: "+t.Name+" "+phone)
+	c.Redirect(http.StatusFound, "/sysadmin/tenants")
 }
 
 // createTenant 创建租户，初始化管理员账号与默认角色。
