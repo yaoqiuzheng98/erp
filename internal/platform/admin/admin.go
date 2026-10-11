@@ -98,7 +98,6 @@ func (h *Handler) createUser(c *gin.Context) {
 		Bio:         c.PostForm("bio"),
 		Title:       strings.TrimSpace(c.PostForm("title")),
 		Years:       years,
-		Specialty:   strings.TrimSpace(c.PostForm("specialty")),
 	}
 	if err := h.e.Auth.Create(c.Request.Context(), mw.TenantID(c), u, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
@@ -176,7 +175,6 @@ func (h *Handler) updateUser(c *gin.Context) {
 		"bio":             c.PostForm("bio"),
 		"title":           strings.TrimSpace(c.PostForm("title")),
 		"years":           years,
-		"specialty":       strings.TrimSpace(c.PostForm("specialty")),
 		"role_ids":        h.scopedRoleIDs(c),
 		"status":          status,
 		"is_tenant_admin": isAdm,

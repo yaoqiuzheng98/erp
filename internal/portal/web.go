@@ -102,7 +102,6 @@ type teamMember struct {
 	Order     int
 	Title     string
 	Years     int
-	Specialty string
 }
 
 // teamMembers 首页可见团队：全部在职、有角色、未隐藏的成员，按排序号展示。
@@ -127,7 +126,7 @@ func teamMembers(ctx context.Context, e *env.Env, tid bson.ObjectID) []teamMembe
 			}
 		}
 		team = append(team, teamMember{Name: u.Name, Roles: strings.Join(rn, "·"), Bio: u.Bio, Avatar: u.Avatar, Order: u.HomeOrder,
-			Title: u.Title, Years: u.Years, Specialty: u.Specialty})
+			Title: u.Title, Years: u.Years})
 	}
 	auth.SortByWeight(team,
 		func(m teamMember) int { return m.Order },

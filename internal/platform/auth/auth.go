@@ -43,7 +43,7 @@ var (
 )
 
 // User 租户用户，即员工：手机号+密码登录，角色定权限。
-// Title/Years/Specialty 为患者端医生团队页展示的执业信息。
+// Title/Years 为患者端医生团队页展示的执业信息。
 type User struct {
 	ID           bson.ObjectID   `bson:"_id,omitempty"`
 	TenantID     bson.ObjectID   `bson:"tenant_id"`
@@ -54,7 +54,6 @@ type User struct {
 	Bio          string          `bson:"bio,omitempty"`        // 个人简介：患者端首页团队展示
 	Title        string          `bson:"title,omitempty"`      // 职称：如 主任医师
 	Years        int             `bson:"years,omitempty"`      // 从业年限
-	Specialty    string          `bson:"specialty,omitempty"`  // 专科：如 口腔正畸专科
 	HideHome     bool            `bson:"hide_home,omitempty"`  // 首页不展示该成员
 	HomeOrder    int             `bson:"home_order,omitempty"` // 首页展示权重（大在前，0=最后）
 	Status       string          `bson:"status"`               // active / disabled
