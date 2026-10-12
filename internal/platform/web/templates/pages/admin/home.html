@@ -17,6 +17,8 @@
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="mb-2"><label class="form-label">地址 <span class="text-muted">（首页门诊卡展示）</span></label>
             <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>
+          <div class="mb-2"><label class="form-label">联系方式 <span class="text-muted">（首页门诊卡展示，营业时间下面）</span></label>
+            <input class="form-control form-control-sm" name="contact" value="{{.Data.Tenant.Contact}}" placeholder="如 0755-12345678 或 微信 yayan-dental"></div>
           <div class="form-text mb-2">营业时间已移到「<a href="/admin/settings">门诊设置</a>」按早晚两段维护。</div>
           <div class="mt-2"><button class="btn btn-sm btn-primary">保存</button></div>
         </form>

@@ -275,7 +275,7 @@ func (h *API) clinic(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{
-		"name": t.Name, "address": t.Address, "hours": t.HoursText(),
+		"name": t.Name, "address": t.Address, "hours": t.HoursText(), "contact": t.Contact,
 		"hero_image": t.HeroImage, "clinic_image": t.ClinicImage,
 	})
 }

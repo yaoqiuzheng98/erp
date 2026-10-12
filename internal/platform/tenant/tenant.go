@@ -27,6 +27,8 @@ type Tenant struct {
 	SlotCapacity int       `bson:"slot_capacity,omitempty"`
 	Status       string    `bson:"status"` // active / suspended
 	Address      string    `bson:"address,omitempty"`
+	// Contact 联系方式（自由文本，如电话/微信），首页门诊卡展示。
+	Contact string `bson:"contact,omitempty"`
 	// Hours 展示串（首页门诊卡用）：配了 HoursSeg 则每次保存时按段派生，
 	// 未配则沿用老文本（兼容历史数据）。
 	Hours string `bson:"hours,omitempty"`
@@ -224,11 +226,11 @@ func (s *Service) SetSchedule(ctx context.Context, id bson.ObjectID, minutes, ca
 	return err
 }
 
-// SetProfile 更新诊所地址（门诊后台首页配置维护，患者端首页展示）。
+// SetProfile 更新诊所地址/联系方式（门诊后台首页配置维护，患者端首页展示）。
 // 营业时间已移到门诊设置按段维护，不在这里改。
-func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, address string) error {
+func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, address, contact string) error {
 	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
-		"address": address,
+		"address": address, "contact": contact,
 	}})
 	return err
 }
