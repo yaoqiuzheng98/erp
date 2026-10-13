@@ -82,8 +82,8 @@ func TestCreateConcurrentDoubleBook(t *testing.T) {
 			defer wg.Done()
 			errs[i] = svc.Create(ctx, tid, &Appointment{
 				PatientID: pid,
-				Date: "2026-10-06", Slot: "10:00",
-			}, 0, 0, nil)
+				Date:      "2026-10-06", Slot: "10:00",
+			}, 0, 0, nil, nil)
 		}(i)
 	}
 	wg.Wait()
@@ -165,8 +165,8 @@ func TestSlotConfig(t *testing.T) {
 		}
 		return svc.Create(ctx, tid, &Appointment{
 			PatientID: npid,
-			Date: date, Slot: slot,
-		}, minutes, capacity, nil)
+			Date:      date, Slot: slot,
+		}, minutes, capacity, nil, nil)
 	}
 	// 默认 30 分钟档：09:10 不对齐拒绝，09:30 通过
 	if err := mk("2026-10-06", "09:10", 0, 0); err == nil {
@@ -214,8 +214,8 @@ func TestCreateBizHours(t *testing.T) {
 		}
 		return svc.Create(ctx, tid, &Appointment{
 			PatientID: npid,
-			Date: "2026-10-09", Slot: slot,
-		}, 30, 1, biz)
+			Date:      "2026-10-09", Slot: slot,
+		}, 30, 1, biz, nil)
 	}
 	for _, s := range []string{"09:00", "11:30", "14:00", "17:30"} {
 		if err := mk(s); err != nil {
@@ -243,8 +243,8 @@ func TestCreateOneActive(t *testing.T) {
 	mk := func(date, slot string) error {
 		return svc.Create(ctx, tid, &Appointment{
 			PatientID: pid,
-			Date: date, Slot: slot,
-		}, 30, 10, nil)
+			Date:      date, Slot: slot,
+		}, 30, 10, nil, nil)
 	}
 	if err := mk("2026-10-20", "10:00"); err != nil {
 		t.Fatalf("first: %v", err)
@@ -288,8 +288,8 @@ func TestCreateOneActiveConcurrent(t *testing.T) {
 			defer wg.Done()
 			errs[i] = svc.Create(ctx, tid, &Appointment{
 				PatientID: pid,
-				Date: "2026-10-22", Slot: slot,
-			}, 30, 10, nil)
+				Date:      "2026-10-22", Slot: slot,
+			}, 30, 10, nil, nil)
 		}(i, slot)
 	}
 	wg.Wait()
@@ -305,5 +305,31 @@ func TestCreateOneActiveConcurrent(t *testing.T) {
 	}
 	if ok != 1 || fail != 1 {
 		t.Fatalf("ok=%d fail=%d, want 1/1", ok, fail)
+	}
+}
+
+// TestCreateRestDay 休息日（每周固定休）不能建单。
+func TestCreateRestDay(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+		"_id": pid, "tenant_id": tid, "name": "休息测试", "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rest := func(d string) bool { return d == "2026-10-14" }
+	mk := func(date string) error {
+		return svc.Create(ctx, tid, &Appointment{
+			PatientID: pid,
+			Date:      date, Slot: "10:00",
+		}, 30, 1, nil, rest)
+	}
+	if err := mk("2026-10-14"); err == nil ||
+		(err != nil && !strings.Contains(err.Error(), "休息")) {
+		t.Fatalf("rest day should fail, got %v", err)
+	}
+	if err := mk("2026-10-13"); err != nil {
+		t.Fatalf("normal day: %v", err)
 	}
 }

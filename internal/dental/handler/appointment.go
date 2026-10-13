@@ -149,9 +149,9 @@ func (h *Handler) appointments(c *gin.Context) {
 		"Days": cols, "Rows": rows, "WeekStart": days[0], "WeekEnd": days[6],
 		"WeekTotal": len(list), "WeekMonday": days[0],
 		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
-		"Phone": phone,
+		"Phone":    phone,
 		"Patients": pats,
-		"Slots": appointment.DaySlotsIn(slotMinutes, biz),
+		"Slots":    appointment.DaySlotsIn(slotMinutes, biz),
 	})
 }
 
@@ -159,15 +159,17 @@ func (h *Handler) createAppt(c *gin.Context) {
 	patID, _ := bson.ObjectIDFromHex(c.PostForm("patient_id"))
 	a := &appointment.Appointment{
 		PatientID: patID,
-		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
+		Date:      c.PostForm("date"), Slot: c.PostForm("slot"),
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	var biz []model.HourSeg
+	var rest func(string) bool
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
 		biz = t.BusinessHours()
+		rest = t.IsRest
 	}
-	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a, slotMinutes, slotCapacity, biz); err != nil {
+	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a, slotMinutes, slotCapacity, biz, rest); err != nil {
 		slog.Error("backoffice appt failed", "tenant", mw.TenantID(c).Hex(),
 			"patient", a.PatientID.Hex(), "doctor", a.DoctorID.Hex(),
 			"date", a.Date, "slot", a.Slot, "err", err)

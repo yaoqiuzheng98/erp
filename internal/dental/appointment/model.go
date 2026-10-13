@@ -23,9 +23,9 @@ type Appointment struct {
 	PatientID   bson.ObjectID `bson:"patient_id"`
 	PatientName string        `bson:"patient_name"` // 快照，免 join
 	DoctorID    bson.ObjectID `bson:"doctor_id,omitempty"`
-	Doctor      string        `bson:"doctor"` // 接诊医生快照（签到时最终确定）
-	Date        string        `bson:"date"` // YYYY-MM-DD
-	Slot        string        `bson:"slot"` // HH:MM
+	Doctor      string        `bson:"doctor"`       // 接诊医生快照（签到时最终确定）
+	Date        string        `bson:"date"`         // YYYY-MM-DD
+	Slot        string        `bson:"slot"`         // HH:MM
 	No          string        `bson:"no,omitempty"` // 预约编号（YY+日期+序号，下单时发出）
 	Status      string        `bson:"status"`
 }
@@ -131,10 +131,10 @@ func NormSlotConfig(minutes, capacity int) (int, int) {
 type statusMeta struct{ Name, Badge string }
 
 var statusMetas = map[string]statusMeta{
-	Booked:  {"已预约", "bg-primary"},
-	Done:    {"已完成", "bg-success"},
-	NoShow:  {"爽约", "bg-warning text-dark"},
-	Cancel:  {"已取消", "bg-secondary"},
+	Booked: {"已预约", "bg-primary"},
+	Done:   {"已完成", "bg-success"},
+	NoShow: {"爽约", "bg-warning text-dark"},
+	Cancel: {"已取消", "bg-secondary"},
 }
 
 // StatusName 状态中文名（模板调用）。

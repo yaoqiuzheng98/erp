@@ -95,8 +95,8 @@ func (h *Handler) createUser(c *gin.Context) {
 		Phone:   c.PostForm("phone"),
 		RoleIDs: h.scopedRoleIDs(c),
 		Bio:     c.PostForm("bio"),
-		Title:       strings.TrimSpace(c.PostForm("title")),
-		Years:       years,
+		Title:   strings.TrimSpace(c.PostForm("title")),
+		Years:   years,
 	}
 	if err := h.e.Auth.Create(c.Request.Context(), mw.TenantID(c), u, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
@@ -155,11 +155,11 @@ func (h *Handler) updateUser(c *gin.Context) {
 	}
 	years, _ := strconv.Atoi(c.PostForm("years"))
 	set := bson.M{
-		"name":            c.PostForm("name"),
-		"phone":           c.PostForm("phone"),
-		"bio":             c.PostForm("bio"),
-		"title":           strings.TrimSpace(c.PostForm("title")),
-		"years":           years,
+		"name":     c.PostForm("name"),
+		"phone":    c.PostForm("phone"),
+		"bio":      c.PostForm("bio"),
+		"title":    strings.TrimSpace(c.PostForm("title")),
+		"years":    years,
 		"role_ids": h.scopedRoleIDs(c),
 		"status":   status,
 	}
@@ -236,9 +236,20 @@ func (h *Handler) settingsPage(c *gin.Context) {
 	if len(segs) > 1 {
 		pm = segs[1]
 	}
+	// 每周休息日勾选项（0=周日..6=周六，展示按周一到周日排）。
+	names := [...]string{"周日", "周一", "周二", "周三", "周四", "周五", "周六"}
+	restOn := map[int]bool{}
+	for _, d := range t.RestWeekdays {
+		restOn[d] = true
+	}
+	weekdays := make([]gin.H, 0, 7)
+	for _, d := range []int{1, 2, 3, 4, 5, 6, 0} {
+		weekdays = append(weekdays, gin.H{"Value": d, "Label": names[d], "On": restOn[d]})
+	}
 	web.Render(c, h.e, "admin/settings", gin.H{
 		"Tenant": t, "SlotMinutes": mins, "SlotCapacity": cap,
 		"AMOpen": am.Open, "AMClose": am.Close, "PMOpen": pm.Open, "PMClose": pm.Close,
+		"Weekdays": weekdays, "RestDates": strings.Join(t.RestDates, "\n"),
 	})
 }
 
@@ -258,6 +269,17 @@ func (h *Handler) saveSettings(c *gin.Context) {
 	}
 	if err := h.e.Tenants.SetBusinessHours(ctx, tid, segs); err != nil {
 		web.SetFlash(c, "放号已保存，营业时间保存失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/admin/settings")
+		return
+	}
+	var wds []int
+	for _, s := range c.PostFormArray("rest_weekdays") {
+		if n, err := strconv.Atoi(s); err == nil {
+			wds = append(wds, n)
+		}
+	}
+	if err := h.e.Tenants.SetRest(ctx, tid, wds, strings.Split(c.PostForm("rest_dates"), "\n")); err != nil {
+		web.SetFlash(c, "放号/营业时间已保存，休息日保存失败: "+err.Error())
 	} else {
 		h.audit(c, audit.ActTenantSettings, "schedule",
 			c.PostForm("slot_minutes")+"min x"+c.PostForm("slot_capacity"))

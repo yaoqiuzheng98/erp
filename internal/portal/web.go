@@ -96,13 +96,13 @@ func (h *Web) logout(c *gin.Context) {
 
 // teamMember 首页团队成员（与 home 模板字段对应）。
 type teamMember struct {
-	Name      string
-	Roles     string
-	Bio       string
-	Avatar    string
-	Order     int
-	Title     string
-	Years     int
+	Name   string
+	Roles  string
+	Bio    string
+	Avatar string
+	Order  int
+	Title  string
+	Years  int
 }
 
 // teamMembers 首页可见团队：全部在职、有角色、未隐藏的成员，按排序号展示。
@@ -223,15 +223,17 @@ func (h *Web) book(c *gin.Context) {
 	}
 	a := &appointment.Appointment{
 		PatientID: p.ID,
-		Date: c.PostForm("date"), Slot: c.PostForm("slot"),
+		Date:      c.PostForm("date"), Slot: c.PostForm("slot"),
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	var biz []model.HourSeg
+	var rest func(string) bool
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
 		biz = t.BusinessHours()
+		rest = t.IsRest
 	}
-	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz); err != nil {
+	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz, rest); err != nil {
 		slog.Error("portal book failed", "tenant", p.TenantID.Hex(), "patient", p.ID.Hex(),
 			"doctor", a.DoctorID.Hex(), "date", a.Date, "slot", a.Slot, "err", err)
 		web.SetFlash(c, "预约失败: "+err.Error())

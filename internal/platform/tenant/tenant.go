@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"erp/internal/platform/model"
+	"erp/internal/platform/tz"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -19,14 +20,14 @@ import (
 // Tenant 门诊租户（一家门诊）。Address/Hours 与 HeroImage/ClinicImage
 // （GridFS 文件 ID hex）为患者端展示的诊所信息，门诊后台上传维护。
 type Tenant struct {
-	ID        bson.ObjectID `bson:"_id,omitempty"`
-	Name      string        `bson:"name"`
+	ID   bson.ObjectID `bson:"_id,omitempty"`
+	Name string        `bson:"name"`
 	// 放号配置：SlotMinutes 每 N 分钟一档（15/30/60，0=默认30），
 	// SlotCapacity 每档可约人数（0=默认1）。改配置只影响之后的新预约。
-	SlotMinutes  int       `bson:"slot_minutes,omitempty"`
-	SlotCapacity int       `bson:"slot_capacity,omitempty"`
-	Status       string    `bson:"status"` // active / suspended
-	Address      string    `bson:"address,omitempty"`
+	SlotMinutes  int    `bson:"slot_minutes,omitempty"`
+	SlotCapacity int    `bson:"slot_capacity,omitempty"`
+	Status       string `bson:"status"` // active / suspended
+	Address      string `bson:"address,omitempty"`
 	// Contact 联系方式（自由文本，如电话/微信），首页门诊卡展示。
 	Contact string `bson:"contact,omitempty"`
 	// Hours 展示串（首页门诊卡用）：配了 HoursSeg 则每次保存时按段派生，
@@ -34,10 +35,15 @@ type Tenant struct {
 	Hours string `bson:"hours,omitempty"`
 	// HoursSeg 营业时段（门诊设置维护，最多两段，中午休息即两段）：
 	// 为空表示未配置，放号回落全天。
-	HoursSeg     []model.HourSeg `bson:"hours_seg,omitempty"`
-	HeroImage    string          `bson:"hero_image,omitempty"`   // 首页顶部大图（GridFS 文件 ID hex）
-	ClinicImage  string          `bson:"clinic_image,omitempty"` // 门诊卡图（医生团队入口那块）
-	CreatedAt    time.Time       `bson:"created_at"`
+	HoursSeg []model.HourSeg `bson:"hours_seg,omitempty"`
+	// RestWeekdays 每周固定休息日（0=周日..6=周六，门诊设置维护）：
+	// 这些星期几每周都不放号、不能预约。
+	RestWeekdays []int `bson:"rest_weekdays,omitempty"`
+	// RestDates 指定休息日期（YYYY-MM-DD，如节假日）：当天不能预约。
+	RestDates   []string  `bson:"rest_dates,omitempty"`
+	HeroImage   string    `bson:"hero_image,omitempty"`   // 首页顶部大图（GridFS 文件 ID hex）
+	ClinicImage string    `bson:"clinic_image,omitempty"` // 门诊卡图（医生团队入口那块）
+	CreatedAt   time.Time `bson:"created_at"`
 }
 
 var ErrSuspended = errors.New("租户已停用")
@@ -204,6 +210,95 @@ func (s *Service) SetBusinessHours(ctx context.Context, id bson.ObjectID, segs [
 	_, err = s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
 		"hours_seg": norm, "hours": BizSegText(norm),
 	}})
+	return err
+}
+
+// MaxRestDates 指定休息日期条数上限（够用即可，防误贴一坨）。
+const MaxRestDates = 366
+
+// NormRest 休息日归一：每周休息日 0(周日)~6(周六) 去重升序；
+// 指定日期去空白去重升序、必须是 YYYY-MM-DD。两空=全周无休。
+func NormRest(weekdays []int, dates []string) ([]int, []string, error) {
+	wdSet := map[int]bool{}
+	for _, d := range weekdays {
+		if d < 0 || d > 6 {
+			return nil, nil, errors.New("每周休息日只能是周日到周六")
+		}
+		wdSet[d] = true
+	}
+	wds := make([]int, 0, len(wdSet))
+	for d := 0; d <= 6; d++ {
+		if wdSet[d] {
+			wds = append(wds, d)
+		}
+	}
+	dSet := map[string]bool{}
+	for _, s := range dates {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if _, ok := tz.DayStart(s); !ok {
+			return nil, nil, errors.New("休息日期格式不对，用 YYYY-MM-DD")
+		}
+		dSet[s] = true
+	}
+	ds := make([]string, 0, len(dSet))
+	for k := range dSet {
+		ds = append(ds, k)
+	}
+	sort.Strings(ds)
+	if len(ds) > MaxRestDates {
+		return nil, nil, errors.New("指定休息日期太多")
+	}
+	return wds, ds, nil
+}
+
+// IsRest 当天是否休息（指定日期命中，或落在每周休息日）。
+func (t *Tenant) IsRest(date string) bool {
+	for _, d := range t.RestDates {
+		if d == date {
+			return true
+		}
+	}
+	if len(t.RestWeekdays) > 0 {
+		if day, ok := tz.DayStart(date); ok {
+			for _, w := range t.RestWeekdays {
+				if int(day.Weekday()) == w {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// SetRest 存休息日配置（门诊设置）：校验通过才落库；两空=清除配置（全周开诊）。
+func (s *Service) SetRest(ctx context.Context, id bson.ObjectID, weekdays []int, dates []string) error {
+	wds, ds, err := NormRest(weekdays, dates)
+	if err != nil {
+		return err
+	}
+	set := bson.M{}
+	unset := bson.M{}
+	if len(wds) > 0 {
+		set["rest_weekdays"] = wds
+	} else {
+		unset["rest_weekdays"] = ""
+	}
+	if len(ds) > 0 {
+		set["rest_dates"] = ds
+	} else {
+		unset["rest_dates"] = ""
+	}
+	update := bson.M{}
+	if len(set) > 0 {
+		update["$set"] = set
+	}
+	if len(unset) > 0 {
+		update["$unset"] = unset
+	}
+	_, err = s.col.UpdateOne(ctx, bson.M{"_id": id}, update)
 	return err
 }
 

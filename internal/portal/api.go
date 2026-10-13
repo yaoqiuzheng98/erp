@@ -8,7 +8,7 @@ import (
 	"erp/internal/dental/patient"
 	"erp/internal/platform/auth"
 	"erp/internal/platform/env"
-	mw 	"erp/internal/platform/middleware"
+	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/model"
 	"erp/internal/platform/session"
 	"erp/internal/platform/tz"
@@ -246,9 +246,16 @@ func (h *API) availability(c *gin.Context) {
 	}
 	minutes, capacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	var biz []model.HourSeg
+	var rests []string
 	if t := mw.Tenant(c); t != nil {
 		minutes, capacity = t.SlotConfig()
 		biz = t.BusinessHours()
+		// 区间内休息日（每周固定休 + 指定日期），前端标"休"不可选。
+		for d := from; d <= to; d = plusDays(d, 1) {
+			if t.IsRest(d) {
+				rests = append(rests, d)
+			}
+		}
 	}
 	days, err := h.appts.BookedCounts(c.Request.Context(), mw.TenantID(c), from, to)
 	if err != nil {
@@ -257,7 +264,7 @@ func (h *API) availability(c *gin.Context) {
 	}
 	ok(c, gin.H{
 		"slot_minutes": minutes, "slot_capacity": capacity,
-		"slots": appointment.DaySlotsIn(minutes, biz), "days": days,
+		"slots": appointment.DaySlotsIn(minutes, biz), "days": days, "rests": rests,
 	})
 }
 
@@ -331,15 +338,17 @@ func (h *API) createAppointment(c *gin.Context) {
 	}
 	a := &appointment.Appointment{
 		PatientID: p.ID,
-		Date: in.Date, Slot: in.Slot,
+		Date:      in.Date, Slot: in.Slot,
 	}
 	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
 	var biz []model.HourSeg
+	var rest func(string) bool
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
 		biz = t.BusinessHours()
+		rest = t.IsRest
 	}
-	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz); err != nil {
+	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz, rest); err != nil {
 		fail(c, http.StatusBadRequest, err.Error())
 		return
 	}

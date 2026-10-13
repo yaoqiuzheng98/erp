@@ -69,8 +69,7 @@ func New(db *mongo.Database, seq *seqno.Generator,
 	}
 }
 
-
-func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, slotMinutes, slotCapacity int, biz []model.HourSeg) error {
+func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, slotMinutes, slotCapacity int, biz []model.HourSeg, rest func(string) bool) error {
 	p, err := s.pats.ByID(ctx, tenantID, a.PatientID)
 	if err != nil {
 		return errors.New("患者不存在")
@@ -83,6 +82,10 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	// 日期时段只收合法格式，脏数据进库后筛选查不到
 	if _, ok := tz.DayStart(a.Date); !ok {
 		return errors.New("日期格式不正确")
+	}
+	// 门诊休息日（每周固定休/指定日期休）：不放号，任何入口都不能建单。
+	if rest != nil && rest(a.Date) {
+		return errors.New("当天门诊休息，不能预约")
 	}
 	if !slotRe.MatchString(a.Slot) {
 		return errors.New("时间格式不正确")
