@@ -48,10 +48,15 @@
               {{end}}
             </div>
             <div class="form-text">勾选的星期每周都不放号，患者端标"休"不能约。</div></div>
-          <div class="mb-2"><label class="form-label">指定休息日期 <span class="text-muted">（如节假日，可多选）</span></label>
-            <div class="d-flex gap-2 mb-2">
-              <input class="form-control form-control-sm" type="date" id="restDatePick" style="max-width:12em">
-              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addRestDate()">添加</button>
+          <div class="mb-2"><label class="form-label">指定休息日期 <span class="text-muted">（如节假日，可多选/选一整段）</span></label>
+            <div class="border rounded p-2 mb-2" style="max-width:340px">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <button type="button" class="btn btn-sm btn-link text-decoration-none py-0" onclick="restPrevMonth()">‹</button>
+                <span id="restMonthLabel" class="fw-semibold small"></span>
+                <button type="button" class="btn btn-sm btn-link text-decoration-none py-0" onclick="restNextMonth()">›</button>
+              </div>
+              <div id="restCal" class="rest-cal"></div>
+              <div class="form-text mt-1">点第一天、再点最后一天 = 选一整段；连点同一天 = 只选当天。</div>
             </div>
             <textarea class="form-control form-control-sm" name="rest_dates" id="restDates" rows="3"
                       placeholder="每行一个日期，如 2026-10-01">{{.Data.RestDates}}</textarea>
@@ -65,17 +70,70 @@
 </div>
 {{template "partial/foot" .}}
 <script>
-  function addRestDate() {
-    var p = document.getElementById('restDatePick')
-    var t = document.getElementById('restDates')
-    if (!p.value) return
-    var lines = t.value.split('\n').map(function (s) { return s.trim() }).filter(Boolean)
-    if (lines.indexOf(p.value) < 0) lines.push(p.value)
-    lines.sort()
-    t.value = lines.join('\n')
-    p.value = ''
-  }
+  // 指定休息日期：小日历范围选择。点起、再点终=一段；同一天点两次=当天。
+  // 结果始终同步到文本域（唯一真源，保存仍提交文本域）。
+  (function () {
+    var pick = null
+    var cur = new Date()
+    cur.setDate(1)
+    var WEEK = ['日', '一', '二', '三', '四', '五', '六']
+
+    function pad(n) { return n < 10 ? '0' + n : '' + n }
+    function fmt(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d) }
+    function lines() {
+      var ta = document.getElementById('restDates')
+      return ta.value.split('\n').map(function (s) { return s.trim() }).filter(Boolean)
+    }
+    function render() {
+      document.getElementById('restMonthLabel').textContent = cur.getFullYear() + '年' + (cur.getMonth() + 1) + '月'
+      var mark = {}
+      lines().forEach(function (l) { mark[l] = 1 })
+      var html = WEEK.map(function (w) { return '<div class="hd">' + w + '</div>' }).join('')
+      var first = new Date(cur.getFullYear(), cur.getMonth(), 1)
+      var days = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate()
+      for (var i = 0; i < first.getDay(); i++) html += '<div class="blank"></div>'
+      for (var d = 1; d <= days; d++) {
+        var f = fmt(cur.getFullYear(), cur.getMonth(), d)
+        var cls = 'day' + (mark[f] ? ' on' : '') + (pick === f ? ' pick' : '')
+        html += '<div class="' + cls + '" data-d="' + f + '" onclick="restPick(this)">' + d + '</div>'
+      }
+      document.getElementById('restCal').innerHTML = html
+    }
+    window.restPrevMonth = function () { cur.setMonth(cur.getMonth() - 1); render() }
+    window.restNextMonth = function () { cur.setMonth(cur.getMonth() + 1); render() }
+    window.restPick = function (el) {
+      var f = el.getAttribute('data-d')
+      if (!pick) { pick = f; render(); return }
+      var set = {}
+      lines().forEach(function (l) { set[l] = 1 })
+      var a = pick < f ? pick : f
+      var b = pick < f ? f : pick
+      var ap = a.split('-'), bp = b.split('-')
+      var dt = new Date(+ap[0], +ap[1] - 1, +ap[2])
+      var end = new Date(+bp[0], +bp[1] - 1, +bp[2])
+      while (dt <= end) {
+        set[fmt(dt.getFullYear(), dt.getMonth(), dt.getDate())] = 1
+        dt.setDate(dt.getDate() + 1)
+      }
+      pick = null
+      var out = Object.keys(set).sort()
+      if (out.length > 366) { alert('指定休息日期最多 366 天'); render(); return }
+      document.getElementById('restDates').value = out.join('\n')
+      render()
+    }
+    render()
+  })()
 </script>
+<style>
+  .rest-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .rest-cal div { text-align: center; font-size: .78rem; padding: 3px 0; border-radius: 4px; user-select: none; }
+  .rest-cal .hd { color: #adb5bd; }
+  .rest-cal .blank { cursor: default; }
+  .rest-cal .day { cursor: pointer; }
+  .rest-cal .day:hover { background: #e2e6ea; }
+  .rest-cal .on { background: #0d9488; color: #fff; }
+  .rest-cal .pick { outline: 2px solid #0d9488; }
+</style>
 </body>
 </html>
 {{end}}
