@@ -1,6 +1,10 @@
 package tenant
 
-import "testing"
+import (
+	"testing"
+
+	"erp/internal/platform/model"
+)
 
 func TestNormRest(t *testing.T) {
 	// 正常：周日去重升序 + 日期去重排序
@@ -54,5 +58,35 @@ func TestIsRest(t *testing.T) {
 	// 脏日期不炸
 	if tn.IsRest("bad") {
 		t.Fatal("bad date should not rest")
+	}
+}
+
+func TestRestWeekTextAndHours(t *testing.T) {
+	tn := &Tenant{HoursSeg: []model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}}
+	if got := tn.HoursText(); got != "9:00-12:00 14:00-18:00" {
+		t.Fatalf("no rest = %q", got)
+	}
+	// 每周二休：末尾加"每周二休息"
+	tn.RestWeekdays = []int{2}
+	if got := tn.RestWeekText(); got != "每周二休息" {
+		t.Fatalf("single = %q", got)
+	}
+	if got := tn.HoursText(); got != "9:00-12:00 14:00-18:00 每周二休息" {
+		t.Fatalf("hours = %q", got)
+	}
+	// 多日按周一到周日排序
+	tn.RestWeekdays = []int{4, 3}
+	if got := tn.RestWeekText(); got != "每周三、周四休息" {
+		t.Fatalf("multi = %q", got)
+	}
+	// 只配休息、无营业时间也展示
+	tn2 := &Tenant{RestWeekdays: []int{2}}
+	if got := tn2.HoursText(); got != "每周二休息" {
+		t.Fatalf("rest only = %q", got)
+	}
+	// 老文本回落也带后缀
+	tn3 := &Tenant{Hours: "9:00-18:00", RestWeekdays: []int{0}}
+	if got := tn3.HoursText(); got != "9:00-18:00 每周日休息" {
+		t.Fatalf("legacy = %q", got)
 	}
 }

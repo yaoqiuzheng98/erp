@@ -192,12 +192,44 @@ func (t *Tenant) BusinessHours() []model.HourSeg {
 	return t.HoursSeg
 }
 
-// HoursText 首页展示的营业时间：配了时段按段派生，否则沿用老文本。
-func (t *Tenant) HoursText() string {
-	if len(t.HoursSeg) > 0 {
-		return BizSegText(t.HoursSeg)
+// weekdayCN 星期中文（0=周日..6=周六）。
+var weekdayCN = [...]string{"周日", "周一", "周二", "周三", "周四", "周五", "周六"}
+
+// RestWeekText 每周休息日展示串（如"每周二休息"、"每周三、周四休息"），无休返回空。
+func (t *Tenant) RestWeekText() string {
+	if len(t.RestWeekdays) == 0 {
+		return ""
 	}
-	return t.Hours
+	on := map[int]bool{}
+	for _, d := range t.RestWeekdays {
+		on[d] = true
+	}
+	names := make([]string, 0, len(t.RestWeekdays))
+	for _, d := range []int{1, 2, 3, 4, 5, 6, 0} {
+		if on[d] {
+			names = append(names, weekdayCN[d])
+		}
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	return "每" + strings.Join(names, "、") + "休息"
+}
+
+// HoursText 首页展示的营业时间：配了时段按段派生（否则沿用老文本），
+// 末尾带上每周固定休息日（如"每周二休息"），让患者一眼看到哪天不开门。
+func (t *Tenant) HoursText() string {
+	hours := t.Hours
+	if len(t.HoursSeg) > 0 {
+		hours = BizSegText(t.HoursSeg)
+	}
+	if rest := t.RestWeekText(); rest != "" {
+		if hours == "" {
+			return rest
+		}
+		return hours + " " + rest
+	}
+	return hours
 }
 
 // SetBusinessHours 存营业时段（门诊设置）：早晚两段必填，校验通过才落库，
