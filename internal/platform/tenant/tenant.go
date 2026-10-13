@@ -43,9 +43,9 @@ type Tenant struct {
 	RestDates []string `bson:"rest_dates,omitempty"`
 	// Notice 首页公告（患者端首页黄色广播条）；NoticeFrom/NoticeTo 展示时间窗
 	// （YYYY-MM-DD，含首尾）：留空=一直展示，填了只在窗口内展示。
-	Notice     string `bson:"notice,omitempty"`
-	NoticeFrom string `bson:"notice_from,omitempty"`
-	NoticeTo   string `bson:"notice_to,omitempty"`
+	Notice      string    `bson:"notice,omitempty"`
+	NoticeFrom  string    `bson:"notice_from,omitempty"`
+	NoticeTo    string    `bson:"notice_to,omitempty"`
 	HeroImage   string    `bson:"hero_image,omitempty"`   // 首页顶部大图（GridFS 文件 ID hex）
 	ClinicImage string    `bson:"clinic_image,omitempty"` // 门诊卡图（医生团队入口那块）
 	CreatedAt   time.Time `bson:"created_at"`
