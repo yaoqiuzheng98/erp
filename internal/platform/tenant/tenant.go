@@ -40,7 +40,12 @@ type Tenant struct {
 	// 这些星期几每周都不放号、不能预约。
 	RestWeekdays []int `bson:"rest_weekdays,omitempty"`
 	// RestDates 指定休息日期（YYYY-MM-DD，如节假日）：当天不能预约。
-	RestDates   []string  `bson:"rest_dates,omitempty"`
+	RestDates []string `bson:"rest_dates,omitempty"`
+	// Notice 首页公告（患者端首页黄色广播条）；NoticeFrom/NoticeTo 展示时间窗
+	// （YYYY-MM-DD，含首尾）：留空=一直展示，填了只在窗口内展示。
+	Notice     string `bson:"notice,omitempty"`
+	NoticeFrom string `bson:"notice_from,omitempty"`
+	NoticeTo   string `bson:"notice_to,omitempty"`
 	HeroImage   string    `bson:"hero_image,omitempty"`   // 首页顶部大图（GridFS 文件 ID hex）
 	ClinicImage string    `bson:"clinic_image,omitempty"` // 门诊卡图（医生团队入口那块）
 	CreatedAt   time.Time `bson:"created_at"`
@@ -332,6 +337,79 @@ func (s *Service) SetRest(ctx context.Context, id bson.ObjectID, weekdays []int,
 	}
 	_, err = s.col.UpdateOne(ctx, bson.M{"_id": id}, update)
 	return err
+}
+
+// NormNotice 公告归一：内容去空白；展示时间窗可留空（=一直展示），
+// 填了必须是 YYYY-MM-DD 且 起<=止；有窗无内容没意义，一并清掉。
+func NormNotice(notice, from, to string) (string, string, string, error) {
+	notice = strings.TrimSpace(notice)
+	from, to = strings.TrimSpace(from), strings.TrimSpace(to)
+	if from == "" && to == "" {
+		return notice, "", "", nil
+	}
+	if from != "" {
+		if _, ok := tz.DayStart(from); !ok {
+			return "", "", "", errors.New("公告开始日期格式不对，用 YYYY-MM-DD")
+		}
+	}
+	if to != "" {
+		if _, ok := tz.DayStart(to); !ok {
+			return "", "", "", errors.New("公告结束日期格式不对，用 YYYY-MM-DD")
+		}
+	}
+	if from != "" && to != "" && from > to {
+		return "", "", "", errors.New("公告开始日期不能晚于结束日期")
+	}
+	return notice, from, to, nil
+}
+
+// SetNotice 存首页公告（门诊后台首页配置）：校验通过才落库；全空=清除。
+func (s *Service) SetNotice(ctx context.Context, id bson.ObjectID, notice, from, to string) error {
+	n, f, t, err := NormNotice(notice, from, to)
+	if err != nil {
+		return err
+	}
+	set := bson.M{}
+	unset := bson.M{}
+	if n != "" {
+		set["notice"] = n
+	} else {
+		unset["notice"] = ""
+	}
+	if f != "" {
+		set["notice_from"] = f
+	} else {
+		unset["notice_from"] = ""
+	}
+	if t != "" {
+		set["notice_to"] = t
+	} else {
+		unset["notice_to"] = ""
+	}
+	update := bson.M{}
+	if len(set) > 0 {
+		update["$set"] = set
+	}
+	if len(unset) > 0 {
+		update["$unset"] = unset
+	}
+	_, err = s.col.UpdateOne(ctx, bson.M{"_id": id}, update)
+	return err
+}
+
+// ActiveNotice 当前生效的公告：无内容或不在展示时间窗内返回空。
+// today 为门诊时区的 YYYY-MM-DD（服务器判定，前端不用管时间窗）。
+func (t *Tenant) ActiveNotice(today string) string {
+	if t.Notice == "" {
+		return ""
+	}
+	if t.NoticeFrom != "" && today < t.NoticeFrom {
+		return ""
+	}
+	if t.NoticeTo != "" && today > t.NoticeTo {
+		return ""
+	}
+	return t.Notice
 }
 
 // SetSchedule 放号粒度与每档人数一起存（门诊设置）：非法值直接报错，不落库。

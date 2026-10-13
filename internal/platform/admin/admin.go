@@ -302,12 +302,18 @@ func (h *Handler) homePage(c *gin.Context) {
 	})
 }
 
-// saveHomeProfile 诊所地址/联系方式（患者端首页展示）。营业时间已移到门诊设置按段维护。
+// saveHomeProfile 诊所地址/联系方式 + 首页公告（患者端首页展示）。
 func (h *Handler) saveHomeProfile(c *gin.Context) {
 	ctx := c.Request.Context()
 	tid := mw.TenantID(c)
 	if err := h.e.Tenants.SetProfile(ctx, tid, c.PostForm("address"), c.PostForm("contact")); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/admin/home")
+		return
+	}
+	if err := h.e.Tenants.SetNotice(ctx, tid,
+		c.PostForm("notice"), c.PostForm("notice_from"), c.PostForm("notice_to")); err != nil {
+		web.SetFlash(c, "地址/联系方式已保存，公告保存失败: "+err.Error())
 	} else {
 		h.audit(c, audit.ActTenantHome, "profile", "")
 		web.SetFlash(c, "诊所介绍已保存")

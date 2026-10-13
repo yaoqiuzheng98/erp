@@ -305,6 +305,7 @@ func (h *API) clinic(c *gin.Context) {
 	}
 	ok(c, gin.H{
 		"name": t.Name, "address": t.Address, "hours": t.HoursText(), "contact": t.Contact,
+		"notice": t.ActiveNotice(tz.Today()), // 过了展示时间窗自动不返回，前端不用管
 		"hero_image": t.HeroImage, "clinic_image": t.ClinicImage,
 	})
 }
