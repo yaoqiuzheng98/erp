@@ -2,6 +2,7 @@ package portal
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -186,7 +187,27 @@ func (h *Web) gallery(c *gin.Context) {
 		mime = "application/octet-stream"
 	}
 	c.Header("Content-Disposition", "inline; filename=\""+a.Filename+"\"")
-	c.DataFromReader(http.StatusOK, a.Size, mime, stream, nil)
+	// 超大图真机不渲染（微信 image 组件原生层），服务端瘦身后再下发；
+	// 超大文件（>30MB）不读内存，直接原样流式透传。
+	if a.Size > 30*1024*1024 {
+		c.DataFromReader(http.StatusOK, a.Size, mime, stream, nil)
+		return
+	}
+	if r, ok := cacheGet(fid); ok {
+		c.Data(http.StatusOK, r.mime, r.data)
+		return
+	}
+	data, err := io.ReadAll(stream)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	if slim, slimMime, ok := slimImage(data, mime); ok {
+		cachePut(fid, slimResult{data: slim, mime: slimMime})
+		c.Data(http.StatusOK, slimMime, slim)
+		return
+	}
+	c.Data(http.StatusOK, mime, data)
 }
 
 func (h *Web) apptsPage(c *gin.Context) {
