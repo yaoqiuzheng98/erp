@@ -16,6 +16,7 @@ func (h *Handler) registerPatient(g *gin.RouterGroup) {
 	g.GET("/patients", mw.RequirePerm("patient.read"), h.patients)
 	g.POST("/patients", mw.RequirePerm("patient.write"), h.createPatient)
 	g.GET("/patients/:id", mw.RequirePerm("patient.read"), h.patient)
+	g.POST("/patients/:id/unbind-wx", mw.RequirePerm("patient.write"), h.unbindWX)
 }
 
 func (h *Handler) patients(c *gin.Context) {
@@ -58,3 +59,21 @@ func (h *Handler) patient(c *gin.Context) {
 	})
 }
 
+// unbindWX 解绑微信：清掉患者上的 openId，之后该微信可重新建档/绑定。
+func (h *Handler) unbindWX(c *gin.Context) {
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	tid := mw.TenantID(c)
+	p, err := h.pats.ByID(c.Request.Context(), tid, id)
+	if err != nil {
+		web.SetFlash(c, "患者不存在")
+		c.Redirect(http.StatusFound, "/app/patients")
+		return
+	}
+	if err := h.pats.ClearOpenID(c.Request.Context(), tid, id); err != nil {
+		web.SetFlash(c, "解绑失败: "+err.Error())
+	} else {
+		h.audit(c, audit.ActPatientCreate, "解绑微信 "+p.Name+" "+p.Phone, "")
+		web.SetFlash(c, "已解绑，"+p.Name+" 的微信可重新建档")
+	}
+	c.Redirect(http.StatusFound, "/app/patients/"+id.Hex())
+}

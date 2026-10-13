@@ -22,13 +22,21 @@ func New(db *mongo.Database) *Service {
 	return &Service{pats: repo.NewTenantRepo[Patient](db, "patients")}
 }
 
-// EnsureIndexes 非空电话租户内唯一（防并发建档重号；空电话不限）。
-// 登录按电话定位，重号会随机登错人。
+// EnsureIndexes 非空电话租户内唯一（防并发建档重号；空电话不限）；
+// 非空 open_id 租户内唯一（一个微信只能绑一个档，防重复绑定串号）。
+// 登录按电话/微信定位，重号会随机登错人。
 func (s *Service) EnsureIndexes(ctx context.Context) error {
-	_, err := s.pats.Col.Indexes().CreateOne(ctx, mongo.IndexModel{
+	if _, err := s.pats.Col.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "phone", Value: 1}},
 		Options: options.Index().SetUnique(true).
 			SetPartialFilterExpression(bson.M{"phone": bson.M{"$gt": ""}}),
+	}); err != nil {
+		return err
+	}
+	_, err := s.pats.Col.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "open_id", Value: 1}},
+		Options: options.Index().SetUnique(true).
+			SetPartialFilterExpression(bson.M{"open_id": bson.M{"$gt": ""}}),
 	})
 	return err
 }
@@ -72,12 +80,18 @@ func (s *Service) ByOpenID(ctx context.Context, tenantID bson.ObjectID, openid s
 	return s.pats.FindOne(ctx, tenantID, bson.M{"open_id": openid})
 }
 
-// BindOpenID 绑定微信 openId（建档时/密码登录成功后调，换绑直接覆盖）。
+// BindOpenID 绑定微信 openId（建档时/登录带 code 顺手绑定）：换绑直接覆盖。
+// 一个 openId 只能绑一个档（唯一索引兜底）：撞索引说明已被别的档绑走。
 func (s *Service) BindOpenID(ctx context.Context, tenantID, id bson.ObjectID, openid string) error {
 	if openid == "" {
 		return errors.New("openId 为空")
 	}
 	return s.pats.Update(ctx, tenantID, id, bson.M{"open_id": openid})
+}
+
+// ClearOpenID 解绑微信（门诊后台操作）：解绑后该微信可重新建档。
+func (s *Service) ClearOpenID(ctx context.Context, tenantID, id bson.ObjectID) error {
+	return s.pats.Update(ctx, tenantID, id, bson.M{"open_id": ""})
 }
 
 // Create 建档：按电话自动认领已有患者（有则报错防重），认领不到才新建。

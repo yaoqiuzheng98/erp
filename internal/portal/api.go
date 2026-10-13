@@ -37,6 +37,14 @@ func fail(c *gin.Context, status int, msg string) {
 	c.JSON(status, gin.H{"code": 1, "msg": msg})
 }
 
+// maskPhone 手机号打码（139****0001），提示信息里保护隐私。
+func maskPhone(p string) string {
+	if len(p) != 11 {
+		return p
+	}
+	return p[:3] + "****" + p[7:]
+}
+
 func (h *API) Register(g *gin.RouterGroup) {
 	g.POST("/login", h.guard.RateLimit(20), h.login)
 	g.POST("/login-by-code", h.guard.RateLimit(20), h.loginByCode)
@@ -150,6 +158,13 @@ func (h *API) register(c *gin.Context) {
 	}
 	tid := mw.TenantID(c)
 
+	// 有 code：先换出微信身份（一个微信只能绑一个档，下面先查再建）。
+	var openid string
+	var wxErr error
+	if in.Code != "" {
+		openid, wxErr = ExchangeOpenID(h.e.Cfg.Wechat.AppID, h.e.Cfg.Wechat.Secret, in.Code)
+	}
+
 	// 手机号已建档：尝试认领（code 换 openId 绑老档案）。
 	if exist, total, err := h.pats.List(c.Request.Context(), tid, in.Phone, 0, 1); err == nil && total > 0 {
 		old := exist[0]
@@ -157,9 +172,8 @@ func (h *API) register(c *gin.Context) {
 			fail(c, http.StatusConflict, "该手机号已建过档案，请直接登录")
 			return
 		}
-		openid, err := ExchangeOpenID(h.e.Cfg.Wechat.AppID, h.e.Cfg.Wechat.Secret, in.Code)
-		if err != nil {
-			fail(c, http.StatusBadRequest, err.Error())
+		if wxErr != nil {
+			fail(c, http.StatusBadRequest, wxErr.Error())
 			return
 		}
 		if old.OpenID != "" && old.OpenID != openid {
@@ -182,17 +196,25 @@ func (h *API) register(c *gin.Context) {
 		return
 	}
 
+	// 新手机号：这个微信若已绑了别的档（另一个手机号）→ 拒绝，
+	// 只能由门诊后台解绑后重新建档（一个微信对应一个手机号）。
+	if openid != "" {
+		if other, err := h.pats.ByOpenID(c.Request.Context(), tid, openid); err == nil && other != nil {
+			fail(c, http.StatusConflict,
+				"该微信已绑定手机号 "+maskPhone(other.Phone)+"，请联系门诊人员解绑后再建档")
+			return
+		}
+	}
+
 	p := &patient.Patient{Name: in.Name, Phone: in.Phone}
 	if err := h.pats.Create(c.Request.Context(), tid, p); err != nil {
 		fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	bound := false
-	if in.Code != "" {
-		if openid, err := ExchangeOpenID(h.e.Cfg.Wechat.AppID, h.e.Cfg.Wechat.Secret, in.Code); err == nil {
-			if err := h.pats.BindOpenID(c.Request.Context(), tid, p.ID, openid); err == nil {
-				bound = true
-			}
+	if openid != "" {
+		if err := h.pats.BindOpenID(c.Request.Context(), tid, p.ID, openid); err == nil {
+			bound = true
 		}
 	}
 	s, err := h.e.Sessions.Create(c.Request.Context(), session.KindPatient, p.ID, p.TenantID)

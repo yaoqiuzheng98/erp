@@ -14,6 +14,20 @@
         <span class="text-muted">{{.Data.P.Phone}}</span>
         <a class="btn btn-sm btn-outline-secondary" href="/app/patients">返回</a>
       </div>
+      <div class="card mb-3"><div class="card-body py-2 d-flex justify-content-between align-items-center">
+        <div class="small">
+          微信：{{if .Data.P.OpenID}}<span class="badge bg-success-subtle text-success border border-success-subtle">已绑定</span>
+          <span class="text-muted ms-1">该患者可微信免密登录/预约</span>
+          {{else}}<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">未绑定</span>{{end}}
+        </div>
+        {{if .Data.P.OpenID}}
+        <form method="post" action="/app/patients/{{hex .Data.P.ID}}/unbind-wx" class="m-0"
+              onsubmit="return confirm('确认解绑微信？解绑后该微信可重新建档绑定其他手机号。')">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button class="btn btn-sm btn-outline-danger">解绑微信</button>
+        </form>
+        {{end}}
+      </div></div>
       <div class="row g-3">
         <div class="col-12">
           <div class="card mt-3"><div class="card-body">
