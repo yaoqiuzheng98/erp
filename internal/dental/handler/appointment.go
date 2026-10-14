@@ -43,26 +43,38 @@ type dayCol struct {
 	Total   int
 }
 
-// hourRow 周视图行：整点小时 + 7 天格子（与 Days 下标对齐）。
-type hourRow struct {
-	Hour  int
-	Label string
+// slotRow 周视图行：一个放号档一行 + 7 天格子（与 Days 下标对齐）。
+type slotRow struct {
+	Slot  string // 档起点 HH:MM（快捷新建预填用）；区间外/未定时为空
+	Label string // 展示区间（如 08:30-09:00）
+	Extra bool   // 区间外历史档/未定时：只展示，不给快捷新建
 	Cells [7][]appointment.Appointment
 }
 
 var weekdays = []string{"周一", "周二", "周三", "周四", "周五", "周六", "周日"}
 
-// 周视图时间轴：8~20 点常驻（空也占行，看出空闲）；区间外时段另起行。
-const weekOpenH, weekCloseH = 8, 20
-
-// hourOf 时段 HH:MM 取整点；脏格式归 -1（未定时行）。
-func hourOf(slot string) int {
-	if len(slot) == 5 && slot[2] == ':' {
-		if h, err := strconv.Atoi(slot[:2]); err == nil && h >= 0 && h <= 23 {
-			return h
+// isHHMM 时段格式（周视图分桶兜底用，脏值归未定时行）。
+func isHHMM(s string) bool {
+	if len(s) != 5 || s[2] != ':' {
+		return false
+	}
+	for _, i := range []int{0, 1, 3, 4} {
+		if s[i] < '0' || s[i] > '9' {
+			return false
 		}
 	}
-	return -1
+	return true
+}
+
+// slotRangeLabel 档起点 → 区间标签（脏值原样返回）。
+func slotRangeLabel(slot string, minutes int) string {
+	if !isHHMM(slot) {
+		return slot
+	}
+	h, _ := strconv.Atoi(slot[:2])
+	m, _ := strconv.Atoi(slot[3:])
+	end := h*60 + m + minutes
+	return fmt.Sprintf("%s-%02d:%02d", slot, end/60, end%60)
 }
 
 // weekQuery 组翻周链接的保留参数（电话筛选不断）。
@@ -97,55 +109,63 @@ func (h *Handler) appointments(c *gin.Context) {
 		dayIdx[d] = i
 		cols[i] = dayCol{Date: d, Weekday: weekdays[i], IsToday: d == today}
 	}
-	// 按日期+小时分桶（ListRange 已按日期时段排好，桶内天然有序）。
-	cells := map[int]*hourRow{}
-	rowOf := func(hr int) *hourRow {
-		if r, ok := cells[hr]; ok {
-			return r
-		}
-		label := "未定时"
-		if hr >= 0 {
-			label = fmt.Sprintf("%02d:00", hr)
-		}
-		r := &hourRow{Hour: hr, Label: label}
-		cells[hr] = r
-		return r
+	// 放号档：一行一档，时间列展示区间（与门诊配置的放号时间范围一致）。
+	slotMinutes := appointment.DefaultSlotMinutes
+	var window []model.HourSeg
+	if t := mw.Tenant(c); t != nil {
+		slotMinutes, _ = t.SlotConfig()
+		window = t.SlotWindow()
 	}
+	slots := appointment.DaySlotsIn(slotMinutes, window)
+	rows := make([]slotRow, 0, len(slots)+4)
+	idx := map[string]int{}
+	for _, s := range slots {
+		idx[s.Value] = len(rows)
+		rows = append(rows, slotRow{Slot: s.Value, Label: s.Label})
+	}
+	// 分桶：常驻档进对应行；区间外历史档另起行（时间升序）；脏值沉底"未定时"。
+	extras := map[string]*slotRow{}
+	var untimed *slotRow
 	for _, a := range list {
 		i, ok := dayIdx[a.Date]
 		if !ok {
 			continue
 		}
 		cols[i].Total++
-		r := rowOf(hourOf(a.Slot))
-		r.Cells[i] = append(r.Cells[i], a)
-	}
-	// 行序：8~20 点常驻 + 区间外小时升序（未定时沉底）。
-	rows := make([]hourRow, 0, weekCloseH-weekOpenH+1+len(cells))
-	var extras []int
-	for hr := range cells {
-		if hr < weekOpenH || hr > weekCloseH {
-			extras = append(extras, hr)
+		if j, ok := idx[a.Slot]; ok {
+			rows[j].Cells[i] = append(rows[j].Cells[i], a)
+			continue
+		}
+		if isHHMM(a.Slot) {
+			r := extras[a.Slot]
+			if r == nil {
+				r = &slotRow{Label: slotRangeLabel(a.Slot, slotMinutes), Extra: true}
+				extras[a.Slot] = r
+			}
+			r.Cells[i] = append(r.Cells[i], a)
+		} else {
+			if untimed == nil {
+				untimed = &slotRow{Label: "未定时", Extra: true}
+			}
+			untimed.Cells[i] = append(untimed.Cells[i], a)
 		}
 	}
-	sort.Ints(extras)
-	for hr := weekOpenH; hr <= weekCloseH; hr++ {
-		rows = append(rows, *rowOf(hr))
+	extraKeys := make([]string, 0, len(extras))
+	for k := range extras {
+		extraKeys = append(extraKeys, k)
 	}
-	for _, hr := range extras {
-		rows = append(rows, *cells[hr])
+	sort.Strings(extraKeys)
+	for _, k := range extraKeys {
+		rows = append(rows, *extras[k])
+	}
+	if untimed != nil {
+		rows = append(rows, *untimed)
 	}
 	mon, _ := tz.DayStart(days[0])
 	prevQ := weekQuery(mon.AddDate(0, 0, -7).Format("2006-01-02"), phone)
 	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), phone)
 	todayQ := weekQuery(tz.Today(), phone)
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
-	slotMinutes := appointment.DefaultSlotMinutes
-	var biz []model.HourSeg
-	if t := mw.Tenant(c); t != nil {
-		slotMinutes, _ = t.SlotConfig()
-		biz = t.SlotWindow()
-	}
 	web.Render(c, h.e, "dental/appointments", gin.H{
 		"Days": cols, "Rows": rows, "WeekStart": days[0], "WeekEnd": days[6],
 		"WeekTotal": len(list), "WeekMonday": days[0],
@@ -153,7 +173,7 @@ func (h *Handler) appointments(c *gin.Context) {
 		"Phone":    phone,
 		"Patients": pats,
 		"Doctors":  h.treatUsers(c),
-		"Slots":    appointment.DaySlotsIn(slotMinutes, biz),
+		"Slots":    slots,
 	})
 }
 

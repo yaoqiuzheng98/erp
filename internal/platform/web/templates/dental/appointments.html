@@ -111,8 +111,8 @@
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
-            {{if and (eq (len $cell) 0) (ge $r.Hour 0)}}
-            <div class="cell-add" data-date="{{$d.Date}}" data-hour="{{$r.Label}}" role="button" tabindex="0"
+            {{if and (eq (len $cell) 0) (not $r.Extra)}}
+            <div class="cell-add" data-date="{{$d.Date}}" data-slot="{{$r.Slot}}" role="button" tabindex="0"
                  title="点此为 {{$d.Date}} {{$r.Label}} 新建预约">＋</div>
             {{end}}
           </td>
@@ -122,17 +122,11 @@
         </tbody>
       </table></div>
       <script>
-        // 点空格子：按该格日期+整点预填新建预约弹窗。
+        // 点空格子：按该格日期+档位预填新建预约弹窗（一行一档，直接选中该档）。
         document.querySelectorAll('.cell-add').forEach(function (el) {
           function open() {
             document.getElementById('appt-date').value = el.dataset.date;
-            var sel = document.getElementById('appt-slot');
-            var prefix = (el.dataset.hour || '').slice(0, 2) + ':';
-            var matched = '';
-            for (var i = 0; i < sel.options.length; i++) {
-              if (sel.options[i].value.indexOf(prefix) === 0) { matched = sel.options[i].value; break; }
-            }
-            sel.value = matched;
+            document.getElementById('appt-slot').value = el.dataset.slot || '';
             bootstrap.Modal.getOrCreateInstance(document.getElementById('apptModal')).show();
           }
           el.addEventListener('click', open);
