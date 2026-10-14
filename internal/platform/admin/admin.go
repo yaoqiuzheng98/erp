@@ -303,10 +303,18 @@ func (h *Handler) homePage(c *gin.Context) {
 	tid := mw.TenantID(c)
 	users, _ := h.e.Auth.List(ctx, tid)
 	roles, _ := h.e.RBAC.List(ctx, tid)
+	// 管理员是登录账号不是接诊成员，不进团队展示配置。
+	shown := make([]auth.User, 0, len(users))
+	for _, u := range users {
+		if u.IsTenantAdm {
+			continue
+		}
+		shown = append(shown, u)
+	}
 	// 与患者端首页同序（比较器见 auth.SortByWeight），改完立即所见即所得。
-	auth.SortUsersForHome(users)
+	auth.SortUsersForHome(shown)
 	web.Render(c, h.e, "admin/home", gin.H{
-		"Tenant": mw.Tenant(c), "Users": users, "Roles": roles,
+		"Tenant": mw.Tenant(c), "Users": shown, "Roles": roles,
 	})
 }
 
