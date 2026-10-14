@@ -4,6 +4,7 @@ package sysadmin
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"erp/internal/platform/audit"
 	"erp/internal/platform/auth"
@@ -152,6 +153,10 @@ func (h *Handler) createTenant(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/sysadmin/tenants")
 		return
 	}
+	adminName := strings.TrimSpace(c.PostForm("admin_name"))
+	if adminName == "" {
+		adminName = "管理员"
+	}
 	var dup bson.M
 	if err := h.e.DB.C("tenants").FindOne(ctx, bson.M{"name": name}).Decode(&dup); err == nil {
 		web.SetFlash(c, "已存在同名租户: "+name)
@@ -165,7 +170,7 @@ func (h *Handler) createTenant(c *gin.Context) {
 		return
 	}
 	if err := h.e.Auth.Create(ctx, t.ID, &auth.User{
-		Name: "管理员", Phone: phone, IsTenantAdm: true,
+		Name: adminName, Phone: phone, IsTenantAdm: true,
 	}, pass); err != nil {
 		// 管理员建失败则整个门诊回滚，不留无主租户
 		if rerr := h.e.Tenants.Purge(ctx, t.ID); rerr != nil {
