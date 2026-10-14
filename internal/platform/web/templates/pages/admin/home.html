@@ -79,59 +79,47 @@
       </div>
       <div class="card mb-3"><div class="card-body">
       <h6 class="mb-2">医生团队 <span class="text-muted small">团队页展示顺序：权重越大越前（0或留空排最后）；勾选隐藏的不出现在团队页；头像/职称/年限/简介在员工页维护</span></h6>
+      <form method="post" action="/admin/home/staff">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <div class="table-responsive d-none d-md-block"><table class="table table-sm align-middle mb-0">
-        <thead><tr><th>姓名</th><th>角色</th><th>简介</th><th>权重</th><th>团队页隐藏</th><th>操作</th></tr></thead>
+        <thead><tr><th>姓名</th><th>角色</th><th>简介</th><th>权重</th><th>团队页隐藏</th></tr></thead>
         <tbody>
         {{range .Data.Users}}
         {{$row := .}}
-        {{$fid := print "home-" (hex .ID)}}
         <tr>
           <td class="text-nowrap">{{.Name}}<br><small class="text-muted">{{.Phone}}</small></td>
           <td class="small text-muted text-nowrap">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</td>
           <td class="small text-muted">{{if .Bio}}{{.Bio}}{{else}}—{{end}}</td>
-          <td><input class="form-control form-control-sm text-end" form="{{$fid}}" name="home_order" type="number" min="0" step="1" value="{{.HomeOrder}}" style="width:5em"></td>
+          <td><input class="form-control form-control-sm text-end" name="order_{{hex .ID}}" type="number" min="0" step="1" value="{{.HomeOrder}}" style="width:5em"></td>
           <td><div class="form-check form-switch m-0">
-            <input class="form-check-input" form="{{$fid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}></div></td>
-          <td class="text-nowrap">
-            <form method="post" action="/admin/home/staff/{{hex .ID}}" id="{{$fid}}" class="d-inline m-0">
-              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <button class="btn btn-sm btn-outline-primary">保存</button>
-              <button class="btn btn-sm btn-outline-secondary" formaction="/admin/home/staff/{{hex .ID}}/top">置顶</button>
-            </form>
-          </td>
+            <input class="form-check-input" type="checkbox" name="hide_{{hex .ID}}" value="1" {{if .HideHome}}checked{{end}}></div></td>
         </tr>
         {{else}}
-        <tr><td colspan="6" class="text-muted">暂无员工，先去员工页新增</td></tr>
+        <tr><td colspan="5" class="text-muted">暂无员工，先去员工页新增</td></tr>
         {{end}}
         </tbody>
       </table></div>
       <div class="d-md-none">
         {{range .Data.Users}}
         {{$row := .}}
-        {{$mid := print "m-home-" (hex .ID)}}
         <div class="card mb-2"><div class="card-body py-2">
           <div class="d-flex justify-content-between align-items-center mb-1">
             <b>{{.Name}}</b><br><small class="text-muted">{{.Phone}}</small>
             <small class="text-muted">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</small>
           </div>
           <div class="small text-muted mb-1">{{if .Bio}}{{.Bio}}{{else}}暂无简介，去员工页编辑{{end}}</div>
-          <div class="d-flex gap-2 align-items-center mb-1">
-            <label class="form-check form-switch m-0 small flex-shrink-0">
-              <input class="form-check-input" form="{{$mid}}" type="checkbox" name="hide_home" {{if .HideHome}}checked{{end}}> 团队页隐藏</label>
-          </div>
           <div class="d-flex gap-2 align-items-center">
-            <input class="form-control form-control-sm text-end flex-grow-1" form="{{$mid}}" name="home_order" type="number" min="0" step="1" value="{{.HomeOrder}}" title="权重，越大越前，0排最后">
-            <form method="post" action="/admin/home/staff/{{hex .ID}}" id="{{$mid}}" class="m-0 flex-shrink-0 d-flex gap-1">
-              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-              <button class="btn btn-sm btn-outline-primary" form="{{$mid}}">保存</button>
-              <button class="btn btn-sm btn-outline-secondary" form="{{$mid}}" formaction="/admin/home/staff/{{hex .ID}}/top">置顶</button>
-            </form>
+            <label class="form-check form-switch m-0 small flex-shrink-0">
+              <input class="form-check-input" type="checkbox" name="hide_{{hex .ID}}" value="1" {{if .HideHome}}checked{{end}}> 团队页隐藏</label>
+            <input class="form-control form-control-sm text-end flex-grow-1" name="order_{{hex .ID}}" type="number" min="0" step="1" value="{{.HomeOrder}}" title="权重，越大越前，0排最后">
           </div>
         </div></div>
         {{else}}
         <div class="text-muted">暂无员工，先去员工页新增</div>
         {{end}}
       </div>
+      <div class="mt-2"><button class="btn btn-sm btn-primary">保存团队展示</button></div>
+      </form>
       </div></div>
     </main>
   </div>

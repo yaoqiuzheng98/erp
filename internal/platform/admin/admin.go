@@ -42,8 +42,7 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 	g.POST("/home/profile", mw.RequirePerm("admin.settings"), h.saveHomeProfile)
 	g.POST("/home/image/:kind", mw.RequirePerm("admin.settings"), h.uploadHomeImage)
 	g.POST("/home/image/:kind/delete", mw.RequirePerm("admin.settings"), h.deleteHomeImage)
-	g.POST("/home/staff/:id", mw.RequirePerm("admin.settings"), h.saveHomeStaff)
-	g.POST("/home/staff/:id/top", mw.RequirePerm("admin.settings"), h.topHomeStaff)
+	g.POST("/home/staff", mw.RequirePerm("admin.settings"), h.saveHomeStaff)
 
 	g.GET("/audit", mw.RequirePerm("admin.audit"), h.auditPage)
 }
@@ -410,41 +409,38 @@ func (h *Handler) deleteHomeImage(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/admin/home")
 }
 
-// saveHomeStaff 首页人员配置：是否展示/排序（简介在员工页维护，这里只展示）。
+// saveHomeStaff 首页人员批量配置：一次保存所有成员的展示/排序。
+// 字段命名 order_<hex>/hide_<hex>，按当前员工名单逐个读表（没在表单里的忽略）。
 func (h *Handler) saveHomeStaff(c *gin.Context) {
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	order, _ := strconv.Atoi(c.PostForm("home_order"))
-	set := bson.M{
-		"hide_home":  c.PostForm("hide_home") == "on",
-		"home_order": order,
-	}
-	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
-		web.SetFlash(c, "保存失败: "+err.Error())
-	} else {
-		h.audit(c, audit.ActTenantHome, "staff", id.Hex())
-		web.SetFlash(c, "人员展示已保存")
-	}
-	c.Redirect(http.StatusFound, "/admin/home")
-}
-
-// topHomeStaff 置顶：权重设为全门诊最大 +1（越大越前）。
-func (h *Handler) topHomeStaff(c *gin.Context) {
 	ctx := c.Request.Context()
 	tid := mw.TenantID(c)
-	id, _ := bson.ObjectIDFromHex(c.Param("id"))
-	users, _ := h.e.Auth.List(ctx, tid)
-	max := 0
+	users, err := h.e.Auth.List(ctx, tid)
+	if err != nil {
+		web.SetFlash(c, "保存失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/admin/home")
+		return
+	}
+	n := 0
 	for _, u := range users {
-		if u.HomeOrder > max {
-			max = u.HomeOrder
+		hex := u.ID.Hex()
+		ordStr, hasOrd := c.GetPostForm("order_" + hex)
+		hideStr, hasHide := c.GetPostForm("hide_" + hex)
+		if !hasOrd && !hasHide {
+			continue
 		}
+		order, _ := strconv.Atoi(strings.TrimSpace(ordStr))
+		if err := h.e.Auth.Update(ctx, tid, u.ID, bson.M{
+			"home_order": order,
+			"hide_home":  hideStr == "1",
+		}); err != nil {
+			web.SetFlash(c, "保存失败("+u.Name+"): "+err.Error())
+			c.Redirect(http.StatusFound, "/admin/home")
+			return
+		}
+		n++
 	}
-	if err := h.e.Auth.Update(ctx, tid, id, bson.M{"home_order": max + 1}); err != nil {
-		web.SetFlash(c, "置顶失败: "+err.Error())
-	} else {
-		h.audit(c, audit.ActTenantHome, "staff.top", id.Hex())
-		web.SetFlash(c, "已置顶")
-	}
+	h.audit(c, audit.ActTenantHome, "staff-batch", strconv.Itoa(n))
+	web.SetFlash(c, "团队展示已保存")
 	c.Redirect(http.StatusFound, "/admin/home")
 }
 
