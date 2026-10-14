@@ -111,7 +111,7 @@
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
-            {{if and (eq (len $cell) 0) (not $r.Extra)}}
+            {{if and (not $r.Extra) (lt (len $cell) $.Data.DoctorCount)}}
             <div class="cell-add" data-date="{{$d.Date}}" data-slot="{{$r.Slot}}" role="button" tabindex="0"
                  title="点此为 {{$d.Date}} {{$r.Label}} 新建预约">＋</div>
             {{end}}

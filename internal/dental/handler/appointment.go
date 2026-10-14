@@ -166,14 +166,17 @@ func (h *Handler) appointments(c *gin.Context) {
 	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), phone)
 	todayQ := weekQuery(tz.Today(), phone)
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
+	docs := h.treatUsers(c)
 	web.Render(c, h.e, "dental/appointments", gin.H{
 		"Days": cols, "Rows": rows, "WeekStart": days[0], "WeekEnd": days[6],
 		"WeekTotal": len(list), "WeekMonday": days[0],
 		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
 		"Phone":    phone,
 		"Patients": pats,
-		"Doctors":  h.treatUsers(c),
-		"Slots":    slots,
+		"Doctors":  docs,
+		// 可接诊医生数：一个档最多这么多单，格子没约满就还能"+新建"。
+		"DoctorCount": len(docs),
+		"Slots":       slots,
 	})
 }
 
