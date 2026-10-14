@@ -108,9 +108,9 @@
             <div class="border rounded p-1 mb-1 bg-light">
               <div class="d-flex align-items-center gap-1">
                 <div class="small flex-fill text-truncate">医生：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
-                <div class="small flex-fill text-truncate"><a href="/app/patients/{{hex .PatientID}}">患者：{{.PatientName}}</a></div>
                 <span class="badge {{.Badge}} flex-shrink-0">{{.StatusName}}</span>
               </div>
+              <div class="small mt-1 text-truncate"><a href="/app/patients/{{hex .PatientID}}">患者：{{.PatientName}}</a></div>
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
