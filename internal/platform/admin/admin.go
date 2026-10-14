@@ -97,6 +97,7 @@ func (h *Handler) createUser(c *gin.Context) {
 		Bio:     c.PostForm("bio"),
 		Title:   strings.TrimSpace(c.PostForm("title")),
 		Years:   years,
+		Treat:   c.PostForm("treat") != "",
 	}
 	if err := h.e.Auth.Create(c.Request.Context(), mw.TenantID(c), u, c.PostForm("password")); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
@@ -162,6 +163,7 @@ func (h *Handler) updateUser(c *gin.Context) {
 		"years":    years,
 		"role_ids": h.scopedRoleIDs(c),
 		"status":   status,
+		"treat":    c.PostForm("treat") != "",
 	}
 	if err := h.e.Auth.Update(c.Request.Context(), mw.TenantID(c), id, set); err != nil {
 		web.SetFlash(c, "保存失败: "+err.Error())
@@ -256,7 +258,8 @@ func (h *Handler) settingsPage(c *gin.Context) {
 
 func (h *Handler) saveSettings(c *gin.Context) {
 	slotMinutes, _ := strconv.Atoi(c.PostForm("slot_minutes"))
-	slotCapacity, _ := strconv.Atoi(c.PostForm("slot_capacity"))
+	// 每档人数已废弃（现为每医生每档 1 单）：表单不再提交该字段，保留旧值语义=1。
+	slotCapacity := 1
 	ctx := c.Request.Context()
 	tid := mw.TenantID(c)
 	if err := h.e.Tenants.SetSchedule(ctx, tid, slotMinutes, slotCapacity); err != nil {

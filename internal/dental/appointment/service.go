@@ -69,22 +69,40 @@ func New(db *mongo.Database, seq *seqno.Generator,
 	}
 }
 
-func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, slotMinutes, slotCapacity int, biz []model.HourSeg, rest func(string) bool) error {
+// BookOpts 建单上下文：门诊配置 + 医生解析，收敛到一处（避免参数继续膨胀）。
+type BookOpts struct {
+	Minutes int                                   // 放号粒度（15/30/60）
+	Biz     []model.HourSeg                       // 放号时间窗（空=全天）
+	Rest    func(string) bool                     // 休息日判定（nil=不限，测试用）
+	Doctor  func(id bson.ObjectID) (string, bool) // 可接诊医生解析：id→姓名（nil=不校验，测试用）
+}
+
+func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, o BookOpts) error {
 	p, err := s.pats.ByID(ctx, tenantID, a.PatientID)
 	if err != nil {
 		return errors.New("患者不存在")
 	}
-	minutes, capacity := NormSlotConfig(slotMinutes, slotCapacity)
-	// 同档串行化：查（档内人数）与写（插入）之间不许插并发，否则同档超售。
-	// 档位严格对齐后同档即同时刻，锁键直接用日期+时段。
-	unlock := s.stripe("slot:" + a.Date + ":" + a.Slot)
+	// 预约必须指定医生：一个时段，一个医生只能约一个号。
+	if a.DoctorID.IsZero() {
+		return errors.New("请选择医生")
+	}
+	if o.Doctor != nil {
+		name, ok := o.Doctor(a.DoctorID)
+		if !ok {
+			return errors.New("医生不存在或不可接诊")
+		}
+		a.Doctor = name
+	}
+	minutes, _ := NormSlotConfig(o.Minutes, 1)
+	// 同医生同档串行化：查（档内单数）与写（插入）之间不许插并发，否则超售。
+	unlock := s.stripe("slot:" + a.Date + ":" + a.Slot + ":" + a.DoctorID.Hex())
 	defer unlock()
 	// 日期时段只收合法格式，脏数据进库后筛选查不到
 	if _, ok := tz.DayStart(a.Date); !ok {
 		return errors.New("日期格式不正确")
 	}
 	// 门诊休息日（每周固定休/指定日期休）：不放号，任何入口都不能建单。
-	if rest != nil && rest(a.Date) {
+	if o.Rest != nil && o.Rest(a.Date) {
 		return errors.New("当天门诊休息，不能预约")
 	}
 	if !slotRe.MatchString(a.Slot) {
@@ -94,18 +112,18 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	if mm, _ := strconv.Atoi(a.Slot[3:]); mm%minutes != 0 {
 		return errors.New("预约时间不在放号时段内")
 	}
-	// 营业时段：配了分段只收段内档（防绕过界面直调中午休息时间，前台补录同样受检）。
-	if !slotInBiz(a.Slot, minutes, biz) {
+	// 放号时间窗：窗外不收（防绕过界面直调，前台补录同样受检）。
+	if !slotInBiz(a.Slot, minutes, o.Biz) {
 		return errors.New("该时间不在放号时间内")
 	}
 	a.PatientName = p.Name
-	// 同档防超售：同一日期同一档只收 capacity 个（自助约诊必需；前台走同一入口同样受检）。
+	// 同医生同档防超售：一个医生一个时段只收一单（自助/前台同一入口受检）。
 	// noshow/cancel 的不占档。
 	if n, _ := s.appts.Count(ctx, tenantID, bson.M{
-		"date": a.Date, "slot": a.Slot,
+		"date": a.Date, "slot": a.Slot, "doctor_id": a.DoctorID,
 		"status": Booked,
-	}); n >= int64(capacity) {
-		return errors.New("该时段已约满，换个时间试试")
+	}); n >= 1 {
+		return errors.New("该时段该医生已约满，换个时间或医生")
 	}
 	// 一人一单：已有已预约的不再建（自助与前台同一入口；并发竞态由部分唯一索引兜底）。
 	if n, _ := s.appts.Count(ctx, tenantID, bson.M{
@@ -189,10 +207,15 @@ func (s *Service) OfPatient(ctx context.Context, tenantID, patID bson.ObjectID) 
 }
 
 // BookedCounts 某日期区间内已预约单按日期+时段计数（余量接口用）。
-func (s *Service) BookedCounts(ctx context.Context, tenantID bson.ObjectID, from, to string) (map[string]map[string]int64, error) {
-	list, err := s.appts.FindMany(ctx, tenantID, bson.M{
+// doctorID 非零时只统计该医生（一个时段一个医生一单）。
+func (s *Service) BookedCounts(ctx context.Context, tenantID bson.ObjectID, from, to string, doctorID bson.ObjectID) (map[string]map[string]int64, error) {
+	f := bson.M{
 		"date": bson.M{"$gte": from, "$lte": to}, "status": Booked,
-	})
+	}
+	if !doctorID.IsZero() {
+		f["doctor_id"] = doctorID
+	}
+	list, err := s.appts.FindMany(ctx, tenantID, f)
 	if err != nil {
 		return nil, err
 	}

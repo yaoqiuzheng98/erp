@@ -56,10 +56,28 @@ type User struct {
 	Years        int             `bson:"years,omitempty"`      // 从业年限
 	HideHome     bool            `bson:"hide_home,omitempty"`  // 首页不展示该成员
 	HomeOrder    int             `bson:"home_order,omitempty"` // 首页展示权重（大在前，0=最后）
-	Status       string          `bson:"status"`               // active / disabled
-	IsTenantAdm  bool            `bson:"is_tenant_admin"`
-	Avatar       string          `bson:"avatar,omitempty"` // 大头照 GridFS 文件 ID hex
-	LastLoginAt  time.Time       `bson:"last_login_at,omitempty"`
+	// Treat 可接诊：患者端可选该成员挂号（每时段每医生一单）。前台/护士等不勾选。
+	Treat       bool      `bson:"treat,omitempty"`
+	Status      string    `bson:"status"` // active / disabled
+	IsTenantAdm bool      `bson:"is_tenant_admin"`
+	Avatar      string    `bson:"avatar,omitempty"` // 大头照 GridFS 文件 ID hex
+	LastLoginAt time.Time `bson:"last_login_at,omitempty"`
+}
+
+// TreatUsers 可接诊成员（在职+可接诊），按首页权重排序（同团队展示口径）。
+func (s *Service) TreatUsers(ctx context.Context, tenantID bson.ObjectID) ([]User, error) {
+	users, err := s.List(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]User, 0, len(users))
+	for _, u := range users {
+		if u.Treat && u.Status == "active" {
+			out = append(out, u)
+		}
+	}
+	SortUsersForHome(out)
+	return out, nil
 }
 
 // SysAdmin 系统超管，无 tenant_id。

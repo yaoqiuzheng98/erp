@@ -11,6 +11,7 @@ import (
 
 	"erp/internal/dental/appointment"
 	"erp/internal/platform/audit"
+	"erp/internal/platform/auth"
 	mw "erp/internal/platform/middleware"
 	"erp/internal/platform/model"
 	"erp/internal/platform/tz"
@@ -151,26 +152,41 @@ func (h *Handler) appointments(c *gin.Context) {
 		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
 		"Phone":    phone,
 		"Patients": pats,
+		"Doctors":  h.treatUsers(c),
 		"Slots":    appointment.DaySlotsIn(slotMinutes, biz),
 	})
 }
 
+// treatUsers 可接诊医生列表（前台补录医生下拉用）。
+func (h *Handler) treatUsers(c *gin.Context) []auth.User {
+	users, _ := h.e.Auth.TreatUsers(c.Request.Context(), mw.TenantID(c))
+	return users
+}
+
 func (h *Handler) createAppt(c *gin.Context) {
 	patID, _ := bson.ObjectIDFromHex(c.PostForm("patient_id"))
+	did, _ := bson.ObjectIDFromHex(c.PostForm("doctor_id"))
 	a := &appointment.Appointment{
 		PatientID: patID,
 		Date:      c.PostForm("date"), Slot: c.PostForm("slot"),
+		DoctorID: did,
 	}
-	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
-	var biz []model.HourSeg
-	var rest func(string) bool
+	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes}
+	tid := mw.TenantID(c)
 	if t := mw.Tenant(c); t != nil {
-		slotMinutes, slotCapacity = t.SlotConfig()
-		biz = t.SlotWindow()
-		rest = t.IsRest
+		opts.Minutes, _ = t.SlotConfig()
+		opts.Biz = t.SlotWindow()
+		opts.Rest = t.IsRest
 	}
-	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a, slotMinutes, slotCapacity, biz, rest); err != nil {
-		slog.Error("backoffice appt failed", "tenant", mw.TenantID(c).Hex(),
+	opts.Doctor = func(id bson.ObjectID) (string, bool) {
+		u, err := h.e.Auth.UserByID(c.Request.Context(), tid, id)
+		if err != nil || u.Status != "active" || !u.Treat {
+			return "", false
+		}
+		return u.Name, true
+	}
+	if err := h.appts.Create(c.Request.Context(), tid, a, opts); err != nil {
+		slog.Error("backoffice appt failed", "tenant", tid.Hex(),
 			"patient", a.PatientID.Hex(), "doctor", a.DoctorID.Hex(),
 			"date", a.Date, "slot", a.Slot, "err", err)
 		web.SetFlash(c, "创建失败: "+err.Error())

@@ -50,6 +50,10 @@
               <div class="col-6"><label class="form-label">从业年限</label>
                 <input class="form-control form-control-sm" name="years" type="number" min="0" max="80" placeholder="如 12"></div>
             </div>
+            <div class="mb-2"><div class="form-check">
+              <input class="form-check-input" type="checkbox" name="treat" value="1" id="new-treat">
+              <label class="form-check-label small" for="new-treat">可接诊 <span class="text-muted">（勾选后可在患者端被指定挂号）</span></label>
+            </div></div>
             <div class="mb-2"><label class="form-label">头像</label>
               <input class="form-control form-control-sm" name="avatar" type="file" accept="image/*"></div>
           </div>
@@ -106,6 +110,10 @@
               <div class="col-6"><label class="form-label">从业年限</label>
                 <input class="form-control form-control-sm" name="years" type="number" min="0" max="80" value="{{if .Years}}{{.Years}}{{end}}" placeholder="如 12"></div>
             </div>
+            <div class="mb-2"><div class="form-check">
+              <input class="form-check-input" type="checkbox" name="treat" value="1" id="{{$eid}}-treat" {{if .Treat}}checked{{end}}>
+              <label class="form-check-label small" for="{{$eid}}-treat">可接诊 <span class="text-muted">（勾选后可在患者端被指定挂号）</span></label>
+            </div></div>
             <div class="mb-2"><label class="form-label">头像 <span class="text-muted">（不选则保持原图）</span></label>
               {{if .Avatar}}<div class="mb-1"><img src="/app/attach/{{.Avatar}}" class="rounded" style="width:4em;height:4em;object-fit:cover" alt="头像"></div>{{end}}
               <input class="form-control form-control-sm" name="avatar" type="file" accept="image/*"></div>
@@ -127,7 +135,7 @@
         {{$row := .}}
         <tr>
           <td>{{if .Avatar}}<img src="/app/attach/{{.Avatar}}" class="rounded-circle" style="width:2em;height:2em;object-fit:cover" alt="{{.Name}}">{{else}}<span class="text-muted">—</span>{{end}}</td>
-          <td class="text-nowrap">{{.Name}} {{if .IsTenantAdm}}<span class="badge bg-info text-dark">管理员</span>{{end}}</td>
+          <td class="text-nowrap">{{.Name}} {{if .IsTenantAdm}}<span class="badge bg-info text-dark">管理员</span>{{end}} {{if .Treat}}<span class="badge bg-success-subtle text-success border border-success-subtle">可接诊</span>{{end}}</td>
           <td>{{.Phone}}</td>
           <td class="small">{{range $.Data.Roles}}{{if hasID $row.RoleIDs .ID}}{{.Name}} {{end}}{{end}}</td>
           <td>{{if eq .Status "active"}}在职{{else}}离职{{end}}</td>

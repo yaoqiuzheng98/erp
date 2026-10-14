@@ -42,6 +42,11 @@
                 <option value="">选择患者</option>
                 {{range .Data.Patients}}<option value="{{hex .ID}}">{{.Name}} {{.Phone}}</option>{{end}}
               </select></div>
+            <div class="mb-2"><label class="form-label">接诊医生</label>
+              <select class="form-select form-select-sm" name="doctor_id" required>
+                <option value="">选择医生</option>
+                {{range .Data.Doctors}}<option value="{{hex .ID}}">{{.Name}} {{if .Title}}· {{.Title}}{{end}}</option>{{end}}
+              </select></div>
             <div class="row g-2">
               <div class="col-6"><label class="form-label">日期</label>
                 <div class="input-group input-group-sm">

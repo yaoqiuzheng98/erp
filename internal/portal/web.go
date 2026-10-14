@@ -245,16 +245,22 @@ func (h *Web) book(c *gin.Context) {
 	a := &appointment.Appointment{
 		PatientID: p.ID,
 		Date:      c.PostForm("date"), Slot: c.PostForm("slot"),
+		DoctorID: func() bson.ObjectID { id, _ := bson.ObjectIDFromHex(c.PostForm("doctor_id")); return id }(),
 	}
-	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
-	var biz []model.HourSeg
-	var rest func(string) bool
+	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes}
 	if t := mw.Tenant(c); t != nil {
-		slotMinutes, slotCapacity = t.SlotConfig()
-		biz = t.SlotWindow()
-		rest = t.IsRest
+		opts.Minutes, _ = t.SlotConfig()
+		opts.Biz = t.SlotWindow()
+		opts.Rest = t.IsRest
 	}
-	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz, rest); err != nil {
+	opts.Doctor = func(id bson.ObjectID) (string, bool) {
+		u, err := h.e.Auth.UserByID(c.Request.Context(), p.TenantID, id)
+		if err != nil || u.Status != "active" || !u.Treat {
+			return "", false
+		}
+		return u.Name, true
+	}
+	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, opts); err != nil {
 		slog.Error("portal book failed", "tenant", p.TenantID.Hex(), "patient", p.ID.Hex(),
 			"doctor", a.DoctorID.Hex(), "date", a.Date, "slot", a.Slot, "err", err)
 		web.SetFlash(c, "预约失败: "+err.Error())

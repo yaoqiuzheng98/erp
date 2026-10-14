@@ -64,6 +64,20 @@ func testSvc(t *testing.T) (*Service, *mongo.Database, context.Context) {
 	return svc, db, ctx
 }
 
+// testDocID/testDoc2ID 测试用固定医生 ID；testDoctor 是绕过 users 集合的解析器桩。
+var testDocID = bson.NewObjectID()
+var testDoc2ID = bson.NewObjectID()
+
+func testDoctor(id bson.ObjectID) (string, bool) {
+	switch id {
+	case testDocID:
+		return "测试医生甲", true
+	case testDoc2ID:
+		return "测试医生乙", true
+	}
+	return "", false
+}
+
 // TestCreateConcurrentDoubleBook 并发约同时段：只能成功一个，不重约。
 func TestCreateConcurrentDoubleBook(t *testing.T) {
 	svc, db, ctx := testSvc(t)
@@ -83,7 +97,8 @@ func TestCreateConcurrentDoubleBook(t *testing.T) {
 			errs[i] = svc.Create(ctx, tid, &Appointment{
 				PatientID: pid,
 				Date:      "2026-10-06", Slot: "10:00",
-			}, 0, 0, nil, nil)
+				DoctorID: testDocID,
+			}, BookOpts{Doctor: testDoctor})
 		}(i)
 	}
 	wg.Wait()
@@ -151,12 +166,12 @@ func TestListRange(t *testing.T) {
 	}
 }
 
-// TestSlotConfig 放号档位：对齐校验 + 每档人数 + 非法配置回落默认。
+// TestSlotConfig 放号档位对齐 + 每医生每档一单（一个时段一个医生一个号）。
 func TestSlotConfig(t *testing.T) {
 	svc, db, ctx := testSvc(t)
 	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
-	mk := func(date, slot string, minutes, capacity int) error {
-		// 档位/人数单测与一人一单无关，每次换新患者（同档第二人也本就该是别人）。
+	mkDoc := func(date, slot string, minutes int, doc bson.ObjectID) error {
+		// 档位单测与一人一单无关，每次换新患者。
 		npid := bson.NewObjectID()
 		if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
 			"_id": npid, "tenant_id": tid, "name": "档位测试", "created_at": time.Now(),
@@ -166,36 +181,42 @@ func TestSlotConfig(t *testing.T) {
 		return svc.Create(ctx, tid, &Appointment{
 			PatientID: npid,
 			Date:      date, Slot: slot,
-		}, minutes, capacity, nil, nil)
+			DoctorID: doc,
+		}, BookOpts{Minutes: minutes, Doctor: testDoctor})
 	}
+	mk := func(date, slot string, minutes int) error { return mkDoc(date, slot, minutes, testDocID) }
 	// 默认 30 分钟档：09:10 不对齐拒绝，09:30 通过
-	if err := mk("2026-10-06", "09:10", 0, 0); err == nil {
+	if err := mk("2026-10-06", "09:10", 0); err == nil {
 		t.Fatal("unaligned slot should fail")
 	}
-	if err := mk("2026-10-06", "09:30", 0, 0); err != nil {
+	if err := mk("2026-10-06", "09:30", 0); err != nil {
 		t.Fatalf("aligned slot: %v", err)
 	}
-	// 默认每档 1 人：同档第二人约满
-	if err := mk("2026-10-06", "09:30", 0, 0); err == nil ||
+	// 同一医生同档第二人（换患者）约满
+	if err := mk("2026-10-06", "09:30", 0); err == nil ||
 		(err != nil && !strings.Contains(err.Error(), "已约满")) {
-		t.Fatalf("second booking should be full, got %v", err)
+		t.Fatalf("same doctor second booking should be full, got %v", err)
 	}
-	// 每档 2 人：同档可约两人，第三人约满
-	if err := mk("2026-10-07", "10:00", 30, 2); err != nil {
-		t.Fatalf("capacity first: %v", err)
+	// 换成另一个医生，同时段可约（每医生各一单）
+	if err := mkDoc("2026-10-06", "09:30", 0, testDoc2ID); err != nil {
+		t.Fatalf("another doctor same slot: %v", err)
 	}
-	if err := mk("2026-10-07", "10:00", 30, 2); err != nil {
-		t.Fatalf("capacity second: %v", err)
-	}
-	if err := mk("2026-10-07", "10:00", 30, 2); err == nil {
-		t.Fatal("capacity third should be full")
+	// 不在册医生拒绝
+	if err := mkDoc("2026-10-06", "09:30", 0, bson.NewObjectID()); err == nil ||
+		(err != nil && !strings.Contains(err.Error(), "不可接诊")) {
+		t.Fatalf("unknown doctor should fail, got %v", err)
 	}
 	// 60 分钟档：整点通过，半点拒绝
-	if err := mk("2026-10-08", "10:00", 60, 1); err != nil {
+	if err := mk("2026-10-08", "10:00", 60); err != nil {
 		t.Fatalf("hourly aligned: %v", err)
 	}
-	if err := mk("2026-10-08", "10:30", 60, 1); err == nil {
+	if err := mk("2026-10-08", "10:30", 60); err == nil {
 		t.Fatal("hourly misaligned should fail")
+	}
+	// 不选医生直接拒
+	if err := mkDoc("2026-10-08", "11:00", 30, bson.NilObjectID); err == nil ||
+		(err != nil && !strings.Contains(err.Error(), "请选择医生")) {
+		t.Fatalf("no doctor should fail, got %v", err)
 	}
 }
 
@@ -215,7 +236,8 @@ func TestCreateBizHours(t *testing.T) {
 		return svc.Create(ctx, tid, &Appointment{
 			PatientID: npid,
 			Date:      "2026-10-09", Slot: slot,
-		}, 30, 1, biz, nil)
+			DoctorID: testDocID,
+		}, BookOpts{Minutes: 30, Biz: biz, Doctor: testDoctor})
 	}
 	for _, s := range []string{"09:00", "11:30", "14:00", "17:30"} {
 		if err := mk(s); err != nil {
@@ -244,7 +266,8 @@ func TestCreateOneActive(t *testing.T) {
 		return svc.Create(ctx, tid, &Appointment{
 			PatientID: pid,
 			Date:      date, Slot: slot,
-		}, 30, 10, nil, nil)
+			DoctorID: testDocID,
+		}, BookOpts{Minutes: 30, Doctor: testDoctor})
 	}
 	if err := mk("2026-10-20", "10:00"); err != nil {
 		t.Fatalf("first: %v", err)
@@ -289,7 +312,8 @@ func TestCreateOneActiveConcurrent(t *testing.T) {
 			errs[i] = svc.Create(ctx, tid, &Appointment{
 				PatientID: pid,
 				Date:      "2026-10-22", Slot: slot,
-			}, 30, 10, nil, nil)
+				DoctorID: testDocID,
+			}, BookOpts{Minutes: 30, Doctor: testDoctor})
 		}(i, slot)
 	}
 	wg.Wait()
@@ -323,7 +347,8 @@ func TestCreateRestDay(t *testing.T) {
 		return svc.Create(ctx, tid, &Appointment{
 			PatientID: pid,
 			Date:      date, Slot: "10:00",
-		}, 30, 1, nil, rest)
+			DoctorID: testDocID,
+		}, BookOpts{Minutes: 30, Rest: rest, Doctor: testDoctor})
 	}
 	if err := mk("2026-10-14"); err == nil ||
 		(err != nil && !strings.Contains(err.Error(), "休息")) {

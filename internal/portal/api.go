@@ -52,6 +52,7 @@ func (h *API) Register(g *gin.RouterGroup) {
 	g.POST("/logout", h.logout)
 	g.GET("/clinic", h.clinic)
 	g.GET("/team", h.team)
+	g.GET("/doctors", h.doctors)
 	g.GET("/slots", h.slots)
 	g.GET("/availability", h.requirePatient, h.availability)
 	g.GET("/appointments", h.requirePatient, h.myAppointments)
@@ -266,11 +267,11 @@ func (h *API) availability(c *gin.Context) {
 	if to > plusDays(from, 60) {
 		to = plusDays(from, 60)
 	}
-	minutes, capacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
+	minutes := appointment.DefaultSlotMinutes
 	var biz []model.HourSeg
 	var rests []string
 	if t := mw.Tenant(c); t != nil {
-		minutes, capacity = t.SlotConfig()
+		minutes, _ = t.SlotConfig()
 		biz = t.SlotWindow()
 		// 区间内休息日（每周固定休 + 指定日期），前端标"休"不可选。
 		for d := from; d <= to; d = plusDays(d, 1) {
@@ -279,13 +280,15 @@ func (h *API) availability(c *gin.Context) {
 			}
 		}
 	}
-	days, err := h.appts.BookedCounts(c.Request.Context(), mw.TenantID(c), from, to)
+	// 余量按医生统计（一个时段一个医生一单）；不传 doctor 则统计全诊所。
+	doctorID, _ := bson.ObjectIDFromHex(c.Query("doctor"))
+	days, err := h.appts.BookedCounts(c.Request.Context(), mw.TenantID(c), from, to, doctorID)
 	if err != nil {
 		fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	ok(c, gin.H{
-		"slot_minutes": minutes, "slot_capacity": capacity,
+		"slot_minutes": minutes, "slot_capacity": 1, // 每医生每档 1 单（固定）
 		"slots": appointment.DaySlotsIn(minutes, biz), "days": days, "rests": rests,
 	})
 }
@@ -348,8 +351,20 @@ func apptJSON(a appointment.Appointment) gin.H {
 }
 
 type bookReq struct {
-	Date string `json:"date"`
-	Slot string `json:"slot"`
+	Date     string `json:"date"`
+	Slot     string `json:"slot"`
+	DoctorID string `json:"doctor_id"`
+}
+
+// doctorResolver 可接诊医生解析器：id → 姓名（须在职且可接诊）。
+func (h *API) doctorResolver(c *gin.Context, tid bson.ObjectID) func(bson.ObjectID) (string, bool) {
+	return func(id bson.ObjectID) (string, bool) {
+		u, err := h.e.Auth.UserByID(c.Request.Context(), tid, id)
+		if err != nil || u.Status != "active" || !u.Treat {
+			return "", false
+		}
+		return u.Name, true
+	}
 }
 
 func (h *API) createAppointment(c *gin.Context) {
@@ -359,23 +374,40 @@ func (h *API) createAppointment(c *gin.Context) {
 		fail(c, http.StatusBadRequest, "参数错误")
 		return
 	}
+	did, _ := bson.ObjectIDFromHex(in.DoctorID)
 	a := &appointment.Appointment{
 		PatientID: p.ID,
 		Date:      in.Date, Slot: in.Slot,
+		DoctorID: did,
 	}
-	slotMinutes, slotCapacity := appointment.DefaultSlotMinutes, appointment.DefaultSlotCapacity
-	var biz []model.HourSeg
-	var rest func(string) bool
+	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes, Doctor: h.doctorResolver(c, p.TenantID)}
 	if t := mw.Tenant(c); t != nil {
-		slotMinutes, slotCapacity = t.SlotConfig()
-		biz = t.SlotWindow()
-		rest = t.IsRest
+		opts.Minutes, _ = t.SlotConfig()
+		opts.Biz = t.SlotWindow()
+		opts.Rest = t.IsRest
 	}
-	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz, rest); err != nil {
+	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, opts); err != nil {
 		fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	ok(c, gin.H{"id": a.ID.Hex()})
+}
+
+// doctors 可接诊医生（公开）：患者端挂号页顶部头像列表用。
+func (h *API) doctors(c *gin.Context) {
+	users, err := h.e.Auth.TreatUsers(c.Request.Context(), mw.TenantID(c))
+	if err != nil {
+		fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	out := make([]gin.H, 0, len(users))
+	for _, u := range users {
+		out = append(out, gin.H{
+			"id": u.ID.Hex(), "name": u.Name,
+			"title": u.Title, "avatar": u.Avatar,
+		})
+	}
+	ok(c, out)
 }
 
 func (h *API) cancelAppointment(c *gin.Context) {
