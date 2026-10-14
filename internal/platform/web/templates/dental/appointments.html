@@ -84,12 +84,16 @@
         .week-grid th.week-time, .week-grid td.week-time { position: sticky; left: 0; background: #fff; z-index: 2; }
         .cell-add { cursor: pointer; min-height: 2.2em; border: 1px dashed #d7e0dc; border-radius: .375rem; color: #b9cdc4; display: flex; align-items: center; justify-content: center; }
         .cell-add:hover { background: #f2f8f5; color: #45b498; border-color: #45b498; }
+        /* 今天整列淡绿底，一眼定位 */
+        .week-grid th.today-col { background: #dff0e9; }
+        .week-grid td.today-col { background: #edf7f2; }
+        .week-grid td.today-col .cell-add { background: #fff; }
       </style>
       <div class="table-responsive"><table class="table table-sm bg-white align-middle week-grid" style="min-width:76em">
         <thead><tr>
           <th class="week-time">时间</th>
           {{range .Data.Days}}
-          <th class="{{if .IsToday}}text-primary{{end}}">{{.Date}} {{.Weekday}}{{if .IsToday}} ·今天{{end}}<br><small class="text-muted fw-normal">{{.Total}} 单</small></th>
+          <th class="{{if .IsToday}}text-primary today-col{{end}}">{{.Date}} {{.Weekday}}{{if .IsToday}} ·今天{{end}}<br><small class="text-muted fw-normal">{{.Total}} 单</small></th>
           {{end}}
         </tr></thead>
         <tbody>
@@ -99,15 +103,14 @@
           <td class="week-time text-muted text-nowrap">{{$r.Label}}</td>
           {{range $i, $cell := $r.Cells}}
           {{$d := index $.Data.Days $i}}
-          <td class="align-top">
+          <td class="align-top{{if $d.IsToday}} today-col{{end}}">
             {{range $cell}}
             <div class="border rounded p-1 mb-1 bg-light">
-              <div class="d-flex justify-content-between align-items-center gap-1">
-                <b>{{.Slot}}</b>
-                <span class="badge {{.Badge}}">{{.StatusName}}</span>
+              <div class="d-flex align-items-center gap-1">
+                <div class="small flex-fill text-truncate">医生：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
+                <div class="small flex-fill text-truncate"><a href="/app/patients/{{hex .PatientID}}">患者：{{.PatientName}}</a></div>
+                <span class="badge {{.Badge}} flex-shrink-0">{{.StatusName}}</span>
               </div>
-              <div class="small mt-1"><a href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>
-                <span class="text-muted">{{.Doctor}}</span></div>
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
