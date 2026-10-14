@@ -133,3 +133,31 @@ func TestNoticeWindow(t *testing.T) {
 		t.Fatal("no content should be empty")
 	}
 }
+
+func TestSlotWindow(t *testing.T) {
+	seg := []model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}
+	// 未配放号范围：回落营业时段
+	tn := &Tenant{HoursSeg: seg}
+	if w := tn.SlotWindow(); len(w) != 2 || w[0].Open != "09:00" {
+		t.Fatalf("fallback = %+v", w)
+	}
+	// 配了放号范围：不跟营业时间走，单段
+	tn.SlotFrom, tn.SlotTo = "08:00", "20:00"
+	if w := tn.SlotWindow(); len(w) != 1 || w[0].Open != "08:00" || w[0].Close != "20:00" {
+		t.Fatalf("slot range = %+v", w)
+	}
+	// 校验：成对、格式、起<止；全空=清除
+	if _, _, err := NormSlotRange("08:00", ""); err == nil {
+		t.Fatal("half should fail")
+	}
+	if _, _, err := NormSlotRange("8:00", "20:00"); err == nil {
+		t.Fatal("bad format should fail")
+	}
+	if _, _, err := NormSlotRange("20:00", "08:00"); err == nil {
+		t.Fatal("from>=to should fail")
+	}
+	f, to, err := NormSlotRange("", "")
+	if err != nil || f != "" || to != "" {
+		t.Fatalf("clear = %q %q %v", f, to, err)
+	}
+}

@@ -24,10 +24,14 @@ type Tenant struct {
 	Name string        `bson:"name"`
 	// 放号配置：SlotMinutes 每 N 分钟一档（15/30/60，0=默认30），
 	// SlotCapacity 每档可约人数（0=默认1）。改配置只影响之后的新预约。
-	SlotMinutes  int    `bson:"slot_minutes,omitempty"`
-	SlotCapacity int    `bson:"slot_capacity,omitempty"`
-	Status       string `bson:"status"` // active / suspended
-	Address      string `bson:"address,omitempty"`
+	SlotMinutes  int `bson:"slot_minutes,omitempty"`
+	SlotCapacity int `bson:"slot_capacity,omitempty"`
+	// SlotFrom/SlotTo 放号时间范围（HH:MM，门诊设置维护，不跟营业时间走）：
+	// 空=未配置，回落营业时段出号。
+	SlotFrom string `bson:"slot_from,omitempty"`
+	SlotTo   string `bson:"slot_to,omitempty"`
+	Status   string `bson:"status"` // active / suspended
+	Address  string `bson:"address,omitempty"`
 	// Contact 联系方式（自由文本，如电话/微信），首页门诊卡展示。
 	Contact string `bson:"contact,omitempty"`
 	// Hours 展示串（首页门诊卡用）：配了 HoursSeg 则每次保存时按段派生，
@@ -410,6 +414,63 @@ func (t *Tenant) ActiveNotice(today string) string {
 		return ""
 	}
 	return t.Notice
+}
+
+// SlotWindow 出号时间窗：优先放号时间范围（门诊设置配了就不跟营业时间走）；
+// 未配置回落营业时段（两段）；都空=全天。
+func (t *Tenant) SlotWindow() []model.HourSeg {
+	if t.SlotFrom != "" && t.SlotTo != "" {
+		return []model.HourSeg{{Open: t.SlotFrom, Close: t.SlotTo}}
+	}
+	return t.BusinessHours()
+}
+
+// NormSlotRange 放号时间范围归一：都空=清除（回落营业时间）；否则起止成对、
+// HH:MM 且 起<止。
+func NormSlotRange(from, to string) (string, string, error) {
+	from, to = strings.TrimSpace(from), strings.TrimSpace(to)
+	if from == "" && to == "" {
+		return "", "", nil
+	}
+	if from == "" || to == "" {
+		return "", "", errors.New("放号时间范围起止都要填")
+	}
+	if !hourRe.MatchString(from) || !hourRe.MatchString(to) {
+		return "", "", errors.New("放号时间格式不对，用 HH:MM（如 08:00）")
+	}
+	if hourMin(from) >= hourMin(to) {
+		return "", "", errors.New("放号开始时间要早于结束时间")
+	}
+	return from, to, nil
+}
+
+// SetSlotRange 存放号时间范围（门诊设置）：校验通过才落库；两空=清除。
+func (s *Service) SetSlotRange(ctx context.Context, id bson.ObjectID, from, to string) error {
+	f, tt, err := NormSlotRange(from, to)
+	if err != nil {
+		return err
+	}
+	set := bson.M{}
+	unset := bson.M{}
+	if f != "" {
+		set["slot_from"] = f
+	} else {
+		unset["slot_from"] = ""
+	}
+	if tt != "" {
+		set["slot_to"] = tt
+	} else {
+		unset["slot_to"] = ""
+	}
+	update := bson.M{}
+	if len(set) > 0 {
+		update["$set"] = set
+	}
+	if len(unset) > 0 {
+		update["$unset"] = unset
+	}
+	_, err = s.col.UpdateOne(ctx, bson.M{"_id": id}, update)
+	return err
 }
 
 // SetSchedule 放号粒度与每档人数一起存（门诊设置）：非法值直接报错，不落库。

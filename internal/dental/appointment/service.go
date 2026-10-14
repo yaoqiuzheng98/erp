@@ -96,7 +96,7 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	}
 	// 营业时段：配了分段只收段内档（防绕过界面直调中午休息时间，前台补录同样受检）。
 	if !slotInBiz(a.Slot, minutes, biz) {
-		return errors.New("该时间不在营业时间内")
+		return errors.New("该时间不在放号时间内")
 	}
 	a.PatientName = p.Name
 	// 同档防超售：同一日期同一档只收 capacity 个（自助约诊必需；前台走同一入口同样受检）。

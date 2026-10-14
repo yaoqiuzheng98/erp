@@ -143,7 +143,7 @@ func (h *Handler) appointments(c *gin.Context) {
 	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, _ = t.SlotConfig()
-		biz = t.BusinessHours()
+		biz = t.SlotWindow()
 	}
 	web.Render(c, h.e, "dental/appointments", gin.H{
 		"Days": cols, "Rows": rows, "WeekStart": days[0], "WeekEnd": days[6],
@@ -166,7 +166,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 	var rest func(string) bool
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
-		biz = t.BusinessHours()
+		biz = t.SlotWindow()
 		rest = t.IsRest
 	}
 	if err := h.appts.Create(c.Request.Context(), mw.TenantID(c), a, slotMinutes, slotCapacity, biz, rest); err != nil {

@@ -225,7 +225,7 @@ func (h *Web) bookPage(c *gin.Context) {
 	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, _ = t.SlotConfig()
-		biz = t.BusinessHours()
+		biz = t.SlotWindow()
 	}
 	web.Render(c, h.e, "portal/book", gin.H{
 		"Tid": h.tenant(c), "Clinic": h.clinic(c), "Tab": "book",
@@ -251,7 +251,7 @@ func (h *Web) book(c *gin.Context) {
 	var rest func(string) bool
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
-		biz = t.BusinessHours()
+		biz = t.SlotWindow()
 		rest = t.IsRest
 	}
 	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz, rest); err != nil {

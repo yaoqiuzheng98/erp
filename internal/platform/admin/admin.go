@@ -248,6 +248,7 @@ func (h *Handler) settingsPage(c *gin.Context) {
 	}
 	web.Render(c, h.e, "admin/settings", gin.H{
 		"Tenant": t, "SlotMinutes": mins, "SlotCapacity": cap,
+		"SlotFrom": t.SlotFrom, "SlotTo": t.SlotTo,
 		"AMOpen": am.Open, "AMClose": am.Close, "PMOpen": pm.Open, "PMClose": pm.Close,
 		"Weekdays": weekdays, "RestDates": strings.Join(t.RestDates, "\n"),
 	})
@@ -269,6 +270,11 @@ func (h *Handler) saveSettings(c *gin.Context) {
 	}
 	if err := h.e.Tenants.SetBusinessHours(ctx, tid, segs); err != nil {
 		web.SetFlash(c, "放号已保存，营业时间保存失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/admin/settings")
+		return
+	}
+	if err := h.e.Tenants.SetSlotRange(ctx, tid, c.PostForm("slot_from"), c.PostForm("slot_to")); err != nil {
+		web.SetFlash(c, "放号/营业时间已保存，放号时间范围保存失败: "+err.Error())
 		c.Redirect(http.StatusFound, "/admin/settings")
 		return
 	}

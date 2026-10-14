@@ -245,7 +245,7 @@ func (h *API) slots(c *gin.Context) {
 	var biz []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		minutes, capacity = t.SlotConfig()
-		biz = t.BusinessHours()
+		biz = t.SlotWindow()
 	}
 	ok(c, gin.H{
 		"slot_minutes": minutes, "slot_capacity": capacity,
@@ -271,7 +271,7 @@ func (h *API) availability(c *gin.Context) {
 	var rests []string
 	if t := mw.Tenant(c); t != nil {
 		minutes, capacity = t.SlotConfig()
-		biz = t.BusinessHours()
+		biz = t.SlotWindow()
 		// 区间内休息日（每周固定休 + 指定日期），前端标"休"不可选。
 		for d := from; d <= to; d = plusDays(d, 1) {
 			if t.IsRest(d) {
@@ -368,7 +368,7 @@ func (h *API) createAppointment(c *gin.Context) {
 	var rest func(string) bool
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, slotCapacity = t.SlotConfig()
-		biz = t.BusinessHours()
+		biz = t.SlotWindow()
 		rest = t.IsRest
 	}
 	if err := h.appts.Create(c.Request.Context(), p.TenantID, a, slotMinutes, slotCapacity, biz, rest); err != nil {

@@ -224,7 +224,7 @@ func TestCreateBizHours(t *testing.T) {
 	}
 	for _, s := range []string{"08:30", "12:00", "12:30", "13:30", "18:00"} {
 		if err := mk(s); err == nil ||
-			(err != nil && !strings.Contains(err.Error(), "不在营业时间内")) {
+			(err != nil && !strings.Contains(err.Error(), "不在放号时间内")) {
 			t.Fatalf("out-biz %s should fail, got %v", s, err)
 		}
 	}
