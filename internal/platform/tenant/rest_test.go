@@ -136,28 +136,38 @@ func TestNoticeWindow(t *testing.T) {
 
 func TestSlotWindow(t *testing.T) {
 	seg := []model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}
-	// 未配放号范围：回落营业时段
+	// 未配放号两段：回落营业时段
 	tn := &Tenant{HoursSeg: seg}
 	if w := tn.SlotWindow(); len(w) != 2 || w[0].Open != "09:00" {
 		t.Fatalf("fallback = %+v", w)
 	}
-	// 配了放号范围：不跟营业时间走，单段
-	tn.SlotFrom, tn.SlotTo = "08:00", "20:00"
-	if w := tn.SlotWindow(); len(w) != 1 || w[0].Open != "08:00" || w[0].Close != "20:00" {
-		t.Fatalf("slot range = %+v", w)
+	// 配了放号两段：优先它，不跟营业时间走（入库数据总是归一过的）
+	tn.SlotSegs = []model.HourSeg{{Open: "08:00", Close: "11:30"}, {Open: "14:00", Close: "20:00"}}
+	if w := tn.SlotWindow(); len(w) != 2 || w[0].Open != "08:00" || w[1].Close != "20:00" {
+		t.Fatalf("slot segs = %+v", w)
 	}
-	// 校验：成对、格式、起<止；全空=清除
-	if _, _, err := NormSlotRange("08:00", ""); err == nil {
-		t.Fatal("half should fail")
+	// 老单段兼容：只有 slot_from/slot_to，没有 slot_segs
+	tn2 := &Tenant{SlotFrom: "08:00", SlotTo: "20:00", HoursSeg: seg}
+	if w := tn2.SlotWindow(); len(w) != 1 || w[0].Open != "08:00" {
+		t.Fatalf("legacy = %+v", w)
 	}
-	if _, _, err := NormSlotRange("8:00", "20:00"); err == nil {
-		t.Fatal("bad format should fail")
+	// 校验：半段、格式错、起晚于止、重叠都拒
+	for _, bad := range [][]model.HourSeg{
+		{{Open: "09:00", Close: "12:00"}, {}},
+		{{Open: "9:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}},
+		{{Open: "12:00", Close: "09:00"}, {Open: "14:00", Close: "18:00"}},
+		{{Open: "09:00", Close: "12:00"}, {Open: "11:00", Close: "18:00"}},
+	} {
+		if _, err := NormSlotSegs(bad); err == nil {
+			t.Fatalf("bad %+v should fail", bad)
+		}
 	}
-	if _, _, err := NormSlotRange("20:00", "08:00"); err == nil {
-		t.Fatal("from>=to should fail")
+	// 两段全空=清除（回落营业时间）
+	if out, err := NormSlotSegs([]model.HourSeg{{}, {}}); err != nil || len(out) != 0 {
+		t.Fatalf("clear = %+v %v", out, err)
 	}
-	f, to, err := NormSlotRange("", "")
-	if err != nil || f != "" || to != "" {
-		t.Fatalf("clear = %q %q %v", f, to, err)
+	// 正常两段
+	if out, err := NormSlotSegs([]model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}); err != nil || len(out) != 2 {
+		t.Fatalf("valid = %+v %v", out, err)
 	}
 }

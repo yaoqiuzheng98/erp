@@ -103,3 +103,67 @@ func TestCreateDefaultBiz(t *testing.T) {
 		t.Fatalf("default = %+v %q", nt.BusinessHours(), nt.HoursText())
 	}
 }
+
+// TestSetSlotSegsRoundTrip 放号两段落库往返：写入新两段时顺手清掉老单段字段。
+func TestSetSlotSegsRoundTrip(t *testing.T) {
+	uri := os.Getenv("MONGO_TEST_URL")
+	if uri == "" {
+		uri = "mongodb://127.0.0.1:27018"
+	}
+	ctx := context.Background()
+	cli, err := mongo.Connect(options.Client().ApplyURI(uri))
+	if err != nil {
+		t.Skipf("mongo unavailable: %v", err)
+	}
+	ping, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := cli.Ping(ping, nil); err != nil {
+		t.Skipf("mongo ping failed: %v", err)
+	}
+	db := cli.Database("erp_unittest_tenant_slotsegs")
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = db.Drop(ctx)
+		_ = cli.Disconnect(ctx)
+	})
+	svc := NewService(db)
+	id, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	if _, err := db.Collection("tenants").InsertOne(ctx, bson.M{
+		"_id": id, "name": "放号测试", "status": "active",
+		"slot_from": "08:00", "slot_to": "20:00",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	segs := []model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}
+	if err := svc.SetSlotSegs(ctx, id, segs); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	got, err := svc.ByID(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.SlotSegs) != 2 || got.SlotFrom != "" || got.SlotTo != "" {
+		t.Fatalf("roundtrip = %+v %q %q", got.SlotSegs, got.SlotFrom, got.SlotTo)
+	}
+	if w := got.SlotWindow(); len(w) != 2 || w[0].Open != "09:00" {
+		t.Fatalf("window = %+v", w)
+	}
+	// 非法两段不落库
+	bad := []model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "11:00", Close: "18:00"}}
+	if err := svc.SetSlotSegs(ctx, id, bad); err == nil {
+		t.Fatal("overlap should fail")
+	}
+	// 全空=清除，回落营业时段
+	if err := svc.SetSlotSegs(ctx, id, []model.HourSeg{{}, {}}); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	got, _ = svc.ByID(ctx, id)
+	if len(got.SlotSegs) != 0 {
+		t.Fatalf("after clear = %+v", got.SlotSegs)
+	}
+	// 非法单段（只有起）不落库
+	if err := svc.SetSlotSegs(ctx, id, []model.HourSeg{{Open: "09:00"}, {}}); err == nil {
+		t.Fatal("half should fail")
+	}
+}

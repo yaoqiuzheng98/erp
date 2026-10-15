@@ -37,6 +37,9 @@
           <div class="modal-header"><h5 class="modal-title">新建预约</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
           <div class="modal-body">
+            {{if eq .Data.DoctorCount 0}}
+            <div class="alert alert-warning py-2 px-3 small mb-2">当前没有配置可接诊的医生，请先到「<a href="/admin/users" class="alert-link">员工页</a>」勾选"可接诊"后再预约。</div>
+            {{end}}
             <div class="mb-2"><label class="form-label">患者</label>
               <select class="form-select form-select-sm" name="patient_id" required>
                 <option value="">选择患者</option>
@@ -114,7 +117,7 @@
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
-            {{if and (not $r.Extra) (lt (len $cell) $.Data.DoctorCount)}}
+            {{if and (not $r.Extra) (or (eq $.Data.DoctorCount 0) (lt (len $cell) $.Data.DoctorCount))}}
             <div class="cell-add" data-date="{{$d.Date}}" data-slot="{{$r.Slot}}" role="button" tabindex="0"
                  title="点此为 {{$d.Date}} {{$r.Label}} 新建预约">＋</div>
             {{end}}

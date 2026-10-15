@@ -25,12 +25,17 @@
               </select>
               <div class="form-text">改粒度只影响之后的新预约，已约的不变。</div></div>
             <div class="mb-2"><label class="form-label">放号时间范围 <span class="text-muted">（患者可约的时段，独立于营业时间）</span></label>
-              <div class="input-group input-group-sm">
-                <input class="form-control" type="time" name="slot_from" value="{{.Data.SlotFrom}}">
-                <span class="input-group-text">至</span>
-                <input class="form-control" type="time" name="slot_to" value="{{.Data.SlotTo}}">
+              <div class="row g-2">
+                <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text">上午</span>
+                  <input class="form-control" type="time" name="slot_am_open" value="{{.Data.SlotAMOpen}}">
+                  <span class="input-group-text">至</span>
+                  <input class="form-control" type="time" name="slot_am_close" value="{{.Data.SlotAMClose}}"></div></div>
+                <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text">下午</span>
+                  <input class="form-control" type="time" name="slot_pm_open" value="{{.Data.SlotPMOpen}}">
+                  <span class="input-group-text">至</span>
+                  <input class="form-control" type="time" name="slot_pm_close" value="{{.Data.SlotPMClose}}"></div></div>
               </div>
-              <div class="form-text">如 08:00 至 20:00；留空=跟随营业时间出号。只影响患者端能约到的档位。</div></div>
+              <div class="form-text">上午下午两段都要填，如 09:00-12:00 / 14:00-18:00；两段全空=跟随营业时间出号。</div></div>
           </div></div></div>
           <div class="col-12 col-lg-6 col-xxl-4"><div class="card h-100"><div class="card-body">
             <h6 class="mb-2">营业时间 <span class="text-muted small">（首页门诊卡展示）</span></h6>

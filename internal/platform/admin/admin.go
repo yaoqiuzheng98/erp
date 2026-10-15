@@ -247,9 +247,20 @@ func (h *Handler) settingsPage(c *gin.Context) {
 	for _, d := range []int{1, 2, 3, 4, 5, 6, 0} {
 		weekdays = append(weekdays, gin.H{"Value": d, "Label": names[d], "On": restOn[d]})
 	}
+	ssegs := t.SlotSegs
+	if len(ssegs) == 0 && (t.SlotFrom != "" || t.SlotTo != "") {
+		ssegs = []model.HourSeg{{Open: t.SlotFrom}}
+	}
+	var sam, spm model.HourSeg
+	if len(ssegs) > 0 {
+		sam = ssegs[0]
+	}
+	if len(ssegs) > 1 {
+		spm = ssegs[1]
+	}
 	web.Render(c, h.e, "admin/settings", gin.H{
 		"Tenant": t, "SlotMinutes": mins, "SlotCapacity": cap,
-		"SlotFrom": t.SlotFrom, "SlotTo": t.SlotTo,
+		"SlotAMOpen": sam.Open, "SlotAMClose": sam.Close, "SlotPMOpen": spm.Open, "SlotPMClose": spm.Close,
 		"AMOpen": am.Open, "AMClose": am.Close, "PMOpen": pm.Open, "PMClose": pm.Close,
 		"Weekdays": weekdays, "RestDates": strings.Join(t.RestDates, "\n"),
 	})
@@ -275,7 +286,10 @@ func (h *Handler) saveSettings(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/admin/settings")
 		return
 	}
-	if err := h.e.Tenants.SetSlotRange(ctx, tid, c.PostForm("slot_from"), c.PostForm("slot_to")); err != nil {
+	if err := h.e.Tenants.SetSlotSegs(ctx, tid, []model.HourSeg{
+		{Open: c.PostForm("slot_am_open"), Close: c.PostForm("slot_am_close")},
+		{Open: c.PostForm("slot_pm_open"), Close: c.PostForm("slot_pm_close")},
+	}); err != nil {
 		web.SetFlash(c, "放号/营业时间已保存，放号时间范围保存失败: "+err.Error())
 		c.Redirect(http.StatusFound, "/admin/settings")
 		return
@@ -303,18 +317,10 @@ func (h *Handler) homePage(c *gin.Context) {
 	tid := mw.TenantID(c)
 	users, _ := h.e.Auth.List(ctx, tid)
 	roles, _ := h.e.RBAC.List(ctx, tid)
-	// 管理员是登录账号不是接诊成员，不进团队展示配置。
-	shown := make([]auth.User, 0, len(users))
-	for _, u := range users {
-		if u.IsTenantAdm {
-			continue
-		}
-		shown = append(shown, u)
-	}
 	// 与患者端首页同序（比较器见 auth.SortByWeight），改完立即所见即所得。
-	auth.SortUsersForHome(shown)
+	auth.SortUsersForHome(users)
 	web.Render(c, h.e, "admin/home", gin.H{
-		"Tenant": mw.Tenant(c), "Users": shown, "Roles": roles,
+		"Tenant": mw.Tenant(c), "Users": users, "Roles": roles,
 	})
 }
 
