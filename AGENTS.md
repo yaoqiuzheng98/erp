@@ -78,7 +78,8 @@ WSL 侧 key 可直推 GitHub；Windows 侧 GoLand 推不动时，把
 走 `scripts/deploy.sh`（打 `:latest` 镜像 → 上传 → `docker load` → `compose up -d`）。
 
 生产机（独立服务器，暂无域名，不部署）：`ubuntu@81.71.69.44`，密钥同测试（`~/.ssh/erp_prod_key`，已验证可登录）；
-Ubuntu 22.04 / 2 核 / 2G 内存 / 50G 盘；**未装 Docker**，部署前先装 Docker + compose 插件（注意 ubuntu 用户执行 docker 是否要 sudo）。
+Ubuntu 22.04 / 2 核 / 2G 内存 / 50G 盘；Docker 29.9.1 + compose v5.6.0 已装（apt 阿里源，`docker.io` 直连不通）；
+`daemon.json` 配了腾讯镜像加速（`mirror.ccs.tencentyun.com`）；第三方镜像已预拉：`mongo:7`、`caddy:2-alpine`（与 `compose.yaml` 一致）。
 
 ## 铁律
 
