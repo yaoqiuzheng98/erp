@@ -93,6 +93,10 @@ func main() {
 		slog.Error("ensure appointment indexes", "err", err)
 		os.Exit(1)
 	}
+	if err := e.Tenants.EnsureIndexes(ctx); err != nil {
+		slog.Error("ensure tenant indexes", "err", err)
+		os.Exit(1)
+	}
 
 	tpl, err := web.Build()
 	if err != nil {

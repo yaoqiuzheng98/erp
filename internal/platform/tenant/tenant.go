@@ -52,6 +52,9 @@ type Tenant struct {
 	Notice      string    `bson:"notice,omitempty"`
 	NoticeFrom  string    `bson:"notice_from,omitempty"`
 	NoticeTo    string    `bson:"notice_to,omitempty"`
+	// WechatAppID 绑定的微信小程序 AppID（门诊设置维护）：小程序请求带该
+	// appid 头时，后端按它解析租户（URL 里 tid 仅兼容保留）。空=未绑定。
+	WechatAppID string    `bson:"wechat_appid,omitempty"`
 	HeroImage   string    `bson:"hero_image,omitempty"`   // 首页顶部大图（GridFS 文件 ID hex）
 	ClinicImage string    `bson:"clinic_image,omitempty"` // 门诊卡图（医生团队入口那块）
 	CreatedAt   time.Time `bson:"created_at"`
@@ -468,6 +471,46 @@ func (s *Service) SetSlotSegs(ctx context.Context, id bson.ObjectID, segs []mode
 		"$set":   bson.M{"slot_segs": norm},
 		"$unset": unset,
 	})
+	return err
+}
+
+// wxAppIDRe 微信小程序 AppID 格式（wx + 16 位十六进制）。
+var wxAppIDRe = regexp.MustCompile(`^wx[0-9a-fA-F]{16}$`)
+
+// EnsureIndexes 微信 appid 非空唯一（一个小程序只绑一个门诊；空值不限）。
+func (s *Service) EnsureIndexes(ctx context.Context) error {
+	_, err := s.col.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "wechat_appid", Value: 1}},
+		Options: options.Index().SetUnique(true).
+			SetPartialFilterExpression(bson.M{"wechat_appid": bson.M{"$gt": ""}}),
+	})
+	return err
+}
+
+// ByAppID 按绑定的微信小程序 appid 定位租户（小程序 appid 头解析用）。
+func (s *Service) ByAppID(ctx context.Context, appid string) (*Tenant, error) {
+	var t Tenant
+	if err := s.col.FindOne(ctx, bson.M{"wechat_appid": appid}).Decode(&t); err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// SetWechatAppID 绑定微信小程序 AppID（门诊设置）：格式 + 跨租户唯一；空=解绑。
+func (s *Service) SetWechatAppID(ctx context.Context, id bson.ObjectID, appid string) error {
+	appid = strings.TrimSpace(appid)
+	if appid == "" {
+		_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$unset": bson.M{"wechat_appid": ""}})
+		return err
+	}
+	if !wxAppIDRe.MatchString(appid) {
+		return errors.New("微信小程序 AppID 格式不对（wx 开头 18 位）")
+	}
+	var other Tenant
+	if err := s.col.FindOne(ctx, bson.M{"wechat_appid": appid, "_id": bson.M{"$ne": id}}).Decode(&other); err == nil {
+		return errors.New("该 AppID 已绑定其他门诊")
+	}
+	_, err := s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"wechat_appid": appid}})
 	return err
 }
 

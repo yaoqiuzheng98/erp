@@ -25,6 +25,20 @@ const CtxPatient = "portal.patient"
 // TenantByID 按 ID 定位租户（公开入口）：非法/停用直接 404。
 func TenantByID(e *env.Env) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		ctx := c.Request.Context()
+		// 小程序 appid 头优先：按 appid 查租户门诊（URL 里 tid 仅兼容保留）。
+		// H5/SSR 图片直链不带头，走原来的 tid 解析。
+		if appid := strings.TrimSpace(c.GetHeader("X-Wx-AppId")); appid != "" {
+			t, err := e.Tenants.ByAppID(ctx, appid)
+			if err != nil || t.Status != "active" {
+				c.String(http.StatusNotFound, "门诊不存在")
+				c.Abort()
+				return
+			}
+			c.Set(mw.CtxTenant, t)
+			c.Next()
+			return
+		}
 		id, err := bson.ObjectIDFromHex(c.Param("tid"))
 		if err != nil {
 			c.String(http.StatusNotFound, "门诊不存在")

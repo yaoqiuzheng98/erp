@@ -167,3 +167,69 @@ func TestSetSlotSegsRoundTrip(t *testing.T) {
 		t.Fatal("half should fail")
 	}
 }
+
+// TestSetWechatAppIDRoundTrip AppID 绑定：格式校验、跨租户唯一、ByAppID 定位、解绑。
+func TestSetWechatAppIDRoundTrip(t *testing.T) {
+	uri := os.Getenv("MONGO_TEST_URL")
+	if uri == "" {
+		uri = "mongodb://127.0.0.1:27018"
+	}
+	ctx := context.Background()
+	cli, err := mongo.Connect(options.Client().ApplyURI(uri))
+	if err != nil {
+		t.Skipf("mongo unavailable: %v", err)
+	}
+	ping, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := cli.Ping(ping, nil); err != nil {
+		t.Skipf("mongo ping failed: %v", err)
+	}
+	db := cli.Database("erp_unittest_tenant_appid")
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = db.Drop(ctx)
+		_ = cli.Disconnect(ctx)
+	})
+	svc := NewService(db)
+	if err := svc.EnsureIndexes(ctx); err != nil {
+		t.Fatalf("ensure indexes: %v", err)
+	}
+	a, err := svc.Create(ctx, "甲门诊")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := svc.Create(ctx, "乙门诊")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 格式错拒绝
+	for _, bad := range []string{"123", "wx123", "wxzzzzzzzzzzzzzzzz", " wxabcdef1234567890 "[:0] + "xx"} {
+		if err := svc.SetWechatAppID(ctx, a.ID, bad); err == nil {
+			t.Fatalf("bad appid %q should fail", bad)
+		}
+	}
+	// 正常绑定 + ByAppID 定位
+	if err := svc.SetWechatAppID(ctx, a.ID, "wxabcdef1234567890"); err != nil {
+		t.Fatalf("bind: %v", err)
+	}
+	got, err := svc.ByAppID(ctx, "wxabcdef1234567890")
+	if err != nil || got.ID != a.ID {
+		t.Fatalf("by appid = %+v %v", got, err)
+	}
+	// 同一个 AppID 绑第二家拒绝
+	if err := svc.SetWechatAppID(ctx, b.ID, "wxabcdef1234567890"); err == nil {
+		t.Fatal("duplicate appid should fail")
+	}
+	// 未知 appid 定位 miss
+	if _, err := svc.ByAppID(ctx, "wx0000000000000000"); err == nil {
+		t.Fatal("unknown appid should miss")
+	}
+	// 解绑后可被别家绑
+	if err := svc.SetWechatAppID(ctx, a.ID, ""); err != nil {
+		t.Fatalf("unbind: %v", err)
+	}
+	if err := svc.SetWechatAppID(ctx, b.ID, "wxabcdef1234567890"); err != nil {
+		t.Fatalf("rebind after unbind: %v", err)
+	}
+}

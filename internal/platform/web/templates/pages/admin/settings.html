@@ -36,6 +36,9 @@
                   <input class="form-control" type="time" name="slot_pm_close" value="{{.Data.SlotPMClose}}"></div></div>
               </div>
               <div class="form-text">上午下午两段都要填，如 09:00-12:00 / 14:00-18:00；两段全空=跟随营业时间出号。</div></div>
+            <div class="mb-2"><label class="form-label">微信小程序 AppID <span class="text-muted">（绑定后，小程序带该 appid 请求头即识别本门诊）</span></label>
+              <input class="form-control form-control-sm" name="wechat_appid" value="{{.Data.AppID}}" placeholder="如 wx1234567890abcdef，留空=不绑定" spellcheck="false">
+              <div class="form-text">wx 开头 18 位；一个 AppID 只能绑一个门诊。</div></div>
           </div></div></div>
           <div class="col-12 col-lg-6 col-xxl-4"><div class="card h-100"><div class="card-body">
             <h6 class="mb-2">营业时间 <span class="text-muted small">（首页门诊卡展示）</span></h6>
