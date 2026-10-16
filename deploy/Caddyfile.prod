@@ -1,0 +1,10 @@
+# 生产站 Caddyfile：erp.yayan.site → erp-prod:8080（生产机 /opt/erp/deploy/Caddyfile）。
+# 与测试站 deploy/Caddyfile 同构，注意 upstream 服务名是 erp-prod。
+erp.yayan.site {
+	reverse_proxy erp-prod:8080
+	encode gzip
+
+	request_body {
+		max_size 64MB
+	}
+}
