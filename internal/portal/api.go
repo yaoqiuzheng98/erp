@@ -62,6 +62,14 @@ func (h *API) Register(g *gin.RouterGroup) {
 
 func (h *API) requirePatient(c *gin.Context) {
 	if Patient(c) == nil {
+		// code 换出的微信未建档：专用码 4401，前端跳建档页（不是普通 401）。
+		if v, ok := c.Get(CtxWxUnbound); ok {
+			if unbound, _ := v.(bool); unbound {
+				c.JSON(http.StatusUnauthorized, gin.H{"code": 4401, "msg": "请先自助建档"})
+				c.Abort()
+				return
+			}
+		}
 		fail(c, http.StatusUnauthorized, "请先登录")
 		c.Abort()
 		return
@@ -88,7 +96,7 @@ func (h *API) login(c *gin.Context) {
 	}
 	// 密码登录成功即绑 openId（best-effort：绑定失败不影响本次登录，下次带 code 再试）。
 	if in.Code != "" {
-		if openid, err := ExchangeOpenID(h.e.Cfg.Wechat.AppID, h.e.Cfg.Wechat.Secret, in.Code); err == nil {
+		if openid, err := exchangeCode(h.e.Cfg.Wechat.AppID, h.e.Cfg.Wechat.Secret, in.Code); err == nil {
 			_ = h.pats.BindOpenID(c.Request.Context(), mw.TenantID(c), p.ID, openid)
 		}
 	}
@@ -114,7 +122,7 @@ func (h *API) loginByCode(c *gin.Context) {
 		ok(c, gin.H{"bound": false, "reason": "缺少微信 code"})
 		return
 	}
-	openid, err := ExchangeOpenID(h.e.Cfg.Wechat.AppID, h.e.Cfg.Wechat.Secret, in.Code)
+	openid, err := exchangeCode(h.e.Cfg.Wechat.AppID, h.e.Cfg.Wechat.Secret, in.Code)
 	if err != nil {
 		ok(c, gin.H{"bound": false, "reason": err.Error()})
 		return
@@ -124,13 +132,8 @@ func (h *API) loginByCode(c *gin.Context) {
 		ok(c, gin.H{"bound": false, "reason": "未建档，请先自助建档"})
 		return
 	}
-	s, err := h.e.Sessions.Create(c.Request.Context(), session.KindPatient, p.ID, p.TenantID)
-	if err != nil {
-		ok(c, gin.H{"bound": false, "reason": "会话创建失败"})
-		return
-	}
-	c.SetCookie(PatCookie, s.ID, int(h.e.Cfg.Session.TTLHours)*3600, "/", "", h.e.Cfg.Session.Secure, true)
-	ok(c, gin.H{"token": s.ID, "name": p.Name, "phone": p.Phone})
+	// 无会话：调用方每次请求带新鲜 code，这里只回答"绑没绑"。
+	ok(c, gin.H{"bound": true, "name": p.Name, "phone": p.Phone})
 }
 
 type registerReq struct {
@@ -163,7 +166,7 @@ func (h *API) register(c *gin.Context) {
 	var openid string
 	var wxErr error
 	if in.Code != "" {
-		openid, wxErr = ExchangeOpenID(h.e.Cfg.Wechat.AppID, h.e.Cfg.Wechat.Secret, in.Code)
+		openid, wxErr = exchangeCode(h.e.Cfg.Wechat.AppID, h.e.Cfg.Wechat.Secret, in.Code)
 	}
 
 	// 手机号已建档：尝试认领（code 换 openId 绑老档案）。
@@ -187,13 +190,19 @@ func (h *API) register(c *gin.Context) {
 				return
 			}
 		}
-		s, err := h.e.Sessions.Create(c.Request.Context(), session.KindPatient, old.ID, old.TenantID)
-		if err != nil {
-			fail(c, http.StatusInternalServerError, "会话创建失败")
+		if in.Code == "" {
+			// 无 code（H5/测试）：保留原会话流程。
+			s, err := h.e.Sessions.Create(c.Request.Context(), session.KindPatient, old.ID, old.TenantID)
+			if err != nil {
+				fail(c, http.StatusInternalServerError, "会话创建失败")
+				return
+			}
+			c.SetCookie(PatCookie, s.ID, int(h.e.Cfg.Session.TTLHours)*3600, "/", "", h.e.Cfg.Session.Secure, true)
+			ok(c, gin.H{"token": s.ID, "name": old.Name, "bound": true, "claimed": true})
 			return
 		}
-		c.SetCookie(PatCookie, s.ID, int(h.e.Cfg.Session.TTLHours)*3600, "/", "", h.e.Cfg.Session.Secure, true)
-		ok(c, gin.H{"token": s.ID, "name": old.Name, "bound": true, "claimed": true})
+		// 有 code（小程序）：无会话，后续请求每次带新鲜 code 即可。
+		ok(c, gin.H{"name": old.Name, "bound": true, "claimed": true})
 		return
 	}
 
@@ -218,13 +227,19 @@ func (h *API) register(c *gin.Context) {
 			bound = true
 		}
 	}
-	s, err := h.e.Sessions.Create(c.Request.Context(), session.KindPatient, p.ID, p.TenantID)
-	if err != nil {
-		fail(c, http.StatusInternalServerError, "会话创建失败")
+	if in.Code == "" {
+		// 无 code（H5/测试）：保留原会话流程。
+		s, err := h.e.Sessions.Create(c.Request.Context(), session.KindPatient, p.ID, p.TenantID)
+		if err != nil {
+			fail(c, http.StatusInternalServerError, "会话创建失败")
+			return
+		}
+		c.SetCookie(PatCookie, s.ID, int(h.e.Cfg.Session.TTLHours)*3600, "/", "", h.e.Cfg.Session.Secure, true)
+		ok(c, gin.H{"token": s.ID, "name": p.Name, "bound": bound})
 		return
 	}
-	c.SetCookie(PatCookie, s.ID, int(h.e.Cfg.Session.TTLHours)*3600, "/", "", h.e.Cfg.Session.Secure, true)
-	ok(c, gin.H{"token": s.ID, "name": p.Name, "bound": bound})
+	// 有 code（小程序）：无会话，后续请求每次带新鲜 code 即可。
+	ok(c, gin.H{"name": p.Name, "bound": bound})
 }
 
 func (h *API) logout(c *gin.Context) {

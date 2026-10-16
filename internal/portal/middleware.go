@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,6 +22,12 @@ const PatCookie = "erp_pat"
 
 // CtxPatient 上下文中的患者对象 key。
 const CtxPatient = "portal.patient"
+
+// CtxWxUnbound 请求 code 换出的 openId 尚未建档（requirePatient 据此回 4401 跳建档）。
+const CtxWxUnbound = "portal.wx-unbound"
+
+// exchangeCode code 换 openId（包级变量，单测可注入假实现）。
+var exchangeCode = ExchangeOpenID
 
 // TenantByID 按 ID 定位租户（公开入口）：非法/停用直接 404。
 func TenantByID(e *env.Env) gin.HandlerFunc {
@@ -70,8 +77,8 @@ func NewGuard(e *env.Env, pats *patient.Service) *Guard {
 	return &Guard{e: e, pats: pats, hits: map[string]int{}}
 }
 
-// PatientAuth 可选认证：cookie 或 Bearer token 有效则注入患者，无效也不拦，
-// 由 handler 决定（H5 跳登录页，API 回 401）。
+// PatientAuth 可选认证：cookie / Bearer token / 小程序 X-Wx-Code，有效则注入患者，
+// 无效也不拦，由 handler 决定（H5 跳登录页，API 回 401，未建档回 4401）。
 func (g *Guard) PatientAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, _ := c.Cookie(PatCookie)
@@ -81,6 +88,18 @@ func (g *Guard) PatientAuth() gin.HandlerFunc {
 			}
 		}
 		if token == "" {
+			// 小程序按请求 code：每次换 openId 查档（无会话、无过期）。
+			// 换码失败不断言未建档（可能是瞬时故障），只留给业务报重试。
+			if code := strings.TrimSpace(c.GetHeader("X-Wx-Code")); code != "" {
+				p, unbound, err := g.resolveByCode(c.Request.Context(), mw.TenantID(c), code)
+				if err == nil {
+					if unbound {
+						c.Set(CtxWxUnbound, true)
+					} else {
+						c.Set(CtxPatient, p)
+					}
+				}
+			}
 			c.Next()
 			return
 		}
@@ -100,6 +119,20 @@ func (g *Guard) PatientAuth() gin.HandlerFunc {
 		c.Set(mw.CtxCSRF, s.CSRF)
 		c.Next()
 	}
+}
+
+// resolveByCode 按请求 code 换 openId 查档：返回患者；
+// unbound=true 表示换码成功但该微信未建档；err 表示换码失败（不断言未建档）。
+func (g *Guard) resolveByCode(ctx context.Context, tid bson.ObjectID, code string) (p *patient.Patient, unbound bool, err error) {
+	openid, err := exchangeCode(g.e.Cfg.Wechat.AppID, g.e.Cfg.Wechat.Secret, code)
+	if err != nil {
+		return nil, false, err
+	}
+	p, err = g.pats.ByOpenID(ctx, tid, openid)
+	if err != nil {
+		return nil, true, nil
+	}
+	return p, false, nil
 }
 
 // Patient 取当前患者，未登录返回 nil。
@@ -140,7 +173,7 @@ func (g *Guard) RateLimit(n int) gin.HandlerFunc {
 func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Wx-AppId, X-Wx-Code")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		if c.Request.Method == http.MethodOptions {
 			c.Status(http.StatusNoContent)
