@@ -55,6 +55,27 @@ func (m *Manager) Create(ctx context.Context, kind string, userID, tenantID bson
 	return s, err
 }
 
+// CreatePermanent 创建不过期会话（患者端用：一次绑定，长期有效）。
+// 用 100 年后到期而不是去掉字段，避免动 TTL 索引与 Get 查询语义。
+func (m *Manager) CreatePermanent(ctx context.Context, kind string, userID, tenantID bson.ObjectID) (*Session, error) {
+	s := &Session{
+		ID:        newToken(),
+		Kind:      kind,
+		UserID:    userID,
+		TenantID:  tenantID,
+		CSRF:      newToken()[:32],
+		ExpiresAt: time.Now().AddDate(100, 0, 0),
+	}
+	_, err := m.col.InsertOne(ctx, s)
+	return s, err
+}
+
+// DeleteByUser 删除该用户全部会话（解绑微信时调用，旧 token 即刻失效）。
+func (m *Manager) DeleteByUser(ctx context.Context, tenantID, userID bson.ObjectID) error {
+	_, err := m.col.DeleteMany(ctx, bson.M{"tenant_id": tenantID, "user_id": userID})
+	return err
+}
+
 var ErrNotFound = errors.New("session not found")
 
 func (m *Manager) Get(ctx context.Context, token, kind string) (*Session, error) {

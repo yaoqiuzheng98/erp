@@ -78,7 +78,7 @@ func (h *Web) login(c *gin.Context) {
 		web.Render(c, h.e, "portal/login", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Err": "手机号或密码错误"})
 		return
 	}
-	s, err := h.e.Sessions.Create(c.Request.Context(), session.KindPatient, p.ID, p.TenantID)
+	s, err := h.e.Sessions.CreatePermanent(c.Request.Context(), session.KindPatient, p.ID, p.TenantID)
 	if err != nil {
 		web.Render(c, h.e, "portal/login", gin.H{"Tid": h.tenant(c), "Clinic": h.clinic(c), "Err": "会话创建失败"})
 		return

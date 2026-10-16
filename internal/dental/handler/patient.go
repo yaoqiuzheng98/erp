@@ -72,6 +72,8 @@ func (h *Handler) unbindWX(c *gin.Context) {
 	if err := h.pats.ClearOpenID(c.Request.Context(), tid, id); err != nil {
 		web.SetFlash(c, "解绑失败: "+err.Error())
 	} else {
+		// 解绑同时清掉该患者全部会话：旧 token 即刻失效（永久会话不会自己过期）。
+		_ = h.e.Sessions.DeleteByUser(c.Request.Context(), tid, id)
 		h.audit(c, audit.ActPatientCreate, "解绑微信 "+p.Name+" "+p.Phone, "")
 		web.SetFlash(c, "已解绑，"+p.Name+" 的微信可重新建档")
 	}
