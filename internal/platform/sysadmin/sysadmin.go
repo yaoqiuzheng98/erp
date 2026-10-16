@@ -27,6 +27,7 @@ func Register(g *gin.RouterGroup, e *env.Env) {
 	g.POST("/tenants", h.createTenant)
 	g.POST("/tenants/:id/toggle", h.toggleTenant)
 	g.POST("/tenants/:id/admin", h.setTenantAdmin)
+	g.POST("/tenants/:id/appid", h.setTenantAppID)
 	g.POST("/tenants/:id/delete", h.deleteTenant)
 	g.GET("/audit", h.auditLog)
 }
@@ -129,6 +130,30 @@ func (h *Handler) setTenantAdmin(c *gin.Context) {
 		IP: c.ClientIP(),
 	})
 	web.SetFlash(c, "管理员已更新: "+t.Name+" "+phone)
+	c.Redirect(http.StatusFound, "/sysadmin/tenants")
+}
+
+// setTenantAppID 系统后台绑定门诊的微信小程序 AppID：格式 + 跨租户唯一；留空解绑。
+func (h *Handler) setTenantAppID(c *gin.Context) {
+	ctx := c.Request.Context()
+	id, _ := bson.ObjectIDFromHex(c.Param("id"))
+	t, err := h.e.Tenants.ByID(ctx, id)
+	if err != nil {
+		web.SetFlash(c, "门诊不存在")
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	appid := strings.TrimSpace(c.PostForm("wechat_appid"))
+	if err := h.e.Tenants.SetWechatAppID(ctx, id, appid); err != nil {
+		web.SetFlash(c, "保存失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/sysadmin/tenants")
+		return
+	}
+	h.e.Audit.Log(ctx, audit.Entry{
+		Username: "sysadmin", Action: audit.ActTenantAdmin, Target: t.Name, Detail: "appid=" + appid,
+		IP: c.ClientIP(),
+	})
+	web.SetFlash(c, "小程序 AppID 已保存: "+t.Name)
 	c.Redirect(http.StatusFound, "/sysadmin/tenants")
 }
 

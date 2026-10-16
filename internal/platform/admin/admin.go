@@ -263,7 +263,6 @@ func (h *Handler) settingsPage(c *gin.Context) {
 		"SlotAMOpen": sam.Open, "SlotAMClose": sam.Close, "SlotPMOpen": spm.Open, "SlotPMClose": spm.Close,
 		"AMOpen": am.Open, "AMClose": am.Close, "PMOpen": pm.Open, "PMClose": pm.Close,
 		"Weekdays": weekdays, "RestDates": strings.Join(t.RestDates, "\n"),
-		"AppID": t.WechatAppID,
 	})
 }
 
@@ -303,11 +302,6 @@ func (h *Handler) saveSettings(c *gin.Context) {
 	}
 	if err := h.e.Tenants.SetRest(ctx, tid, wds, strings.Split(c.PostForm("rest_dates"), "\n")); err != nil {
 		web.SetFlash(c, "放号/营业时间已保存，休息日保存失败: "+err.Error())
-		c.Redirect(http.StatusFound, "/admin/settings")
-		return
-	}
-	if err := h.e.Tenants.SetWechatAppID(ctx, tid, c.PostForm("wechat_appid")); err != nil {
-		web.SetFlash(c, "其他已保存，微信 AppID 保存失败: "+err.Error())
 	} else {
 		h.audit(c, audit.ActTenantSettings, "schedule",
 			c.PostForm("slot_minutes")+"min x"+c.PostForm("slot_capacity"))

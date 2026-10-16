@@ -46,6 +46,19 @@
           <div class="modal-footer"><button class="btn btn-sm btn-primary">保存</button></div>
         </form>
       </div></div>
+      <div class="modal fade" id="appidModal" tabindex="-1"><div class="modal-dialog">
+        <form method="post" action="" id="appidForm" class="modal-content">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="modal-header"><h5 class="modal-title">绑定小程序 · <span id="appidTenantName"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button></div>
+          <div class="modal-body">
+            <div class="mb-2"><label class="form-label">微信小程序 AppID</label>
+              <input class="form-control form-control-sm" id="appidValue" name="wechat_appid" placeholder="如 wx1234567890abcdef，留空=解绑" spellcheck="false"></div>
+            <div class="form-text">wx 开头 18 位；一个 AppID 只能绑一个门诊。小程序带该 appid 请求头即识别本门诊。</div>
+          </div>
+          <div class="modal-footer"><button class="btn btn-sm btn-primary">保存</button></div>
+        </form>
+      </div></div>
       <div class="table-responsive"><table class="table table-sm bg-white">
         <thead><tr><th>名称</th><th>管理员手机号</th><th>患者端链接</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
         <tbody>
@@ -60,6 +73,8 @@
           <td class="text-nowrap">
             <button type="button" class="btn btn-sm btn-outline-primary admin-btn"
                     data-action="/sysadmin/tenants/{{hex .ID}}/admin" data-name="{{.Name}}" data-phone="{{$ap}}">管理员</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary appid-btn"
+                    data-action="/sysadmin/tenants/{{hex .ID}}/appid" data-name="{{.Name}}" data-appid="{{.WechatAppID}}">小程序{{if .WechatAppID}} ✓{{end}}</button>
             <form method="post" action="/sysadmin/tenants/{{hex .ID}}/toggle" class="d-inline m-0">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
               <button class="btn btn-sm btn-outline-{{if eq .Status "active"}}danger{{else}}success{{end}}">
@@ -85,6 +100,15 @@
             document.getElementById('adminTenantName').textContent = b.dataset.name;
             document.getElementById('adminPhone').value = b.dataset.phone || '';
             bootstrap.Modal.getOrCreateInstance(document.getElementById('adminModal')).show();
+          });
+        });
+        // 绑定小程序：按行填充弹窗
+        document.querySelectorAll('.appid-btn').forEach(function (b) {
+          b.addEventListener('click', function () {
+            document.getElementById('appidForm').action = b.dataset.action;
+            document.getElementById('appidTenantName').textContent = b.dataset.name;
+            document.getElementById('appidValue').value = b.dataset.appid || '';
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('appidModal')).show();
           });
         });
       </script>
