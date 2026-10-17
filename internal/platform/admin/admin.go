@@ -259,7 +259,7 @@ func (h *Handler) settingsPage(c *gin.Context) {
 		spm = ssegs[1]
 	}
 	web.Render(c, h.e, "admin/settings", gin.H{
-		"Tenant": t, "SlotMinutes": mins, "SlotCapacity": cap,
+		"SlotMinutes": mins, "SlotCapacity": cap,
 		"SlotAMOpen": sam.Open, "SlotAMClose": sam.Close, "SlotPMOpen": spm.Open, "SlotPMClose": spm.Close,
 		"AMOpen": am.Open, "AMClose": am.Close, "PMOpen": pm.Open, "PMClose": pm.Close,
 		"Weekdays": weekdays, "RestDates": strings.Join(t.RestDates, "\n"),

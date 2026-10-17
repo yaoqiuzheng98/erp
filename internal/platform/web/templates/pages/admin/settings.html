@@ -15,8 +15,6 @@
         <div class="row g-3">
           <div class="col-12 col-lg-6 col-xxl-4"><div class="card h-100"><div class="card-body">
             <h6 class="mb-2">放号设置</h6>
-            <div class="mb-2"><label class="form-label">门诊名称</label>
-              <input class="form-control form-control-sm" value="{{.Data.Tenant.Name}}" disabled></div>
             <div class="mb-2"><label class="form-label">放号粒度</label>
               <select class="form-select form-select-sm" name="slot_minutes">
                 <option value="15" {{if eq .Data.SlotMinutes 15}}selected{{end}}>15 分钟一号（每小时 4 档）</option>
@@ -25,16 +23,14 @@
               </select>
               <div class="form-text">改粒度只影响之后的新预约，已约的不变。</div></div>
             <div class="mb-2"><label class="form-label">放号时间范围 <span class="text-muted">（患者可约的时段，独立于营业时间）</span></label>
-              <div class="row g-2">
-                <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text">上午</span>
-                  <input class="form-control" type="time" name="slot_am_open" value="{{.Data.SlotAMOpen}}" required>
-                  <span class="input-group-text">至</span>
-                  <input class="form-control" type="time" name="slot_am_close" value="{{.Data.SlotAMClose}}" required></div></div>
-                <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text">下午</span>
-                  <input class="form-control" type="time" name="slot_pm_open" value="{{.Data.SlotPMOpen}}" required>
-                  <span class="input-group-text">至</span>
-                  <input class="form-control" type="time" name="slot_pm_close" value="{{.Data.SlotPMClose}}" required></div></div>
-              </div>
+              <div class="input-group input-group-sm mb-2"><span class="input-group-text" style="width:4.5em">上午</span>
+                <input class="form-control" type="time" name="slot_am_open" value="{{.Data.SlotAMOpen}}" required>
+                <span class="input-group-text">至</span>
+                <input class="form-control" type="time" name="slot_am_close" value="{{.Data.SlotAMClose}}" required></div>
+              <div class="input-group input-group-sm mb-2"><span class="input-group-text" style="width:4.5em">下午</span>
+                <input class="form-control" type="time" name="slot_pm_open" value="{{.Data.SlotPMOpen}}" required>
+                <span class="input-group-text">至</span>
+                <input class="form-control" type="time" name="slot_pm_close" value="{{.Data.SlotPMClose}}" required></div>
               <div class="form-text">上午下午两段都要填，如 09:00-12:00 / 14:00-18:00。</div></div>
           </div></div></div>
           <div class="col-12 col-lg-6 col-xxl-4"><div class="card h-100"><div class="card-body">
