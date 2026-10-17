@@ -71,5 +71,15 @@
       if (!el.dataset.picked && el.value === '') el.value = el.dataset.saved || '';
     });
   });
+  // 日期/时间输入：点框内任意位置都弹选择器（Chrome 默认只有点右侧小图标才弹）。
+  // 右侧图标区（约 30px）不拦，点图标仍走原生（可再点收起）；document 委托，htmx 换入的新输入也吃。
+  document.addEventListener('mousedown', function (e) {
+    var el = e.target;
+    if (!(el instanceof HTMLInputElement) || e.button !== 0) return;
+    if (el.type !== 'date' && el.type !== 'time') return;
+    if (el.disabled || el.readOnly || typeof el.showPicker !== 'function') return;
+    if (e.offsetX > el.clientWidth - 30) return;
+    try { el.showPicker(); } catch (err) { /* 已弹出或不支持：忽略 */ }
+  });
 </script>
 {{end}}
