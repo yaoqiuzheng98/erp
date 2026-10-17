@@ -162,9 +162,9 @@ func TestSlotWindow(t *testing.T) {
 			t.Fatalf("bad %+v should fail", bad)
 		}
 	}
-	// 两段全空=清除（回落营业时间）
-	if out, err := NormSlotSegs([]model.HourSeg{{}, {}}); err != nil || len(out) != 0 {
-		t.Fatalf("clear = %+v %v", out, err)
+	// 两段全空=不合规（放号时间必填，不再回落营业时间）
+	if _, err := NormSlotSegs([]model.HourSeg{{}, {}}); err == nil {
+		t.Fatalf("empty should fail")
 	}
 	// 正常两段
 	if out, err := NormSlotSegs([]model.HourSeg{{Open: "09:00", Close: "12:00"}, {Open: "14:00", Close: "18:00"}}); err != nil || len(out) != 2 {

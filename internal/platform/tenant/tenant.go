@@ -198,18 +198,8 @@ func NormBusinessHours(segs []model.HourSeg) ([]model.HourSeg, error) {
 	return normTwoSegs(segs, "营业", "09:00")
 }
 
-// NormSlotSegs 放号时间范围归一：上午下午两段；两段全空=清除（回落营业时间）。
+// NormSlotSegs 放号时间范围归一：上午下午两段必填（门诊设置要求，不再支持"全空回落营业时间"）。
 func NormSlotSegs(segs []model.HourSeg) ([]model.HourSeg, error) {
-	all := true
-	for _, s := range segs {
-		if strings.TrimSpace(s.Open) != "" || strings.TrimSpace(s.Close) != "" {
-			all = false
-			break
-		}
-	}
-	if all {
-		return nil, nil
-	}
 	return normTwoSegs(segs, "放号", "08:00")
 }
 
@@ -442,8 +432,8 @@ func (t *Tenant) ActiveNotice(today string) string {
 	return t.Notice
 }
 
-// SlotWindow 出号时间窗：优先放号时间两段（不跟营业时间走）；
-// 未配置回落单段兼容（老 slot_from/slot_to）；再无回落营业时段；都空=全天。
+// SlotWindow 出号时间窗：配了放号两段用它（门诊设置必填，新存的数据一定有）；
+// 没有才兜历史数据：老单段 slot_from/slot_to → 营业时段；都空=全天。
 func (t *Tenant) SlotWindow() []model.HourSeg {
 	if len(t.SlotSegs) > 0 {
 		return t.SlotSegs
@@ -454,22 +444,16 @@ func (t *Tenant) SlotWindow() []model.HourSeg {
 	return t.BusinessHours()
 }
 
-// SetSlotSegs 存放号时间两段（门诊设置）：校验通过才落库；两段全空=清除；
+// SetSlotSegs 存放号时间两段（门诊设置，两段必填）：校验通过才落库；
 // 写入时顺手清掉老单段字段，保证只有一处真源。
 func (s *Service) SetSlotSegs(ctx context.Context, id bson.ObjectID, segs []model.HourSeg) error {
 	norm, err := NormSlotSegs(segs)
 	if err != nil {
 		return err
 	}
-	unset := bson.M{"slot_from": "", "slot_to": ""}
-	if len(norm) == 0 {
-		unset["slot_segs"] = ""
-		_, err = s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$unset": unset})
-		return err
-	}
 	_, err = s.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{
 		"$set":   bson.M{"slot_segs": norm},
-		"$unset": unset,
+		"$unset": bson.M{"slot_from": "", "slot_to": ""},
 	})
 	return err
 }

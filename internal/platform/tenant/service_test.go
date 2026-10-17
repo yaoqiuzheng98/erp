@@ -154,13 +154,13 @@ func TestSetSlotSegsRoundTrip(t *testing.T) {
 	if err := svc.SetSlotSegs(ctx, id, bad); err == nil {
 		t.Fatal("overlap should fail")
 	}
-	// 全空=清除，回落营业时段
-	if err := svc.SetSlotSegs(ctx, id, []model.HourSeg{{}, {}}); err != nil {
-		t.Fatalf("clear: %v", err)
+	// 全空=不合规（放号时间必填），不落库且原值保留
+	if err := svc.SetSlotSegs(ctx, id, []model.HourSeg{{}, {}}); err == nil {
+		t.Fatal("empty should fail")
 	}
 	got, _ = svc.ByID(ctx, id)
-	if len(got.SlotSegs) != 0 {
-		t.Fatalf("after clear = %+v", got.SlotSegs)
+	if len(got.SlotSegs) != 2 || got.SlotSegs[0].Open != "09:00" {
+		t.Fatalf("segs changed after failed save = %+v", got.SlotSegs)
 	}
 	// 非法单段（只有起）不落库
 	if err := svc.SetSlotSegs(ctx, id, []model.HourSeg{{Open: "09:00"}, {}}); err == nil {
