@@ -19,13 +19,13 @@
             <input class="form-control form-control-sm" name="address" value="{{.Data.Tenant.Address}}" placeholder="如 某某路1号2楼"></div>
           <div class="mb-2"><label class="form-label">联系方式 <span class="text-muted">（首页门诊卡展示，营业时间下面）</span></label>
             <input class="form-control form-control-sm" name="contact" value="{{.Data.Tenant.Contact}}" placeholder="如 0755-12345678 或 微信 yayan-dental"></div>
-          <div class="mb-2"><label class="form-label">首页公告 <span class="text-muted">（患者端首页黄色广播条）</span></label>
-            <input class="form-control form-control-sm" name="notice" value="{{.Data.Tenant.Notice}}" placeholder="如 本周二休诊，其余时间正常接诊" required></div>
-          <div class="mb-2"><label class="form-label">公告展示时间 <span class="text-muted">（只在区间内展示，含首尾两天）</span></label>
+          <div class="mb-2"><label class="form-label">首页公告 <span class="text-muted">（患者端首页黄色广播条，留空不展示）</span></label>
+            <input class="form-control form-control-sm" name="notice" value="{{.Data.Tenant.Notice}}" placeholder="如 本周二休诊，其余时间正常接诊"></div>
+          <div class="mb-2"><label class="form-label">公告展示时间 <span class="text-muted">（留空=一直展示；填写后只在区间内展示，含首尾两天）</span></label>
             <div class="d-flex gap-2 align-items-center">
-              <input class="form-control form-control-sm" type="date" name="notice_from" value="{{.Data.Tenant.NoticeFrom}}" required>
+              <input class="form-control form-control-sm" type="date" name="notice_from" value="{{.Data.Tenant.NoticeFrom}}">
               <span class="text-muted small flex-shrink-0">至</span>
-              <input class="form-control form-control-sm" type="date" name="notice_to" value="{{.Data.Tenant.NoticeTo}}" required>
+              <input class="form-control form-control-sm" type="date" name="notice_to" value="{{.Data.Tenant.NoticeTo}}">
             </div></div>
           <div class="form-text mb-2">营业时间已移到「<a href="/admin/settings">门诊设置</a>」按早晚两段维护。</div>
           <div class="mt-2"><button class="btn btn-sm btn-primary">保存</button></div>
