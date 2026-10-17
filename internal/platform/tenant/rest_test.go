@@ -92,21 +92,27 @@ func TestRestWeekTextAndHours(t *testing.T) {
 }
 
 func TestNoticeWindow(t *testing.T) {
-	// 校验归一
-	if _, _, _, err := NormNotice("x", "2026-13-01", ""); err == nil {
+	// 校验归一：内容+起止时间窗都必填
+	if _, _, _, err := NormNotice("", "2026-10-01", "2026-10-07"); err == nil {
+		t.Fatal("empty notice should fail")
+	}
+	if _, _, _, err := NormNotice("x", "", ""); err == nil {
+		t.Fatal("missing window should fail")
+	}
+	if _, _, _, err := NormNotice("x", "2026-13-01", "2026-10-07"); err == nil {
 		t.Fatal("bad date should fail")
 	}
 	if _, _, _, err := NormNotice("x", "2026-10-05", "2026-10-01"); err == nil {
 		t.Fatal("from>to should fail")
 	}
-	n, f, to, err := NormNotice("  欢迎  ", "", "")
-	if err != nil || n != "欢迎" || f != "" || to != "" {
+	n, f, to, err := NormNotice("  欢迎  ", "2026-10-01", "2026-10-07")
+	if err != nil || n != "欢迎" || f != "2026-10-01" || to != "2026-10-07" {
 		t.Fatalf("norm = %q %q %q %v", n, f, to, err)
 	}
-	// 生效窗口：无窗一直展示；有窗含首尾；窗外不展示
+	// 生效窗口：起止都有才展示，含首尾；窗外不展示
 	tn := &Tenant{Notice: "本周二休诊"}
-	if tn.ActiveNotice("2026-10-14") != "本周二休诊" {
-		t.Fatal("no window should always show")
+	if tn.ActiveNotice("2026-10-14") != "" {
+		t.Fatal("no window should hide")
 	}
 	tn.NoticeFrom, tn.NoticeTo = "2026-10-13", "2026-10-15"
 	for _, d := range []string{"2026-10-13", "2026-10-14", "2026-10-15"} {
@@ -119,14 +125,14 @@ func TestNoticeWindow(t *testing.T) {
 			t.Fatalf("out window %s should hide", d)
 		}
 	}
-	// 只有起始 / 只有结束
+	// 只有起始 / 只有结束：无完整时间窗，不展示
 	tn2 := &Tenant{Notice: "x", NoticeFrom: "2026-10-14"}
-	if tn2.ActiveNotice("2026-10-13") != "" || tn2.ActiveNotice("2026-10-20") != "x" {
-		t.Fatal("from-only window wrong")
+	if tn2.ActiveNotice("2026-10-13") != "" || tn2.ActiveNotice("2026-10-20") != "" {
+		t.Fatal("from-only window should hide")
 	}
 	tn3 := &Tenant{Notice: "x", NoticeTo: "2026-10-14"}
-	if tn3.ActiveNotice("2026-10-15") != "" || tn3.ActiveNotice("2026-10-01") != "x" {
-		t.Fatal("to-only window wrong")
+	if tn3.ActiveNotice("2026-10-15") != "" || tn3.ActiveNotice("2026-10-01") != "" {
+		t.Fatal("to-only window should hide")
 	}
 	// 无内容=无公告
 	if (&Tenant{}).ActiveNotice("2026-10-14") != "" {
