@@ -94,19 +94,20 @@ func (s *Service) ClearOpenID(ctx context.Context, tenantID, id bson.ObjectID) e
 	return s.pats.Update(ctx, tenantID, id, bson.M{"open_id": ""})
 }
 
-// Create 建档：按电话自动认领已有患者（有则报错防重），认领不到才新建。
+// Create 建档：姓名+电话必填（电话是患者登录/联系主键，空值成死数据）；
+// 电话租户内已建过则拒绝（提示去找列表已有档案）。
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, p *Patient) error {
 	if p.Name == "" {
 		return errors.New("姓名必填")
 	}
-	// 电话可不填（儿童/老人常见），填了必须合法，否则患者端登录成死数据
-	if p.Phone != "" {
-		if !auth.ValidPhone(p.Phone) {
-			return auth.ErrPhoneInvalid
-		}
-		if n, _ := s.pats.Count(ctx, tenantID, bson.M{"phone": p.Phone}); n > 0 {
-			return errors.New("该电话已建过患者档案")
-		}
+	if p.Phone == "" {
+		return errors.New("电话必填")
+	}
+	if !auth.ValidPhone(p.Phone) {
+		return auth.ErrPhoneInvalid
+	}
+	if n, _ := s.pats.Count(ctx, tenantID, bson.M{"phone": p.Phone}); n > 0 {
+		return errors.New("该电话已建过患者档案")
 	}
 	p.TenantID, p.CreatedAt = tenantID, time.Now()
 	id, err := s.pats.Insert(ctx, tenantID, p)

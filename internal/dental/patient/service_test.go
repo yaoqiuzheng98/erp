@@ -78,3 +78,25 @@ func TestOpenIDUnique(t *testing.T) {
 		t.Fatalf("rebound = %+v %v", got, err)
 	}
 }
+
+// TestCreateRequiresPhone 新建患者名称+电话必填；电话重复拒绝。
+func TestCreateRequiresPhone(t *testing.T) {
+	svc, _, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	if err := svc.Create(ctx, tid, &Patient{Name: "无电话"}); err == nil {
+		t.Fatal("empty phone should fail")
+	}
+	if err := svc.Create(ctx, tid, &Patient{Phone: "13900000021"}); err == nil {
+		t.Fatal("empty name should fail")
+	}
+	if err := svc.Create(ctx, tid, &Patient{Name: "格式错", Phone: "123"}); err == nil {
+		t.Fatal("bad phone should fail")
+	}
+	first := &Patient{Name: "张三", Phone: "13900000021"}
+	if err := svc.Create(ctx, tid, first); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Create(ctx, tid, &Patient{Name: "张三二", Phone: "13900000021"}); err == nil {
+		t.Fatal("duplicate phone should fail")
+	}
+}

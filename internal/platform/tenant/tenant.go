@@ -49,9 +49,9 @@ type Tenant struct {
 	RestDates []string `bson:"rest_dates,omitempty"`
 	// Notice 首页公告（患者端首页黄色广播条）；NoticeFrom/NoticeTo 展示时间窗
 	// （YYYY-MM-DD，含首尾）：留空=一直展示，填了只在窗口内展示。
-	Notice      string    `bson:"notice,omitempty"`
-	NoticeFrom  string    `bson:"notice_from,omitempty"`
-	NoticeTo    string    `bson:"notice_to,omitempty"`
+	Notice     string `bson:"notice,omitempty"`
+	NoticeFrom string `bson:"notice_from,omitempty"`
+	NoticeTo   string `bson:"notice_to,omitempty"`
 	// WechatAppID 绑定的微信小程序 AppID（门诊设置维护）：小程序请求带该
 	// appid 头时，后端按它解析租户（URL 里 tid 仅兼容保留）。空=未绑定。
 	WechatAppID string    `bson:"wechat_appid,omitempty"`
