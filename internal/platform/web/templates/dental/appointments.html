@@ -104,6 +104,16 @@
         .week-grid th.week-time, .week-grid td.week-time { position: sticky; left: 0; background: #fff; z-index: 2; }
         .cell-add { cursor: pointer; min-height: 2.2em; border: 1px dashed #d7e0dc; border-radius: .375rem; color: #b9cdc4; display: flex; align-items: center; justify-content: center; }
         .cell-add:hover { background: #f2f8f5; color: #45b498; border-color: #45b498; }
+        /* 医生底色：同医生同色，前台一眼分清；左侧粗边方便扫视 */
+        .doc-bg-0 { background: #e6f4f1 !important; border-left: 4px solid #0d9488 !important; }
+        .doc-bg-1 { background: #e8f0fe !important; border-left: 4px solid #3b82f6 !important; }
+        .doc-bg-2 { background: #fff4e0 !important; border-left: 4px solid #f59e0b !important; }
+        .doc-bg-3 { background: #fdeaf1 !important; border-left: 4px solid #ec4899 !important; }
+        .doc-bg-4 { background: #f1ebff !important; border-left: 4px solid #8b5cf6 !important; }
+        .doc-bg-5 { background: #e9f9ee !important; border-left: 4px solid #22c55e !important; }
+        .doc-bg-6 { background: #fff0e6 !important; border-left: 4px solid #f97316 !important; }
+        .doc-bg-7 { background: #e6f7fb !important; border-left: 4px solid #06b6d4 !important; }
+        .doc-bg-unknown { background: #f8f9fa !important; border-left: 4px solid #ced4da !important; }
         /* 今天整列淡绿底，一眼定位 */
         .week-grid th.today-col { background: #dff0e9; }
         .week-grid td.today-col { background: #edf7f2; }
@@ -125,7 +135,7 @@
           {{$d := index $.Data.Days $i}}
           <td class="align-top{{if $d.IsToday}} today-col{{end}}">
             {{range $cell}}
-            <div class="border rounded p-1 mb-1 bg-light">
+            <div class="border rounded p-1 mb-1 {{index $.Data.ApptColors (hex .ID)}}">
               <div class="d-flex align-items-center gap-1">
                 <div class="small flex-fill text-truncate">医生：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
                 <span class="badge {{.Badge}} flex-shrink-0">{{.StatusName}}</span>
@@ -136,7 +146,7 @@
             </div>
             {{end}}
             {{range index $r.Covers $i}}
-            <div class="border rounded p-1 mb-1 text-muted small" style="border-style:dashed!important;background:#fbfdfc">
+            <div class="border rounded p-1 mb-1 text-muted small {{index $.Data.ApptColors (hex .ID)}}" style="border-style:dashed!important">
               <div class="text-truncate">占用：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
               <div class="text-truncate"><a class="text-muted" href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a> · {{.Slot}}-{{.EndSlot}}</div>
             </div>

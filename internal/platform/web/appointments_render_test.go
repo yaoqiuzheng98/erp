@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"erp/internal/dental/appointment"
+	"erp/internal/platform/model"
 	"erp/internal/platform/tenant"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 // renderDay/renderRow 与 handler 里的 week 视图数据同形（模板按字段名取值）。
@@ -35,6 +37,7 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 		t.Fatalf("build templates: %v", err)
 	}
 	a := appointment.Appointment{
+		Doc:  model.Doc{ID: bson.NewObjectID()},
 		Slot: "08:30", EndSlot: "12:00",
 		PatientName: "长单患者", Doctor: "郑医生", Status: appointment.Booked,
 	}
@@ -55,6 +58,7 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 			"Patients": nil, "Doctors": nil, "DoctorCount": 1,
 			"Slots":       []appointment.Slot{{Value: "08:30", Label: "08:30-09:00"}},
 			"SlotMinutes": 30, "SlotSegs": nil,
+			"ApptColors": map[string]string{a.ID.Hex(): "doc-bg-1"},
 		},
 	}
 	var buf bytes.Buffer
@@ -65,6 +69,15 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\""} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("appointments missing %q", want)
+		}
+	}
+	// 同医生底色：起始卡片和覆盖格都带同一个色 class。
+	for _, want := range []string{
+		`class="border rounded p-1 mb-1 doc-bg-1"`,
+		`class="border rounded p-1 mb-1 text-muted small doc-bg-1"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("appointments missing doctor color %q", want)
 		}
 	}
 }
