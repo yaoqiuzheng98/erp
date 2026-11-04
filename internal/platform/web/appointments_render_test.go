@@ -66,10 +66,13 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 		t.Fatalf("render dental/appointments: %v", err)
 	}
 	html := buf.String()
-	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\""} {
+	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\"", "占用到（含该档）", "先选到诊时段"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("appointments missing %q", want)
 		}
+	}
+	if strings.Contains(html, ">1 档<") {
+		t.Fatal("appointments should not render static duration options")
 	}
 	// 同医生底色：起始卡片和覆盖格都带同一个色 class。
 	for _, want := range []string{

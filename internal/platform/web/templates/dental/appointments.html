@@ -63,20 +63,12 @@
                 </select></div>
             </div>
             <div class="row g-2 mt-1">
-              <div class="col-6"><label class="form-label">占用时长</label>
-                <select class="form-select form-select-sm" id="appt-span" title="手术/长治疗可占多个档">
-                  <option value="1">1 档</option>
-                  <option value="2">2 档</option>
-                  <option value="3">3 档</option>
-                  <option value="4">4 档</option>
-                  <option value="6">6 档</option>
-                  <option value="8">8 档</option>
-                  <option value="seg">到本时段结束</option>
-                </select>
+              <div class="col-6"><label class="form-label">占用到（含该档）</label>
+                <select class="form-select form-select-sm" id="appt-span" title="选择终止档位（含该档）；默认只占到诊时段" disabled></select>
                 <input type="hidden" name="end_slot" id="appt-end-slot">
               </div>
               <div class="col-6 d-flex align-items-end">
-                <div class="small text-muted pb-1" id="appt-span-hint">未选时段时默认 1 档</div>
+                <div class="small text-muted pb-1" id="appt-span-hint">先选到诊时段</div>
               </div>
             </div>
           </div>
@@ -162,7 +154,7 @@
         </tbody>
       </table></div>
       <script>
-        // 长时段：按时段起点 + 占用档数算出结束时间（手术等占多个号，仅后台可用）。
+        // 长时段：按到诊档生成"终止档位"选项（值是结束时刻，文案是档位区间）。
         var slotMinutes = {{.Data.SlotMinutes}};
         var segs = [{{range $i, $s := .Data.SlotSegs}}{{if $i}},{{end}}["{{$s.Open}}","{{$s.Close}}"]{{end}}];
         var startSel = document.getElementById('appt-slot');
@@ -176,35 +168,70 @@
         function min2hm(m) {
           return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2);
         }
-        function refreshSpan() {
-          var s = hm2min(startSel.value);
+        // 重建终止档位：只生成到诊档所在放号时段内的档，选中即占到该档结束。
+        function buildSpanOptions() {
+          var start = startSel.value;
+          var s = hm2min(start);
+          spanSel.innerHTML = '';
           if (s < 0) {
+            spanSel.disabled = true;
             endInput.value = '';
-            spanHint.textContent = '未选时段时默认 1 档';
+            spanHint.textContent = '先选到诊时段';
             return;
           }
-          var e;
-          if (spanSel.value === 'seg') {
-            var seg = segs.find(function (g) { return hm2min(g[0]) <= s && s < hm2min(g[1]); });
-            e = seg ? hm2min(seg[1]) : s + slotMinutes;
-          } else {
-            e = s + (parseInt(spanSel.value, 10) || 1) * slotMinutes;
+          spanSel.disabled = false;
+          var seg = null;
+          for (var k = 0; k < segs.length; k++) {
+            if (hm2min(segs[k][0]) <= s && s < hm2min(segs[k][1])) { seg = segs[k]; break; }
+          }
+          var limit = seg ? hm2min(seg[1]) : 24 * 60;
+          var opts = startSel.options;
+          var i0 = 0;
+          for (var i = 0; i < opts.length; i++) {
+            if (opts[i].value && opts[i].value === start) { i0 = i; break; }
+          }
+          for (var j = i0; j < opts.length; j++) {
+            if (!opts[j].value) { continue; }
+            var st = hm2min(opts[j].value);
+            var en = st + slotMinutes;
+            if (st < s) { continue; }
+            if (en > limit) { break; }
+            var o = document.createElement('option');
+            o.value = min2hm(en);
+            o.textContent = opts[j].value + '-' + min2hm(en);
+            spanSel.appendChild(o);
+          }
+          if (!spanSel.options.length) {
+            var only = document.createElement('option');
+            only.value = min2hm(s + slotMinutes);
+            only.textContent = start + '-' + min2hm(s + slotMinutes);
+            spanSel.appendChild(only);
+          }
+          spanSel.selectedIndex = 0;
+          refreshSpanHint();
+        }
+        function refreshSpanHint() {
+          var s = hm2min(startSel.value);
+          var e = hm2min(spanSel.value);
+          if (s < 0 || e <= s) {
+            endInput.value = '';
+            spanHint.textContent = s < 0 ? '先选到诊时段' : '';
+            return;
           }
           endInput.value = min2hm(e);
-          spanHint.textContent = startSel.value + '-' + min2hm(e) + '，共 ' + Math.round((e - s) / slotMinutes) + ' 档';
+          spanHint.textContent = '占用 ' + startSel.value + '-' + min2hm(e);
         }
-        startSel.addEventListener('change', refreshSpan);
-        spanSel.addEventListener('change', refreshSpan);
-        refreshSpan();
+        startSel.addEventListener('change', buildSpanOptions);
+        spanSel.addEventListener('change', refreshSpanHint);
+        buildSpanOptions();
 
         // 点空格子：按该格日期+档位预填新建预约弹窗（一行一档，直接选中该档）。
         document.querySelectorAll('.cell-add').forEach(function (el) {
           function open() {
             document.getElementById('appt-date').value = el.dataset.date;
             document.getElementById('appt-slot').value = el.dataset.slot || '';
-            // 点空格子默认新建单档，避免沿用上一次的“到本时段结束”误占半天。
-            spanSel.value = '1';
-            refreshSpan();
+            // 点空格子默认只占到诊档，避免沿用上一次选的终止档位。
+            buildSpanOptions();
             bootstrap.Modal.getOrCreateInstance(document.getElementById('apptModal')).show();
           }
           el.addEventListener('click', open);
