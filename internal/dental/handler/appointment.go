@@ -206,7 +206,40 @@ func (h *Handler) appointments(c *gin.Context) {
 		"Slots":       slots,
 		"SlotMinutes": slotMinutes,
 		"SlotSegs":    window,
+		"ApptColors":  apptColors(list, docs),
 	})
+}
+
+// doctorPalette 医生卡片底色（按可接诊医生顺序轮转，保证同屏医生颜色不同）。
+var doctorPalette = []string{
+	"doc-bg-0", "doc-bg-1", "doc-bg-2", "doc-bg-3",
+	"doc-bg-4", "doc-bg-5", "doc-bg-6", "doc-bg-7",
+}
+
+// apptColors 预约 → 医生底色 class。同医生同色；不在册/无医生的用中性色。
+func apptColors(list []appointment.Appointment, docs []auth.User) map[string]string {
+	byID := make(map[string]string, len(docs))
+	byName := make(map[string]string, len(docs))
+	for i, u := range docs {
+		cls := doctorPalette[i%len(doctorPalette)]
+		byID[u.ID.Hex()] = cls
+		byName[u.Name] = cls
+	}
+	out := make(map[string]string, len(list))
+	for _, a := range list {
+		cls := ""
+		if !a.DoctorID.IsZero() {
+			cls = byID[a.DoctorID.Hex()]
+		}
+		if cls == "" {
+			cls = byName[a.Doctor]
+		}
+		if cls == "" {
+			cls = "doc-bg-unknown"
+		}
+		out[a.ID.Hex()] = cls
+	}
+	return out
 }
 
 // treatUsers 可接诊医生列表（前台补录医生下拉用）。
