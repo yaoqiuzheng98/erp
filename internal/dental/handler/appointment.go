@@ -45,10 +45,12 @@ type dayCol struct {
 
 // slotRow 周视图行：一个放号档一行 + 7 天格子（与 Days 下标对齐）。
 type slotRow struct {
-	Slot  string // 档起点 HH:MM（快捷新建预填用）；区间外/未定时为空
-	Label string // 展示区间（如 08:30-09:00）
-	Extra bool   // 区间外历史档/未定时：只展示，不给快捷新建
-	Cells [7][]appointment.Appointment
+	Slot   string                       // 档起点 HH:MM（快捷新建预填用）；区间外/未定时为空
+	Label  string                       // 展示区间（如 08:30-09:00）
+	Extra  bool                         // 区间外历史档/未定时：只展示，不给快捷新建
+	Cells  [7][]appointment.Appointment // 起始档卡片（全部状态）
+	Covers [7][]appointment.Appointment // 被长单覆盖的后续档（仅 booked）
+	Used   [7]int                       // 该档已占用的 booked 单数（判断还能否加号）
 }
 
 var weekdays = []string{"周一", "周二", "周三", "周四", "周五", "周六", "周日"}
@@ -102,19 +104,23 @@ func (h *Handler) appointments(c *gin.Context) {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	today := tz.Today()
-	dayIdx := map[string]int{}
-	cols := make([]dayCol, 7)
-	for i, d := range days {
-		dayIdx[d] = i
-		cols[i] = dayCol{Date: d, Weekday: weekdays[i], IsToday: d == today}
-	}
 	// 放号档：一行一档，时间列展示区间（与门诊配置的放号时间范围一致）。
 	slotMinutes := appointment.DefaultSlotMinutes
 	var window []model.HourSeg
 	if t := mw.Tenant(c); t != nil {
 		slotMinutes, _ = t.SlotConfig()
 		window = t.SlotWindow()
+	}
+	// 老单没存结束时间：按当前粒度补一个内存值，模板统一按 [slot,end_slot) 展示。
+	for i := range list {
+		list[i].NormalizeEnd(slotMinutes)
+	}
+	today := tz.Today()
+	dayIdx := map[string]int{}
+	cols := make([]dayCol, 7)
+	for i, d := range days {
+		dayIdx[d] = i
+		cols[i] = dayCol{Date: d, Weekday: weekdays[i], IsToday: d == today}
 	}
 	slots := appointment.DaySlotsIn(slotMinutes, window)
 	rows := make([]slotRow, 0, len(slots)+4)
@@ -132,11 +138,10 @@ func (h *Handler) appointments(c *gin.Context) {
 			continue
 		}
 		cols[i].Total++
-		if j, ok := idx[a.Slot]; ok {
+		j, onGrid := idx[a.Slot]
+		if onGrid {
 			rows[j].Cells[i] = append(rows[j].Cells[i], a)
-			continue
-		}
-		if isHHMM(a.Slot) {
+		} else if isHHMM(a.Slot) {
 			r := extras[a.Slot]
 			if r == nil {
 				r = &slotRow{Label: slotRangeLabel(a.Slot, slotMinutes), Extra: true}
@@ -148,6 +153,28 @@ func (h *Handler) appointments(c *gin.Context) {
 				untimed = &slotRow{Label: "未定时", Extra: true}
 			}
 			untimed.Cells[i] = append(untimed.Cells[i], a)
+		}
+		// 长单占后续档：只标 booked，覆盖格给前台看，避免误加号。
+		// 区间外历史档也按重叠标到周视图，避免患者端显示已占、前台却看不到。
+		if a.Status != appointment.Booked {
+			continue
+		}
+		start := appointment.SlotStart(a.Slot)
+		if start < 0 {
+			continue
+		}
+		end := a.EndMinutes(slotMinutes)
+		for k := range rows {
+			ks := appointment.SlotStart(rows[k].Slot)
+			if ks < 0 {
+				continue
+			}
+			if ks < end && ks+slotMinutes > start {
+				rows[k].Used[i]++
+				if !onGrid || k != j {
+					rows[k].Covers[i] = append(rows[k].Covers[i], a)
+				}
+			}
 		}
 	}
 	extraKeys := make([]string, 0, len(extras))
@@ -177,7 +204,42 @@ func (h *Handler) appointments(c *gin.Context) {
 		// 可接诊医生数：一个档最多这么多单，格子没约满就还能"+新建"。
 		"DoctorCount": len(docs),
 		"Slots":       slots,
+		"SlotMinutes": slotMinutes,
+		"SlotSegs":    window,
+		"ApptColors":  apptColors(list, docs),
 	})
+}
+
+// doctorPalette 医生卡片底色（按可接诊医生顺序轮转，保证同屏医生颜色不同）。
+var doctorPalette = []string{
+	"doc-bg-0", "doc-bg-1", "doc-bg-2", "doc-bg-3",
+	"doc-bg-4", "doc-bg-5", "doc-bg-6", "doc-bg-7",
+}
+
+// apptColors 预约 → 医生底色 class。同医生同色；不在册/无医生的用中性色。
+func apptColors(list []appointment.Appointment, docs []auth.User) map[string]string {
+	byID := make(map[string]string, len(docs))
+	byName := make(map[string]string, len(docs))
+	for i, u := range docs {
+		cls := doctorPalette[i%len(doctorPalette)]
+		byID[u.ID.Hex()] = cls
+		byName[u.Name] = cls
+	}
+	out := make(map[string]string, len(list))
+	for _, a := range list {
+		cls := ""
+		if !a.DoctorID.IsZero() {
+			cls = byID[a.DoctorID.Hex()]
+		}
+		if cls == "" {
+			cls = byName[a.Doctor]
+		}
+		if cls == "" {
+			cls = "doc-bg-unknown"
+		}
+		out[a.ID.Hex()] = cls
+	}
+	return out
 }
 
 // treatUsers 可接诊医生列表（前台补录医生下拉用）。
@@ -192,9 +254,11 @@ func (h *Handler) createAppt(c *gin.Context) {
 	a := &appointment.Appointment{
 		PatientID: patID,
 		Date:      c.PostForm("date"), Slot: c.PostForm("slot"),
+		EndSlot:  c.PostForm("end_slot"),
 		DoctorID: did,
 	}
-	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes}
+	// 后台可建长时段（手术等占多个档）；患者端入口不传 end_slot，仍是一档一单。
+	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes, AllowSpan: true}
 	tid := mw.TenantID(c)
 	if t := mw.Tenant(c); t != nil {
 		opts.Minutes, _ = t.SlotConfig()
@@ -211,10 +275,10 @@ func (h *Handler) createAppt(c *gin.Context) {
 	if err := h.appts.Create(c.Request.Context(), tid, a, opts); err != nil {
 		slog.Error("backoffice appt failed", "tenant", tid.Hex(),
 			"patient", a.PatientID.Hex(), "doctor", a.DoctorID.Hex(),
-			"date", a.Date, "slot", a.Slot, "err", err)
+			"date", a.Date, "slot", a.Slot, "end_slot", a.EndSlot, "err", err)
 		web.SetFlash(c, "创建失败: "+err.Error())
 	} else {
-		h.audit(c, audit.ActApptCreate, a.PatientName+" "+a.Date+" "+a.Slot, "")
+		h.audit(c, audit.ActApptCreate, a.PatientName+" "+a.Date+" "+a.Slot+"-"+a.EndSlot, "")
 		web.SetFlash(c, "已预约")
 	}
 	c.Redirect(http.StatusFound, "/app/appointments")

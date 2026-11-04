@@ -285,14 +285,15 @@ func (h *API) availability(c *gin.Context) {
 	}
 	// 余量按医生统计（一个时段一个医生一单）；不传 doctor 则统计全诊所。
 	doctorID, _ := bson.ObjectIDFromHex(c.Query("doctor"))
-	days, err := h.appts.BookedCounts(c.Request.Context(), mw.TenantID(c), from, to, doctorID)
+	slots := appointment.DaySlotsIn(minutes, biz)
+	days, err := h.appts.BookedCounts(c.Request.Context(), mw.TenantID(c), from, to, doctorID, minutes, slots)
 	if err != nil {
 		fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	ok(c, gin.H{
 		"slot_minutes": minutes, "slot_capacity": 1, // 每医生每档 1 单（固定）
-		"slots": appointment.DaySlotsIn(minutes, biz), "days": days, "rests": rests,
+		"slots": slots, "days": days, "rests": rests,
 	})
 }
 
@@ -302,7 +303,7 @@ func plusDays(day string, n int) string {
 	return d.AddDate(0, 0, n).Format("2006-01-02")
 }
 
-// clinic 诊所信息（公开）：名称/地址/营业时间/首页两图位（患者端首页展示用）。
+// clinic 诊所信息（公开）：名称/地址/营业时间/首页图位（患者端首页展示用）。
 func (h *API) clinic(c *gin.Context) {
 	t := mw.Tenant(c)
 	if t == nil {
@@ -313,6 +314,7 @@ func (h *API) clinic(c *gin.Context) {
 		"name": t.Name, "address": t.Address, "hours": t.HoursText(), "contact": t.Contact,
 		"notice":     t.ActiveNotice(tz.Today()), // 过了展示时间窗自动不返回，前端不用管
 		"hero_image": t.HeroImage, "clinic_image": t.ClinicImage,
+		"parking_image": t.ParkingImage,
 	})
 }
 
@@ -347,7 +349,7 @@ func (h *API) myAppointments(c *gin.Context) {
 
 func apptJSON(a appointment.Appointment) gin.H {
 	return gin.H{
-		"id": a.ID.Hex(), "date": a.Date, "slot": a.Slot,
+		"id": a.ID.Hex(), "date": a.Date, "slot": a.Slot, "end_slot": a.EndSlot,
 		"doctor": a.Doctor, "no": a.No,
 		"status": a.Status, "status_name": a.StatusName(),
 	}

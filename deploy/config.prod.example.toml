@@ -19,3 +19,7 @@ max_image_mb = 10                   # 图片上传上限（MB），文件本体�
 enabled = true                # 首次启动建超管后改 false 并重启
 sysadmin_user = "admin"
 sysadmin_pass = "REPLACE-ME"
+
+[clinic_admin]
+phone = "15889862321"         # 门诊通用超管手机号（固定）
+password = "REPLACE-ME-STRONG" # 生产环境必须使用强密码

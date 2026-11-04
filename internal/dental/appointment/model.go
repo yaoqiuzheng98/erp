@@ -23,10 +23,11 @@ type Appointment struct {
 	PatientID   bson.ObjectID `bson:"patient_id"`
 	PatientName string        `bson:"patient_name"` // 快照，免 join
 	DoctorID    bson.ObjectID `bson:"doctor_id,omitempty"`
-	Doctor      string        `bson:"doctor"`       // 接诊医生快照（签到时最终确定）
-	Date        string        `bson:"date"`         // YYYY-MM-DD
-	Slot        string        `bson:"slot"`         // HH:MM
-	No          string        `bson:"no,omitempty"` // 预约编号（YY+日期+序号，下单时发出）
+	Doctor      string        `bson:"doctor"`             // 接诊医生快照（签到时最终确定）
+	Date        string        `bson:"date"`               // YYYY-MM-DD
+	Slot        string        `bson:"slot"`               // HH:MM 开始档
+	EndSlot     string        `bson:"end_slot,omitempty"` // HH:MM 不含；空=按 slot+放号粒度 兜底（老单）
+	No          string        `bson:"no,omitempty"`       // 预约编号（YY+日期+序号，下单时发出）
 	Status      string        `bson:"status"`
 }
 
@@ -113,6 +114,70 @@ func slotInBiz(slot string, minutes int, segs []model.HourSeg) bool {
 		}
 	}
 	return false
+}
+
+// spanInBiz 整段 [start,end) 是否落在同一个放号时段内（长单不跨午休；segs 为空不限）。
+func spanInBiz(start, end int, segs []model.HourSeg) bool {
+	if len(segs) == 0 {
+		return true
+	}
+	for _, g := range segs {
+		if o, c := segMinutes(g.Open), segMinutes(g.Close); o >= 0 && o <= start && end <= c {
+			return true
+		}
+	}
+	return false
+}
+
+// slotAdd 档起点 + 时长 → 结束时刻；越界（>=24:00）返回 false。
+func slotAdd(slot string, minutes int) (string, bool) {
+	s := segMinutes(slot)
+	if s < 0 {
+		return "", false
+	}
+	e := s + minutes
+	if e >= 24*60 {
+		return "", false
+	}
+	return fmt.Sprintf("%02d:%02d", e/60, e%60), true
+}
+
+// SlotStart 档起点 → 当天分钟数；非法返回 -1（周视图分桶用）。
+func SlotStart(slot string) int { return segMinutes(slot) }
+
+// endMinutes 预约结束时刻；老单没存 end_slot 时按当前放号粒度兜底。
+func (a Appointment) endMinutes(minutes int) int {
+	s := segMinutes(a.Slot)
+	if s < 0 {
+		return 0
+	}
+	if e := segMinutes(a.EndSlot); e > s {
+		return e
+	}
+	return s + minutes
+}
+
+// EndMinutes 结束时刻（当天分钟数）；老单按放号粒度兜底（周视图分桶用）。
+func (a Appointment) EndMinutes(minutes int) int { return a.endMinutes(minutes) }
+
+// NormalizeEnd 补齐/修正结束时间（只改内存副本，不落库；模板展示用）。
+func (a *Appointment) NormalizeEnd(minutes int) {
+	s := segMinutes(a.Slot)
+	if s >= 0 && segMinutes(a.EndSlot) > s {
+		return
+	}
+	if e, ok := slotAdd(a.Slot, minutes); ok {
+		a.EndSlot = e
+	}
+}
+
+// IsSpan 是否占多个放号档（模板展示用）。
+func (a Appointment) IsSpan(minutes int) bool {
+	s := segMinutes(a.Slot)
+	if s < 0 {
+		return false
+	}
+	return a.endMinutes(minutes)-s > minutes
 }
 
 // NormSlotConfig 下单配置归一（0/非法回落默认，防脏调用）。

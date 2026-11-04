@@ -62,6 +62,15 @@
                   {{range .Data.Slots}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
                 </select></div>
             </div>
+            <div class="row g-2 mt-1">
+              <div class="col-6"><label class="form-label">占用到（含该档）</label>
+                <select class="form-select form-select-sm" id="appt-span" title="选择终止档位（含该档）；默认只占到诊时段" disabled></select>
+                <input type="hidden" name="end_slot" id="appt-end-slot">
+              </div>
+              <div class="col-6 d-flex align-items-end">
+                <div class="small text-muted pb-1" id="appt-span-hint">先选到诊时段</div>
+              </div>
+            </div>
           </div>
           <div class="modal-footer"><button class="btn btn-sm btn-primary">预约</button></div>
         </form>
@@ -87,16 +96,30 @@
         .week-grid th.week-time, .week-grid td.week-time { position: sticky; left: 0; background: #fff; z-index: 2; }
         .cell-add { cursor: pointer; min-height: 2.2em; border: 1px dashed #d7e0dc; border-radius: .375rem; color: #b9cdc4; display: flex; align-items: center; justify-content: center; }
         .cell-add:hover { background: #f2f8f5; color: #45b498; border-color: #45b498; }
+        /* 医生底色：同医生同色，前台一眼分清；左侧粗边方便扫视 */
+        .doc-bg-0 { background: #e6f4f1 !important; border-left: 4px solid #0d9488 !important; }
+        .doc-bg-1 { background: #e8f0fe !important; border-left: 4px solid #3b82f6 !important; }
+        .doc-bg-2 { background: #fff4e0 !important; border-left: 4px solid #f59e0b !important; }
+        .doc-bg-3 { background: #fdeaf1 !important; border-left: 4px solid #ec4899 !important; }
+        .doc-bg-4 { background: #f1ebff !important; border-left: 4px solid #8b5cf6 !important; }
+        .doc-bg-5 { background: #e9f9ee !important; border-left: 4px solid #22c55e !important; }
+        .doc-bg-6 { background: #fff0e6 !important; border-left: 4px solid #f97316 !important; }
+        .doc-bg-7 { background: #e6f7fb !important; border-left: 4px solid #06b6d4 !important; }
+        .doc-bg-unknown { background: #f8f9fa !important; border-left: 4px solid #ced4da !important; }
+        /* 长单连接线：卡片右侧留出细线通道，线从卡片右边折下去，再折回每个占用格 */
+        .week-canvas { position: relative; display: inline-block; min-width: 100%; }
+        .week-links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+        .appt-card, .appt-cover, .cell-add { margin-right: 12px; }
         /* 今天整列淡绿底，一眼定位 */
         .week-grid th.today-col { background: #dff0e9; }
         .week-grid td.today-col { background: #edf7f2; }
         .week-grid td.today-col .cell-add { background: #fff; }
       </style>
-      <div class="table-responsive"><table class="table table-sm bg-white align-middle week-grid" style="min-width:76em">
+      <div class="table-responsive"><div class="week-canvas"><table class="table table-sm bg-white align-middle week-grid" style="min-width:76em">
         <thead><tr>
           <th class="week-time">时间</th>
           {{range .Data.Days}}
-          <th class="{{if .IsToday}}text-primary today-col{{end}}">{{.Date}} {{.Weekday}}{{if .IsToday}} ·今天{{end}}<br><small class="text-muted fw-normal">{{.Total}} 单</small></th>
+          <th class="{{if .IsToday}}text-primary today-col{{end}}">{{.Date}} {{.Weekday}}<br><small class="text-muted fw-normal">{{.Total}} 单</small></th>
           {{end}}
         </tr></thead>
         <tbody>
@@ -108,16 +131,23 @@
           {{$d := index $.Data.Days $i}}
           <td class="align-top{{if $d.IsToday}} today-col{{end}}">
             {{range $cell}}
-            <div class="border rounded p-1 mb-1 bg-light">
+            <div class="border rounded p-1 mb-1 appt-card {{index $.Data.ApptColors (hex .ID)}}" data-appt-id="{{hex .ID}}">
               <div class="d-flex align-items-center gap-1">
                 <div class="small flex-fill text-truncate">医生：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
                 <span class="badge {{.Badge}} flex-shrink-0">{{.StatusName}}</span>
               </div>
               <div class="small mt-1 text-truncate"><a href="/app/patients/{{hex .PatientID}}">患者：{{.PatientName}}</a></div>
+              {{if .IsSpan $.Data.SlotMinutes}}<div class="small text-muted text-truncate">时间：{{.Slot}}-{{.EndSlot}}</div>{{end}}
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
-            {{if and (not $r.Extra) (or (eq $.Data.DoctorCount 0) (lt (len $cell) $.Data.DoctorCount))}}
+            {{range index $r.Covers $i}}
+            <div class="border rounded p-1 mb-1 appt-cover text-muted small {{index $.Data.ApptColors (hex .ID)}}" data-appt-id="{{hex .ID}}" style="border-style:dashed!important">
+              <div class="text-truncate">占用：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
+              <div class="text-truncate"><a class="text-muted" href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a> · {{.Slot}}-{{.EndSlot}}</div>
+            </div>
+            {{end}}
+            {{if and (not $r.Extra) (not (pastSlot $d.Date $r.Slot)) (or (eq $.Data.DoctorCount 0) (lt (index $r.Used $i) $.Data.DoctorCount))}}
             <div class="cell-add" data-date="{{$d.Date}}" data-slot="{{$r.Slot}}" role="button" tabindex="0"
                  title="点此为 {{$d.Date}} {{$r.Label}} 新建预约">＋</div>
             {{end}}
@@ -126,13 +156,86 @@
         </tr>
         {{end}}
         </tbody>
-      </table></div>
+      </table><svg class="week-links" aria-hidden="true"></svg></div></div>
       <script>
+        // 长时段：按到诊档生成"终止档位"选项（值是结束时刻，文案是档位区间）。
+        var slotMinutes = {{.Data.SlotMinutes}};
+        var segs = [{{range $i, $s := .Data.SlotSegs}}{{if $i}},{{end}}["{{$s.Open}}","{{$s.Close}}"]{{end}}];
+        var startSel = document.getElementById('appt-slot');
+        var spanSel = document.getElementById('appt-span');
+        var endInput = document.getElementById('appt-end-slot');
+        var spanHint = document.getElementById('appt-span-hint');
+        function hm2min(v) {
+          var p = (v || '').split(':');
+          return p.length === 2 ? (+p[0]) * 60 + (+p[1]) : -1;
+        }
+        function min2hm(m) {
+          return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2);
+        }
+        // 重建终止档位：只生成到诊档所在放号时段内的档，选中即占到该档结束。
+        function buildSpanOptions() {
+          var start = startSel.value;
+          var s = hm2min(start);
+          spanSel.innerHTML = '';
+          if (s < 0) {
+            spanSel.disabled = true;
+            endInput.value = '';
+            spanHint.textContent = '先选到诊时段';
+            return;
+          }
+          spanSel.disabled = false;
+          var seg = null;
+          for (var k = 0; k < segs.length; k++) {
+            if (hm2min(segs[k][0]) <= s && s < hm2min(segs[k][1])) { seg = segs[k]; break; }
+          }
+          var limit = seg ? hm2min(seg[1]) : 24 * 60;
+          var opts = startSel.options;
+          var i0 = 0;
+          for (var i = 0; i < opts.length; i++) {
+            if (opts[i].value && opts[i].value === start) { i0 = i; break; }
+          }
+          for (var j = i0; j < opts.length; j++) {
+            if (!opts[j].value) { continue; }
+            var st = hm2min(opts[j].value);
+            var en = st + slotMinutes;
+            if (st < s) { continue; }
+            if (en > limit) { break; }
+            var o = document.createElement('option');
+            o.value = min2hm(en);
+            o.textContent = opts[j].value + '-' + min2hm(en);
+            spanSel.appendChild(o);
+          }
+          if (!spanSel.options.length) {
+            var only = document.createElement('option');
+            only.value = min2hm(s + slotMinutes);
+            only.textContent = start + '-' + min2hm(s + slotMinutes);
+            spanSel.appendChild(only);
+          }
+          spanSel.selectedIndex = 0;
+          refreshSpanHint();
+        }
+        function refreshSpanHint() {
+          var s = hm2min(startSel.value);
+          var e = hm2min(spanSel.value);
+          if (s < 0 || e <= s) {
+            endInput.value = '';
+            spanHint.textContent = s < 0 ? '先选到诊时段' : '';
+            return;
+          }
+          endInput.value = min2hm(e);
+          spanHint.textContent = '占用 ' + startSel.value + '-' + min2hm(e);
+        }
+        startSel.addEventListener('change', buildSpanOptions);
+        spanSel.addEventListener('change', refreshSpanHint);
+        buildSpanOptions();
+
         // 点空格子：按该格日期+档位预填新建预约弹窗（一行一档，直接选中该档）。
         document.querySelectorAll('.cell-add').forEach(function (el) {
           function open() {
             document.getElementById('appt-date').value = el.dataset.date;
             document.getElementById('appt-slot').value = el.dataset.slot || '';
+            // 点空格子默认只占到诊档，避免沿用上一次选的终止档位。
+            buildSpanOptions();
             bootstrap.Modal.getOrCreateInstance(document.getElementById('apptModal')).show();
           }
           el.addEventListener('click', open);
@@ -140,6 +243,74 @@
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
           });
         });
+
+        // 长单连接线：从预约卡片右侧折出，沿右侧通道下行，再折回每个占用格。
+        // 线走卡片右侧留白，不盖同一天的其他卡片；医生色号错开通道，减少多条线重叠。
+        function drawLinks() {
+          var canvas = document.querySelector('.week-canvas');
+          var svg = canvas ? canvas.querySelector('.week-links') : null;
+          if (!canvas || !svg) return;
+          svg.innerHTML = '';
+          var cr = canvas.getBoundingClientRect();
+          var w = canvas.offsetWidth;
+          var h = canvas.offsetHeight;
+          if (!w || !h) return;
+          svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+          var groups = {};
+          var cards = document.querySelectorAll('.appt-card, .appt-cover');
+          for (var i = 0; i < cards.length; i++) {
+            var el = cards[i];
+            var id = el.getAttribute('data-appt-id');
+            if (!id) continue;
+            var g = groups[id] || (groups[id] = { start: null, covers: [] });
+            if (el.classList.contains('appt-card')) g.start = el;
+            else g.covers.push(el);
+          }
+          Object.keys(groups).forEach(function (id) {
+            var g = groups[id];
+            if (!g.start || !g.covers.length) return;
+            var sr = g.start.getBoundingClientRect();
+            if (!sr.width || !sr.height) return;
+            var x0 = sr.right - cr.left;
+            var y0 = sr.top + sr.height / 2 - cr.top;
+            var lane = 0;
+            var m = (g.start.className || '').match(/doc-bg-(\d+)/);
+            if (m) lane = parseInt(m[1], 10) % 3;
+            var x1 = x0 + 4 + lane * 3;
+            var color = window.getComputedStyle(g.start).borderLeftColor || '#ced4da';
+            var ys = [];
+            for (var j = 0; j < g.covers.length; j++) {
+              var rr = g.covers[j].getBoundingClientRect();
+              if (!rr.height) continue;
+              ys.push({ y: rr.top + rr.height / 2 - cr.top, x: rr.right - cr.left });
+            }
+            if (!ys.length) return;
+            ys.sort(function (a, b) { return a.y - b.y; });
+            var yEnd = ys[0].y;
+            for (var k = 1; k < ys.length; k++) {
+              if (Math.abs(ys[k].y - y0) > Math.abs(yEnd - y0)) yEnd = ys[k].y;
+            }
+            var d = 'M ' + x0 + ' ' + y0 + ' L ' + x1 + ' ' + y0 + ' L ' + x1 + ' ' + yEnd;
+            for (var n = 0; n < ys.length; n++) {
+              d += ' M ' + x1 + ' ' + ys[n].y + ' L ' + ys[n].x + ' ' + ys[n].y;
+            }
+            var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', d);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', '1.5');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(path);
+          });
+        }
+        var linkTimer = null;
+        window.addEventListener('resize', function () {
+          clearTimeout(linkTimer);
+          linkTimer = setTimeout(drawLinks, 120);
+        });
+        window.addEventListener('load', drawLinks);
+        drawLinks();
       </script>
     </main>
   </div>

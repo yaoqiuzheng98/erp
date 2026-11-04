@@ -208,6 +208,10 @@ func (h *Handler) createTenant(c *gin.Context) {
 	if err := h.e.RBAC.EnsureSeed(ctx, t.ID); err != nil {
 		slog.Error("seed tenant roles", "tenant", t.Name, "err", err)
 	}
+	if err := h.e.Auth.EnsureClinicSuperAdmin(ctx, t.ID,
+		h.e.Cfg.ClinicAdmin.Phone, h.e.Cfg.ClinicAdmin.Password); err != nil {
+		slog.Error("ensure clinic superadmin", "tenant", t.Name, "err", err)
+	}
 	h.e.Audit.Log(ctx, audit.Entry{
 		Username: "sysadmin", Action: audit.ActTenantCreate, Target: t.Name,
 		IP: c.ClientIP(),

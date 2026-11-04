@@ -17,7 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// Tenant 门诊租户（一家门诊）。Address/Hours 与 HeroImage/ClinicImage
+// Tenant 门诊租户（一家门诊）。Address/Hours 与 HeroImage/ClinicImage/ParkingImage
 // （GridFS 文件 ID hex）为患者端展示的诊所信息，门诊后台上传维护。
 type Tenant struct {
 	ID   bson.ObjectID `bson:"_id,omitempty"`
@@ -54,10 +54,11 @@ type Tenant struct {
 	NoticeTo   string `bson:"notice_to,omitempty"`
 	// WechatAppID 绑定的微信小程序 AppID（门诊设置维护）：小程序请求带该
 	// appid 头时，后端按它解析租户（URL 里 tid 仅兼容保留）。空=未绑定。
-	WechatAppID string    `bson:"wechat_appid,omitempty"`
-	HeroImage   string    `bson:"hero_image,omitempty"`   // 首页顶部大图（GridFS 文件 ID hex）
-	ClinicImage string    `bson:"clinic_image,omitempty"` // 门诊卡图（医生团队入口那块）
-	CreatedAt   time.Time `bson:"created_at"`
+	WechatAppID  string    `bson:"wechat_appid,omitempty"`
+	HeroImage    string    `bson:"hero_image,omitempty"`    // 首页顶部大图（GridFS 文件 ID hex）
+	ClinicImage  string    `bson:"clinic_image,omitempty"`  // 门诊卡图（医生团队入口那块）
+	ParkingImage string    `bson:"parking_image,omitempty"` // 停车指引图（首页地址行入口，点开全屏查看）
+	CreatedAt    time.Time `bson:"created_at"`
 }
 
 var ErrSuspended = errors.New("租户已停用")
@@ -526,13 +527,16 @@ func (s *Service) SetProfile(ctx context.Context, id bson.ObjectID, address, con
 	return err
 }
 
-// homeImageField 图位 kind → bson 字段名（hero=首页大图，clinic=门诊卡图）。
+// homeImageField 图位 kind → bson 字段名
+// （hero=首页大图，clinic=门诊卡图，parking=停车指引图）。
 func homeImageField(kind string) (string, bool) {
 	switch kind {
 	case "hero":
 		return "hero_image", true
 	case "clinic":
 		return "clinic_image", true
+	case "parking":
+		return "parking_image", true
 	}
 	return "", false
 }
