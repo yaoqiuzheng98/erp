@@ -76,11 +76,16 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 	}
 	// 同医生底色：起始卡片和覆盖格都带同一个色 class。
 	for _, want := range []string{
-		`class="border rounded p-1 mb-1 doc-bg-1"`,
-		`class="border rounded p-1 mb-1 text-muted small doc-bg-1"`,
+		`class="border rounded p-1 mb-1 appt-card doc-bg-1"`,
+		`class="border rounded p-1 mb-1 appt-cover text-muted small doc-bg-1"`,
+		`class="week-canvas"`,
+		`class="week-links"`,
 	} {
 		if !strings.Contains(html, want) {
-			t.Fatalf("appointments missing doctor color %q", want)
+			t.Fatalf("appointments missing doctor color/connector %q", want)
 		}
+	}
+	if n := strings.Count(html, `data-appt-id="`+a.ID.Hex()+`"`); n != 2 {
+		t.Fatalf("data-appt-id count = %d, want 2 (start + cover)", n)
 	}
 }
