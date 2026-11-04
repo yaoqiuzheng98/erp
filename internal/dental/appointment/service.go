@@ -76,6 +76,7 @@ type BookOpts struct {
 	Rest      func(string) bool                     // 休息日判定（nil=不限，测试用）
 	Doctor    func(id bson.ObjectID) (string, bool) // 可接诊医生解析：id→姓名（nil=不校验，测试用）
 	AllowPast bool                                  // 仅测试/历史补录用；线上入口默认 false
+	AllowSpan bool                                  // 仅后台补录允许长时段（占多个档）；患者端默认 false
 }
 
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, o BookOpts) error {
@@ -95,8 +96,9 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		a.Doctor = name
 	}
 	minutes, _ := NormSlotConfig(o.Minutes, 1)
-	// 同医生同档串行化：查（档内单数）与写（插入）之间不许插并发，否则超售。
-	unlock := s.stripe("slot:" + a.Date + ":" + a.Slot + ":" + a.DoctorID.Hex())
+	// 同医生同天串行化：长单会跨多个档，按档锁挡不住重叠区间（09:00 单档 vs 08:30 长单），
+	// 所以锁到「医生+日期」；查（重叠）与写（插入）之间不许插并发，否则超售。
+	unlock := s.stripe("doctor:" + a.Date + ":" + a.DoctorID.Hex())
 	defer unlock()
 	// 日期时段只收合法格式，脏数据进库后筛选查不到
 	if _, ok := tz.DayStart(a.Date); !ok {
@@ -119,18 +121,57 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 			return err
 		}
 	}
+	// 结束时间：后台可传 end_slot 占多个档；患者端不传，默认单档并补写结束时间。
+	slotStart := segMinutes(a.Slot)
+	a.EndSlot = strings.TrimSpace(a.EndSlot)
+	spanEnd := 0
+	if a.EndSlot == "" {
+		end, ok := slotAdd(a.Slot, minutes)
+		if !ok {
+			return errors.New("时间格式不正确")
+		}
+		a.EndSlot = end
+		spanEnd = slotStart + minutes
+	} else {
+		if !o.AllowSpan {
+			return errors.New("该入口不支持长时段预约")
+		}
+		if !slotRe.MatchString(a.EndSlot) {
+			return errors.New("结束时间格式不正确")
+		}
+		spanEnd = segMinutes(a.EndSlot)
+		if spanEnd <= slotStart {
+			return errors.New("结束时间必须晚于开始时间")
+		}
+		if (spanEnd-slotStart)%minutes != 0 {
+			return errors.New("占用时长必须是放号粒度的整数倍")
+		}
+	}
 	// 放号时间窗：窗外不收（防绕过界面直调，前台补录同样受检）。
 	if !slotInBiz(a.Slot, minutes, o.Biz) {
 		return errors.New("该时间不在放号时间内")
 	}
+	// 长单整段必须落在同一个放号时段内，不跨午休。
+	if !spanInBiz(slotStart, spanEnd, o.Biz) {
+		return errors.New("占用时长不能跨出当前放号时段")
+	}
 	a.PatientName = p.Name
-	// 同医生同档防超售：一个医生一个时段只收一单（自助/前台同一入口受检）。
-	// noshow/cancel 的不占档。
-	if n, _ := s.appts.Count(ctx, tenantID, bson.M{
-		"date": a.Date, "slot": a.Slot, "doctor_id": a.DoctorID,
-		"status": Booked,
-	}); n >= 1 {
-		return errors.New("该时段该医生已约满，换个时间或医生")
+	// 同医生防超售：一个医生一个时段只收一单（自助/前台同一入口受检）。
+	// 长单按区间重叠判断；noshow/cancel 的不占档。
+	dayAppts, err := s.appts.FindMany(ctx, tenantID, bson.M{
+		"date": a.Date, "doctor_id": a.DoctorID, "status": Booked,
+	})
+	if err != nil {
+		return errors.New("查询预约失败: " + err.Error())
+	}
+	for _, x := range dayAppts {
+		xs := segMinutes(x.Slot)
+		if xs < 0 {
+			continue
+		}
+		if xe := x.endMinutes(minutes); xs < spanEnd && xe > slotStart {
+			return errors.New("该时段该医生已约满，换个时间或医生")
+		}
 	}
 	// 一人一单：已有已预约的不再建（自助与前台同一入口；并发竞态由部分唯一索引兜底）。
 	if n, _ := s.appts.Count(ctx, tenantID, bson.M{
@@ -237,8 +278,11 @@ func (s *Service) OfPatient(ctx context.Context, tenantID, patID bson.ObjectID) 
 }
 
 // BookedCounts 某日期区间内已预约单按日期+时段计数（余量接口用）。
-// doctorID 非零时只统计该医生（一个时段一个医生一单）。
-func (s *Service) BookedCounts(ctx context.Context, tenantID bson.ObjectID, from, to string, doctorID bson.ObjectID) (map[string]map[string]int64, error) {
+// 长单按 [slot,end_slot) 展开到覆盖的每个当前档位；doctorID 非零时只统计该医生。
+func (s *Service) BookedCounts(ctx context.Context, tenantID bson.ObjectID, from, to string, doctorID bson.ObjectID, minutes int, slots []Slot) (map[string]map[string]int64, error) {
+	if minutes <= 0 {
+		minutes = DefaultSlotMinutes
+	}
 	f := bson.M{
 		"date": bson.M{"$gte": from, "$lte": to}, "status": Booked,
 	}
@@ -256,7 +300,25 @@ func (s *Service) BookedCounts(ctx context.Context, tenantID bson.ObjectID, from
 			m = map[string]int64{}
 			out[a.Date] = m
 		}
-		m[a.Slot]++
+		start := segMinutes(a.Slot)
+		if start < 0 {
+			continue
+		}
+		end := a.endMinutes(minutes)
+		if len(slots) == 0 {
+			// 没有档位表时退回精确匹配（兼容不传档位的调用）。
+			m[a.Slot]++
+			continue
+		}
+		for _, sl := range slots {
+			ss := segMinutes(sl.Value)
+			if ss < 0 {
+				continue
+			}
+			if ss < end && ss+minutes > start {
+				m[sl.Value]++
+			}
+		}
 	}
 	return out, nil
 }

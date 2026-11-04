@@ -62,6 +62,23 @@
                   {{range .Data.Slots}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
                 </select></div>
             </div>
+            <div class="row g-2 mt-1">
+              <div class="col-6"><label class="form-label">占用时长</label>
+                <select class="form-select form-select-sm" id="appt-span" title="手术/长治疗可占多个档">
+                  <option value="1">1 档</option>
+                  <option value="2">2 档</option>
+                  <option value="3">3 档</option>
+                  <option value="4">4 档</option>
+                  <option value="6">6 档</option>
+                  <option value="8">8 档</option>
+                  <option value="seg">到本时段结束</option>
+                </select>
+                <input type="hidden" name="end_slot" id="appt-end-slot">
+              </div>
+              <div class="col-6 d-flex align-items-end">
+                <div class="small text-muted pb-1" id="appt-span-hint">未选时段时默认 1 档</div>
+              </div>
+            </div>
           </div>
           <div class="modal-footer"><button class="btn btn-sm btn-primary">预约</button></div>
         </form>
@@ -114,10 +131,17 @@
                 <span class="badge {{.Badge}} flex-shrink-0">{{.StatusName}}</span>
               </div>
               <div class="small mt-1 text-truncate"><a href="/app/patients/{{hex .PatientID}}">患者：{{.PatientName}}</a></div>
+              {{if .IsSpan $.Data.SlotMinutes}}<div class="small text-muted text-truncate">时间：{{.Slot}}-{{.EndSlot}}</div>{{end}}
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
-            {{if and (not $r.Extra) (not (pastSlot $d.Date $r.Slot)) (or (eq $.Data.DoctorCount 0) (lt (len $cell) $.Data.DoctorCount))}}
+            {{range index $r.Covers $i}}
+            <div class="border rounded p-1 mb-1 text-muted small" style="border-style:dashed!important;background:#fbfdfc">
+              <div class="text-truncate">占用：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
+              <div class="text-truncate"><a class="text-muted" href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a> · {{.Slot}}-{{.EndSlot}}</div>
+            </div>
+            {{end}}
+            {{if and (not $r.Extra) (not (pastSlot $d.Date $r.Slot)) (or (eq $.Data.DoctorCount 0) (lt (index $r.Used $i) $.Data.DoctorCount))}}
             <div class="cell-add" data-date="{{$d.Date}}" data-slot="{{$r.Slot}}" role="button" tabindex="0"
                  title="点此为 {{$d.Date}} {{$r.Label}} 新建预约">＋</div>
             {{end}}
@@ -128,11 +152,49 @@
         </tbody>
       </table></div>
       <script>
+        // 长时段：按时段起点 + 占用档数算出结束时间（手术等占多个号，仅后台可用）。
+        var slotMinutes = {{.Data.SlotMinutes}};
+        var segs = [{{range $i, $s := .Data.SlotSegs}}{{if $i}},{{end}}["{{$s.Open}}","{{$s.Close}}"]{{end}}];
+        var startSel = document.getElementById('appt-slot');
+        var spanSel = document.getElementById('appt-span');
+        var endInput = document.getElementById('appt-end-slot');
+        var spanHint = document.getElementById('appt-span-hint');
+        function hm2min(v) {
+          var p = (v || '').split(':');
+          return p.length === 2 ? (+p[0]) * 60 + (+p[1]) : -1;
+        }
+        function min2hm(m) {
+          return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2);
+        }
+        function refreshSpan() {
+          var s = hm2min(startSel.value);
+          if (s < 0) {
+            endInput.value = '';
+            spanHint.textContent = '未选时段时默认 1 档';
+            return;
+          }
+          var e;
+          if (spanSel.value === 'seg') {
+            var seg = segs.find(function (g) { return hm2min(g[0]) <= s && s < hm2min(g[1]); });
+            e = seg ? hm2min(seg[1]) : s + slotMinutes;
+          } else {
+            e = s + (parseInt(spanSel.value, 10) || 1) * slotMinutes;
+          }
+          endInput.value = min2hm(e);
+          spanHint.textContent = startSel.value + '-' + min2hm(e) + '，共 ' + Math.round((e - s) / slotMinutes) + ' 档';
+        }
+        startSel.addEventListener('change', refreshSpan);
+        spanSel.addEventListener('change', refreshSpan);
+        refreshSpan();
+
         // 点空格子：按该格日期+档位预填新建预约弹窗（一行一档，直接选中该档）。
         document.querySelectorAll('.cell-add').forEach(function (el) {
           function open() {
             document.getElementById('appt-date').value = el.dataset.date;
             document.getElementById('appt-slot').value = el.dataset.slot || '';
+            // 点空格子默认新建单档，避免沿用上一次的“到本时段结束”误占半天。
+            spanSel.value = '1';
+            refreshSpan();
             bootstrap.Modal.getOrCreateInstance(document.getElementById('apptModal')).show();
           }
           el.addEventListener('click', open);
