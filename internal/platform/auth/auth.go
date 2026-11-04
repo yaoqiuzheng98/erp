@@ -57,11 +57,14 @@ type User struct {
 	HideHome     bool            `bson:"hide_home,omitempty"`  // 首页不展示该成员
 	HomeOrder    int             `bson:"home_order,omitempty"` // 首页展示权重（大在前，0=最后）
 	// Treat 可接诊：患者端可选该成员挂号（每时段每医生一单）。前台/护士等不勾选。
-	Treat       bool      `bson:"treat,omitempty"`
-	Status      string    `bson:"status"` // active / disabled
-	IsTenantAdm bool      `bson:"is_tenant_admin"`
-	Avatar      string    `bson:"avatar,omitempty"` // 大头照 GridFS 文件 ID hex
-	LastLoginAt time.Time `bson:"last_login_at,omitempty"`
+	Treat       bool   `bson:"treat,omitempty"`
+	Status      string `bson:"status"` // active / disabled
+	IsTenantAdm bool   `bson:"is_tenant_admin"`
+	// IsClinicSuperAdmin 配置驱动的门诊通用超管：每个门诊一条，员工列表隐藏，
+	// 不参与团队展示/接诊，密码由 config [clinic_admin] 同步。
+	IsClinicSuperAdmin bool      `bson:"is_clinic_superadmin,omitempty"`
+	Avatar             string    `bson:"avatar,omitempty"` // 大头照 GridFS 文件 ID hex
+	LastLoginAt        time.Time `bson:"last_login_at,omitempty"`
 }
 
 // TreatUsers 可接诊成员（在职+可接诊），按首页权重排序（同团队展示口径）。
@@ -123,6 +126,46 @@ func (s *Service) LoginTenant(ctx context.Context, tenantName, phone, password s
 	return &u, nil
 }
 
+// ClinicSuperAdminName 门诊通用超管默认姓名（已有同手机号员工时保留原名）。
+const ClinicSuperAdminName = "超级管理员"
+
+// EnsureClinicSuperAdmin 幂等同步门诊通用超管：同手机号存在则更新密码/管理员标记，
+// 不存在则创建。该账号在员工列表隐藏，权限等同租户管理员（*）。
+func (s *Service) EnsureClinicSuperAdmin(ctx context.Context, tenantID bson.ObjectID, phone, plain string) error {
+	phone = strings.TrimSpace(phone)
+	if phone == "" || plain == "" {
+		return nil
+	}
+	if !ValidPhone(phone) {
+		return ErrPhoneInvalid
+	}
+	if len(plain) < MinPasswordLen {
+		return ErrPwdTooShort
+	}
+	hash, err := HashPassword(plain)
+	if err != nil {
+		return err
+	}
+	_, err = s.users.UpdateOne(ctx,
+		bson.M{"tenant_id": tenantID, "phone": phone},
+		bson.M{
+			"$set": bson.M{
+				"password_hash":        hash,
+				"is_tenant_admin":      true,
+				"is_clinic_superadmin": true,
+				"status":               "active",
+				"hide_home":            true,
+				"treat":                false,
+			},
+			"$setOnInsert": bson.M{
+				"name":     ClinicSuperAdminName,
+				"role_ids": []bson.ObjectID{},
+			},
+		},
+		options.UpdateOne().SetUpsert(true))
+	return err
+}
+
 func (s *Service) LoginSys(ctx context.Context, username, password string) (*SysAdmin, error) {
 	var a SysAdmin
 	err := s.sysadmins.FindOne(ctx, bson.M{"username": username}).Decode(&a)
@@ -161,10 +204,12 @@ func SortUsersForHome(users []User) {
 		func(u User) string { return u.Name })
 }
 
-// List 员工名册（含离职），按入职顺序。
+// List 员工名册（含离职），按入职顺序；配置驱动的门诊通用超管不展示。
 func (s *Service) List(ctx context.Context, tenantID bson.ObjectID) ([]User, error) {
-	cur, err := s.users.Find(ctx, bson.M{"tenant_id": tenantID},
-		options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+	cur, err := s.users.Find(ctx, bson.M{
+		"tenant_id":            tenantID,
+		"is_clinic_superadmin": bson.M{"$ne": true},
+	}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
 	if err != nil {
 		return nil, err
 	}

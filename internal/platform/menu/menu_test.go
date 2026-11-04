@@ -24,6 +24,25 @@ func TestFilter(t *testing.T) {
 	}
 }
 
+// TestFilterHidesEmptyGroup 分组没有可见子菜单时整组隐藏，不能留下空壳。
+func TestFilterHidesEmptyGroup(t *testing.T) {
+	items := []Item{
+		{ID: "admin", Title: "系统管理", Children: []Item{
+			{ID: "users", Title: "员工", Path: "/admin/users", Perm: "admin.users"},
+			{ID: "roles", Title: "权限角色", Path: "/admin/roles", Perm: "admin.roles"},
+		}},
+		{ID: "dental", Title: "门诊", Children: []Item{
+			{ID: "patients", Title: "患者", Path: "/app/patients", Perm: "patient.read"},
+			{ID: "appts", Title: "预约", Path: "/app/appointments", Perm: "appt.read"},
+		}},
+	}
+	has := func(code string) bool { return code == "patient.read" || code == "appt.read" }
+	got := Filter(items, has)
+	if len(got) != 1 || got[0].ID != "dental" {
+		t.Fatalf("empty admin group should be hidden, got %+v", got)
+	}
+}
+
 func TestTitleFor(t *testing.T) {
 	items := []Item{
 		{ID: "d", Title: "门诊", Children: []Item{

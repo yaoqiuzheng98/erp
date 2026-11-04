@@ -71,10 +71,11 @@ func New(db *mongo.Database, seq *seqno.Generator,
 
 // BookOpts 建单上下文：门诊配置 + 医生解析，收敛到一处（避免参数继续膨胀）。
 type BookOpts struct {
-	Minutes int                                   // 放号粒度（15/30/60）
-	Biz     []model.HourSeg                       // 放号时间窗（空=全天）
-	Rest    func(string) bool                     // 休息日判定（nil=不限，测试用）
-	Doctor  func(id bson.ObjectID) (string, bool) // 可接诊医生解析：id→姓名（nil=不校验，测试用）
+	Minutes   int                                   // 放号粒度（15/30/60）
+	Biz       []model.HourSeg                       // 放号时间窗（空=全天）
+	Rest      func(string) bool                     // 休息日判定（nil=不限，测试用）
+	Doctor    func(id bson.ObjectID) (string, bool) // 可接诊医生解析：id→姓名（nil=不校验，测试用）
+	AllowPast bool                                  // 仅测试/历史补录用；线上入口默认 false
 }
 
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appointment, o BookOpts) error {
@@ -112,6 +113,12 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 	if mm, _ := strconv.Atoi(a.Slot[3:]); mm%minutes != 0 {
 		return errors.New("预约时间不在放号时段内")
 	}
+	// 过去日期/今天已过的档位一律拒绝（前端可绕过，服务端兜底）。
+	if !o.AllowPast {
+		if err := rejectPastTime(a.Date, a.Slot); err != nil {
+			return err
+		}
+	}
 	// 放号时间窗：窗外不收（防绕过界面直调，前台补录同样受检）。
 	if !slotInBiz(a.Slot, minutes, o.Biz) {
 		return errors.New("该时间不在放号时间内")
@@ -147,6 +154,29 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, a *Appoint
 		return errors.New("建单失败: " + err.Error())
 	}
 	a.ID = id
+	return nil
+}
+
+// rejectPastTime 拒绝过去日期；今天只允许开始时间晚于当前时刻的档位。
+// 门诊时区统一走 tz（东八区），不跟容器/手机时区漂移。
+func rejectPastTime(date, slot string) error {
+	day, ok := tz.DayStart(date)
+	if !ok {
+		return errors.New("日期格式不正确")
+	}
+	today, _ := tz.DayStart(tz.Today())
+	if day.Before(today) {
+		return errors.New("不能预约过去的时间")
+	}
+	if day.Equal(today) {
+		start, err := time.ParseInLocation("2006-01-02 15:04", date+" "+slot, tz.Loc())
+		if err != nil {
+			return errors.New("时间格式不正确")
+		}
+		if !start.After(tz.Now()) {
+			return errors.New("该时段已过，请选择之后的时间")
+		}
+	}
 	return nil
 }
 

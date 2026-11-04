@@ -19,6 +19,10 @@ enabled = true                # 首次启动时写入种子数据
 sysadmin_user = "admin"       # 系统超管账号
 sysadmin_pass = "admin123"
 
+[clinic_admin]
+phone = "15889862321"         # 门诊通用超管手机号（固定）
+password = "123456"           # 开发/测试密码；生产必须换成强密码
+
 [wechat]
 appid = ""                    # 小程序 AppID（空=关闭 openId 免密登录）
 secret = ""                   # 小程序 Secret（不入库，部署机上填）

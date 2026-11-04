@@ -96,7 +96,7 @@
         <thead><tr>
           <th class="week-time">时间</th>
           {{range .Data.Days}}
-          <th class="{{if .IsToday}}text-primary today-col{{end}}">{{.Date}} {{.Weekday}}{{if .IsToday}} ·今天{{end}}<br><small class="text-muted fw-normal">{{.Total}} 单</small></th>
+          <th class="{{if .IsToday}}text-primary today-col{{end}}">{{.Date}} {{.Weekday}}<br><small class="text-muted fw-normal">{{.Total}} 单</small></th>
           {{end}}
         </tr></thead>
         <tbody>
@@ -117,7 +117,7 @@
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
-            {{if and (not $r.Extra) (or (eq $.Data.DoctorCount 0) (lt (len $cell) $.Data.DoctorCount))}}
+            {{if and (not $r.Extra) (not (pastSlot $d.Date $r.Slot)) (or (eq $.Data.DoctorCount 0) (lt (len $cell) $.Data.DoctorCount))}}
             <div class="cell-add" data-date="{{$d.Date}}" data-slot="{{$r.Slot}}" role="button" tabindex="0"
                  title="点此为 {{$d.Date}} {{$r.Label}} 新建预约">＋</div>
             {{end}}

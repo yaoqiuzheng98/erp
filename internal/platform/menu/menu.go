@@ -33,11 +33,20 @@ func TitleFor(items []Item, path string) string {
 }
 
 // Filter 按权限码过滤菜单树。
+// 分组菜单（原本有子菜单）过滤后没有可见子菜单时整组隐藏，避免留下空壳；
+// 叶子菜单仍按自身权限码判断。
 func Filter(items []Item, has func(string) bool) []Item {
 	var out []Item
 	for _, it := range items {
+		hadChildren := len(it.Children) > 0
 		it.Children = Filter(it.Children, has)
-		if it.Perm == "" || has(it.Perm) || len(it.Children) > 0 {
+		if hadChildren {
+			if len(it.Children) > 0 {
+				out = append(out, it)
+			}
+			continue
+		}
+		if it.Perm == "" || has(it.Perm) {
 			out = append(out, it)
 		}
 	}

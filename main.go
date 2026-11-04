@@ -97,6 +97,10 @@ func main() {
 		slog.Error("ensure tenant indexes", "err", err)
 		os.Exit(1)
 	}
+	// 门诊通用超管：每个门诊一条同手机号/密码的管理员账号（配置驱动，幂等）。
+	ensureClinicAdmins(ctx, e, cfg)
+	// 清理旧版已删除模块留下的角色权限码（catalog/billing 等）。
+	syncRolePerms(ctx, e)
 
 	tpl, err := web.Build()
 	if err != nil {
@@ -111,7 +115,7 @@ func main() {
 	}
 
 	r := httpserver.Build(e, httpserver.Services{
-		Dental: dentalHandler,
+		Dental:   dentalHandler,
 		Patients: patSvc, Appts: apptSvc,
 	}, tpl)
 	slog.Info("dental listening", "addr", cfg.Server.Addr)
@@ -119,6 +123,63 @@ func main() {
 		slog.Error("server", "err", err)
 		os.Exit(1)
 	}
+}
+
+// syncRolePerms 清理所有门诊角色里已不存在模块的历史权限码。
+func syncRolePerms(ctx context.Context, e *env.Env) {
+	const pageSize int64 = 100
+	var skip int64
+	n := 0
+	for {
+		list, err := e.Tenants.List(ctx, skip, pageSize)
+		if err != nil {
+			slog.Error("list tenants for role perms", "err", err)
+			return
+		}
+		for _, t := range list {
+			if err := e.RBAC.PruneUnknownPerms(ctx, t.ID); err != nil {
+				slog.Error("prune role perms", "tenant", t.Name, "err", err)
+				continue
+			}
+			n++
+		}
+		if int64(len(list)) < pageSize {
+			break
+		}
+		skip += pageSize
+	}
+	slog.Info("role perms synced", "count", n)
+}
+
+// ensureClinicAdmins 同步门诊通用超管到所有门诊（幂等）。
+// 新门诊由系统后台创建时再同步一次；失败只记日志，不阻塞启动。
+func ensureClinicAdmins(ctx context.Context, e *env.Env, cfg *config.Config) {
+	if cfg.ClinicAdmin.Phone == "" || cfg.ClinicAdmin.Password == "" {
+		slog.Warn("clinic superadmin not configured, skipped")
+		return
+	}
+	const pageSize int64 = 100
+	var skip int64
+	n := 0
+	for {
+		list, err := e.Tenants.List(ctx, skip, pageSize)
+		if err != nil {
+			slog.Error("list tenants for clinic superadmin", "err", err)
+			return
+		}
+		for _, t := range list {
+			if err := e.Auth.EnsureClinicSuperAdmin(ctx, t.ID, cfg.ClinicAdmin.Phone, cfg.ClinicAdmin.Password); err != nil {
+				slog.Error("ensure clinic superadmin", "tenant", t.Name, "err", err)
+				continue
+			}
+			n++
+		}
+		if int64(len(list)) < pageSize {
+			break
+		}
+		skip += pageSize
+	}
+	slog.Info("clinic superadmin synced", "count", n)
 }
 
 // seed 初始化系统超管（幂等：已存在则跳过）。

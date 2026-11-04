@@ -16,10 +16,11 @@
   {{if .Data.ClinicImage}}
   <img src="/p/{{.Data.Tid}}/gallery/{{.Data.ClinicImage}}" class="w-100 mb-3" style="border-radius:.5rem" alt="门诊环境">
   {{end}}
-  {{if or .Data.Address .Data.Hours}}
+  {{if or .Data.Address .Data.Hours .Data.ParkingImage}}
   <div class="card portal-card mb-3"><div class="card-body py-2 small">
     {{if .Data.Address}}<div>📍 {{.Data.Address}}</div>{{end}}
     {{if .Data.Hours}}<div>🕐 {{.Data.Hours}}</div>{{end}}
+    {{if .Data.ParkingImage}}<div>🅿️ <a href="/p/{{.Data.Tid}}/gallery/{{.Data.ParkingImage}}" target="_blank" rel="noopener">停车指引</a></div>{{end}}
   </div></div>
   {{end}}
   {{if .Data.Team}}

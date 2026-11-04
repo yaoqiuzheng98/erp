@@ -43,3 +43,24 @@ func DayStart(s string) (time.Time, bool) {
 	}
 	return t, true
 }
+
+// SlotPassed 某日期某档位（HH:MM）是否已经开始/过去：过去日期全天为 true，
+// 今天按当前时刻判断，未来日期为 false。用于后台周视图隐藏过期档的“＋”。
+func SlotPassed(date, slot string) bool {
+	day, ok := DayStart(date)
+	if !ok {
+		return false
+	}
+	today, _ := DayStart(Today())
+	if day.Before(today) {
+		return true
+	}
+	if day.After(today) {
+		return false
+	}
+	start, err := time.ParseInLocation("2006-01-02 15:04", date+" "+slot, shanghai)
+	if err != nil {
+		return false
+	}
+	return !start.After(Now())
+}

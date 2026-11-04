@@ -14,6 +14,17 @@ type Config struct {
 	Storage StorageConfig `toml:"storage"`
 	Seed    SeedConfig    `toml:"seed"`
 	Wechat  WechatConfig  `toml:"wechat"`
+	// ClinicAdmin 门诊通用超级管理员：同一手机号/密码在每个门诊各有一个
+	// 租户管理员账号（is_clinic_superadmin，员工列表隐藏），由启动时/新门诊创建时同步。
+	ClinicAdmin ClinicAdminConfig `toml:"clinic_admin"`
+}
+
+// DefaultClinicAdminPhone 门诊通用超管手机号（需求固定）。
+const DefaultClinicAdminPhone = "15889862321"
+
+type ClinicAdminConfig struct {
+	Phone    string `toml:"phone"`
+	Password string `toml:"password"`
 }
 
 type ServerConfig struct {
@@ -71,6 +82,9 @@ func Load(path string) (*Config, error) {
 	}
 	if c.Storage.MaxImageMB <= 0 {
 		c.Storage.MaxImageMB = 10
+	}
+	if c.ClinicAdmin.Phone == "" {
+		c.ClinicAdmin.Phone = DefaultClinicAdminPhone
 	}
 	return &c, nil
 }

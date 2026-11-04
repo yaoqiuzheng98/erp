@@ -1,3 +1,30 @@
+{{/* 首页图位卡片：固定预览高度，标签不换行，三列图片/上传框上下对齐。
+   参数：Kind 图位、Title 标题、Hint 说明、File 当前文件 ID、Fit cover/contain。 */}}
+{{define "admin/home-image-slot"}}
+<div class="col-12 col-md-4">
+  <label class="form-label text-nowrap">{{.Title}}</label>
+  {{if .File}}
+  <div class="position-relative mb-2" style="height:8em">
+    <img src="/app/attach/{{.File}}" class="rounded w-100 h-100" style="object-fit:{{.Fit}};background:#f5f6f8" alt="{{.Title}}">
+    <form method="post" action="/admin/home/image/{{.Kind}}/delete" class="m-0"
+          onsubmit="return confirm('确认删除{{.Title}}？')">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button class="btn btn-sm btn-danger position-absolute top-0 end-0 px-2 py-1">×</button>
+    </form>
+  </div>
+  {{else}}
+  <div class="d-flex align-items-center justify-content-center text-muted small rounded mb-2"
+       style="height:8em;background:#f5f6f8">未上传</div>
+  {{end}}
+  <form method="post" action="/admin/home/image/{{.Kind}}" enctype="multipart/form-data" class="d-flex gap-2">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input class="form-control form-control-sm" name="file" type="file" accept="image/*" required>
+    <button class="btn btn-sm btn-primary flex-shrink-0">上传</button>
+  </form>
+  <div class="form-text">{{.Hint}}</div>
+</div>
+{{end}}
+
 {{define "admin/home"}}
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -34,46 +61,9 @@
       <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-body">
         <h6 class="mb-2">首页图片 <span class="text-muted small">单张，换图即覆盖旧图</span></h6>
         <div class="row g-3">
-          <div class="col-6">
-            <label class="form-label">顶部大图 <span class="text-muted small">（首页最上方）</span></label>
-            {{if .Data.Tenant.HeroImage}}
-            <div class="position-relative mb-2" style="width:100%">
-              <img src="/app/attach/{{.Data.Tenant.HeroImage}}" class="rounded w-100" style="height:8em;object-fit:cover" alt="顶部大图">
-              <form method="post" action="/admin/home/image/hero/delete" class="m-0"
-                    onsubmit="return confirm('确认删除顶部大图？')">
-                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-                <button class="btn btn-sm btn-danger position-absolute top-0 end-0 px-2 py-1">×</button>
-              </form>
-            </div>
-            {{else}}
-            <div class="text-muted small mb-2">未上传</div>
-            {{end}}
-            <form method="post" action="/admin/home/image/hero" enctype="multipart/form-data" class="d-flex gap-2">
-              <input type="hidden" name="_csrf" value="{{.CSRF}}">
-              <input class="form-control form-control-sm" name="file" type="file" accept="image/*" required>
-              <button class="btn btn-sm btn-primary flex-shrink-0">上传</button>
-            </form>
-          </div>
-          <div class="col-6">
-            <label class="form-label">门诊卡图 <span class="text-muted small">（医生团队入口那块）</span></label>
-            {{if .Data.Tenant.ClinicImage}}
-            <div class="position-relative mb-2" style="width:100%">
-              <img src="/app/attach/{{.Data.Tenant.ClinicImage}}" class="rounded w-100" style="height:8em;object-fit:cover" alt="门诊卡图">
-              <form method="post" action="/admin/home/image/clinic/delete" class="m-0"
-                    onsubmit="return confirm('确认删除门诊卡图？')">
-                <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-                <button class="btn btn-sm btn-danger position-absolute top-0 end-0 px-2 py-1">×</button>
-              </form>
-            </div>
-            {{else}}
-            <div class="text-muted small mb-2">未上传</div>
-            {{end}}
-            <form method="post" action="/admin/home/image/clinic" enctype="multipart/form-data" class="d-flex gap-2">
-              <input type="hidden" name="_csrf" value="{{.CSRF}}">
-              <input class="form-control form-control-sm" name="file" type="file" accept="image/*" required>
-              <button class="btn btn-sm btn-primary flex-shrink-0">上传</button>
-            </form>
-          </div>
+          {{template "admin/home-image-slot" dict "Kind" "hero" "Title" "顶部大图" "Hint" "首页最上方" "File" .Data.Tenant.HeroImage "Fit" "cover" "CSRF" .CSRF}}
+          {{template "admin/home-image-slot" dict "Kind" "clinic" "Title" "门诊卡图" "Hint" "医生团队入口那块" "File" .Data.Tenant.ClinicImage "Fit" "cover" "CSRF" .CSRF}}
+          {{template "admin/home-image-slot" dict "Kind" "parking" "Title" "停车指引图" "Hint" "首页地址行入口，点开全屏查看" "File" .Data.Tenant.ParkingImage "Fit" "contain" "CSRF" .CSRF}}
         </div>
       </div></div></div>
       </div>

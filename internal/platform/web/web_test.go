@@ -1,9 +1,12 @@
 package web
 
 import (
+	"bytes"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"erp/internal/platform/tenant"
 
 	"github.com/gin-gonic/gin"
 )
@@ -32,6 +35,28 @@ func TestPagerPages(t *testing.T) {
 	}
 	if (Pager{Page: 1, Size: 20, Total: 0}).Pages() != 1 {
 		t.Fatal("empty should be 1 page")
+	}
+}
+
+// TestAdminHomeRendersParkingImage 首页配置页能渲染停车图上传/删除入口（防模板字段漏接）。
+func TestAdminHomeRendersParkingImage(t *testing.T) {
+	tpl, err := Build()
+	if err != nil {
+		t.Fatalf("build templates: %v", err)
+	}
+	var buf bytes.Buffer
+	p := &Page{
+		Data: gin.H{"Tenant": &tenant.Tenant{ParkingImage: "parking-file"}},
+		CSRF: "csrf",
+	}
+	if err := tpl.ExecuteTemplate(&buf, "admin/home", p); err != nil {
+		t.Fatalf("render admin/home: %v", err)
+	}
+	html := buf.String()
+	for _, want := range []string{"停车指引图", "/admin/home/image/parking", "/admin/home/image/parking/delete"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("admin/home missing %q", want)
+		}
 	}
 }
 

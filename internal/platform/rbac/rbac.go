@@ -38,18 +38,14 @@ func Catalog() []PermissionDef {
 	}
 }
 
-// defaultRoles 新门诊默认角色（名称→权限码）。
+// defaultRoles 新门诊默认角色：只给门诊两个子菜单的查看权限；
+// 患者建档/预约操作等写权限由管理员在「权限角色」按需追加。
 func defaultRoles() []Role {
+	readonly := []string{"patient.read", "appt.read"}
 	return []Role{
-		{Name: "医生", PermCodes: []string{
-			"patient.read", "patient.write", "appt.read", "appt.write",
-		}},
-		{Name: "护士", PermCodes: []string{
-			"patient.read", "appt.read",
-		}},
-		{Name: "前台", PermCodes: []string{
-			"patient.read", "patient.write", "appt.read", "appt.write",
-		}},
+		{Name: "医生", PermCodes: readonly},
+		{Name: "护士", PermCodes: readonly},
+		{Name: "前台", PermCodes: readonly},
 	}
 }
 
@@ -81,8 +77,12 @@ func (s *Service) EnsureSeed(ctx context.Context, tenantID bson.ObjectID) error 
 		return err
 	}
 	n, err := s.roles.CountDocuments(ctx, bson.M{"tenant_id": tenantID})
-	if err != nil || n > 0 {
+	if err != nil {
 		return err
+	}
+	if n > 0 {
+		// 已存在的租户：顺手清掉历史模块权限码（幂等）。
+		return s.PruneUnknownPerms(ctx, tenantID)
 	}
 	// 逐角色 upsert：并发首访也不会种出双份（唯一索引兜底）。
 	for _, r := range defaultRoles() {
@@ -156,6 +156,48 @@ func (s *Service) Create(ctx context.Context, r *Role) error {
 		return errors.New("创建失败: 非法 ID")
 	}
 	r.ID = oid
+	return nil
+}
+
+// filterKnownPerms 只保留当前权限目录里的权限码（旧版 catalog/billing 等已删模块的码会被清掉）。
+func filterKnownPerms(codes []string) []string {
+	known := map[string]bool{}
+	for _, p := range Catalog() {
+		known[p.Code] = true
+	}
+	out := make([]string, 0, len(codes))
+	seen := map[string]bool{}
+	for _, c := range codes {
+		if known[c] && !seen[c] {
+			out = append(out, c)
+			seen[c] = true
+		}
+	}
+	return out
+}
+
+// PruneUnknownPerms 清洗租户全部角色的权限码：删除已不存在模块的旧码。
+// 角色自定义仍保留，只动当前目录外的历史码。
+func (s *Service) PruneUnknownPerms(ctx context.Context, tenantID bson.ObjectID) error {
+	cur, err := s.roles.Find(ctx, bson.M{"tenant_id": tenantID})
+	if err != nil {
+		return err
+	}
+	var roles []Role
+	if err := cur.All(ctx, &roles); err != nil {
+		return err
+	}
+	for _, r := range roles {
+		next := filterKnownPerms(r.PermCodes)
+		if len(next) == len(r.PermCodes) {
+			continue
+		}
+		if _, err := s.roles.UpdateOne(ctx,
+			bson.M{"_id": r.ID, "tenant_id": tenantID},
+			bson.M{"$set": bson.M{"perm_codes": next}}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
