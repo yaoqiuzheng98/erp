@@ -370,10 +370,13 @@ func (h *Handler) uploadHomeImage(c *gin.Context) {
 	t, _ := h.e.Tenants.ByID(ctx, tid)
 	old := ""
 	if t != nil {
-		if kind == "hero" {
+		switch kind {
+		case "hero":
 			old = t.HeroImage
-		} else if kind == "clinic" {
+		case "clinic":
 			old = t.ClinicImage
+		case "parking":
+			old = t.ParkingImage
 		}
 	}
 	if err := h.e.Tenants.SetHomeImage(ctx, tid, kind, a.ID.Hex()); err != nil {
@@ -403,10 +406,13 @@ func (h *Handler) deleteHomeImage(c *gin.Context) {
 		return
 	}
 	cur := ""
-	if kind == "hero" {
+	switch kind {
+	case "hero":
 		cur = t.HeroImage
-	} else if kind == "clinic" {
+	case "clinic":
 		cur = t.ClinicImage
+	case "parking":
+		cur = t.ParkingImage
 	}
 	if cur != "" {
 		if oid, err := bson.ObjectIDFromHex(cur); err == nil {

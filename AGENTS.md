@@ -33,7 +33,8 @@ go build ./... && go vet ./... && go test ./internal/...
 
 ## 2. 发测试环境
 
-测试站：`https://erp.test.dokodemo.top`（与生产同机，复用 `erp-mongo`/`erp-caddy`）。
+测试站：`https://erp.test.yayan.site`（广州生产机 `81.71.69.44`，独立 `erp-test` 容器 + `erp_test` 库，复用 `erp-mongo`/`erp-caddy`）。
+Caddy 自动签发/续期 Let's Encrypt 证书；`erp.yayan.site/test` 保留为备用路径。
 
 ```bash
 # ① 本地打测试镜像（当前工作区代码）
@@ -51,18 +52,19 @@ DOCKER
 docker save erp-app:test | gzip > /tmp/erp-app-test.tar.gz
 
 # ② 上传并加载启动（生产容器不动，它用 :latest；改了 compose.yaml/Caddyfile 一起 scp）
-scp -i ~/.ssh/erp_prod_key /tmp/erp-app-test.tar.gz root@23.249.19.239:/opt/erp/
-ssh -i ~/.ssh/erp_prod_key root@23.249.19.239 "cd /opt/erp && docker load < erp-app-test.tar.gz && rm -f erp-app-test.tar.gz && docker compose up -d --force-recreate erp-test"
+scp -i ~/.ssh/erp_prod_key /tmp/erp-app-test.tar.gz ubuntu@81.71.69.44:/tmp/
+ssh -i ~/.ssh/erp_prod_key ubuntu@81.71.69.44 "cd /opt/erp && docker load < /tmp/erp-app-test.tar.gz && rm -f /tmp/erp-app-test.tar.gz && docker compose up -d --force-recreate erp-test"
 
-# ③ 验证：测试站登录 + 新功能页面（登录 POST 无需 CSRF）
-curl -sk -c jar -d "username=admin&password=admin123" https://erp.test.dokodemo.top/sysadmin/login
-curl -sk -b jar https://erp.test.dokodemo.top/sysadmin/tenants | grep "门诊"
+# ③ 验证：测试小程序 API（生产容器不动）
+curl -sk https://erp.test.yayan.site/api/p/6abceb30a79db9b892b1649e/clinic | grep "parking_image"
 ```
 
 测试账号：系统后台 `admin` 密码见服务器 `/opt/erp/config.test.toml`
 （当前 `admin123`，保留账号密码登录）。门诊后台已改手机号+密码登录：
 门诊管理员在系统后台建门诊时设手机号/密码，其他员工由门诊管理员在
 门诊后台「系统管理→员工」添加，不固定。
+门诊通用超管：手机号 `15889862321`，测试密码 `123456`；启动时/新门诊创建时
+按 `[clinic_admin]` 同步到每个门诊，员工列表隐藏，所有门诊后台通用。
 
 ## 3. 验证通过才提交推送
 
@@ -81,7 +83,9 @@ WSL 侧 key 可直推 GitHub；Windows 侧 GoLand 推不动时，把
 Docker 29.9.1 + compose v5.6.0（apt 阿里源；`daemon.json` 配腾讯镜像加速；预拉 `mongo:7`、`caddy:2-alpine`）。
 已上线（`https://erp.yayan.site`，Caddy 自动 HTTPS，证书有效）；
 compose 服务 `mongo/erp-prod/caddy`（见 `deploy/Caddyfile.prod`），库 `erp`；
-生产门诊：雅言口腔 `6ad1e57696b3a372ffecaf63`（绑小程序 `wx6ec6f6ba380885ba`），管理员 15889862321（初始密码 adm123456，**上线前必须改掉**）。
+生产门诊：雅言口腔 `6ae4751d390dca5039774216`（绑小程序 `wx6ec6f6ba380885ba`），门诊管理员 13827001351。
+门诊通用超管：手机号 `15889862321`，生产密码见 `/opt/erp/.clinic-admin-initial-password`（root 600）；`[clinic_admin]` 配置在 `config.toml`。
+生产系统超管 `admin` 已改为强随机密码，密码只存在服务器 `/opt/erp/.sysadmin-initial-password`（root 600），不要写入仓库。
 
 ## 铁律
 

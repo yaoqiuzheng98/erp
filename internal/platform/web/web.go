@@ -85,6 +85,10 @@ func funcMap() template.FuncMap {
 			}
 			return fmt.Sprintf("%v", id)
 		},
+		// pastSlot 后台周视图用：过去日期/今天已过的档位不再渲染“＋”。
+		"pastSlot": func(date, slot string) bool {
+			return tz.SlotPassed(date, slot)
+		},
 		// hasID 列表里是否含某 ObjectId（角色勾选回显用）。
 		"hasID": func(ids []bson.ObjectID, id bson.ObjectID) bool {
 			for _, x := range ids {

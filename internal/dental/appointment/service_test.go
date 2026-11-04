@@ -98,7 +98,7 @@ func TestCreateConcurrentDoubleBook(t *testing.T) {
 				PatientID: pid,
 				Date:      "2026-10-06", Slot: "10:00",
 				DoctorID: testDocID,
-			}, BookOpts{Doctor: testDoctor})
+			}, BookOpts{AllowPast: true, Doctor: testDoctor})
 		}(i)
 	}
 	wg.Wait()
@@ -182,7 +182,7 @@ func TestSlotConfig(t *testing.T) {
 			PatientID: npid,
 			Date:      date, Slot: slot,
 			DoctorID: doc,
-		}, BookOpts{Minutes: minutes, Doctor: testDoctor})
+		}, BookOpts{AllowPast: true, Minutes: minutes, Doctor: testDoctor})
 	}
 	mk := func(date, slot string, minutes int) error { return mkDoc(date, slot, minutes, testDocID) }
 	// 默认 30 分钟档：09:10 不对齐拒绝，09:30 通过
@@ -237,7 +237,7 @@ func TestCreateBizHours(t *testing.T) {
 			PatientID: npid,
 			Date:      "2026-10-09", Slot: slot,
 			DoctorID: testDocID,
-		}, BookOpts{Minutes: 30, Biz: biz, Doctor: testDoctor})
+		}, BookOpts{AllowPast: true, Minutes: 30, Biz: biz, Doctor: testDoctor})
 	}
 	for _, s := range []string{"09:00", "11:30", "14:00", "17:30"} {
 		if err := mk(s); err != nil {
@@ -267,7 +267,7 @@ func TestCreateOneActive(t *testing.T) {
 			PatientID: pid,
 			Date:      date, Slot: slot,
 			DoctorID: testDocID,
-		}, BookOpts{Minutes: 30, Doctor: testDoctor})
+		}, BookOpts{AllowPast: true, Minutes: 30, Doctor: testDoctor})
 	}
 	if err := mk("2026-10-20", "10:00"); err != nil {
 		t.Fatalf("first: %v", err)
@@ -313,7 +313,7 @@ func TestCreateOneActiveConcurrent(t *testing.T) {
 				PatientID: pid,
 				Date:      "2026-10-22", Slot: slot,
 				DoctorID: testDocID,
-			}, BookOpts{Minutes: 30, Doctor: testDoctor})
+			}, BookOpts{AllowPast: true, Minutes: 30, Doctor: testDoctor})
 		}(i, slot)
 	}
 	wg.Wait()
@@ -329,6 +329,26 @@ func TestCreateOneActiveConcurrent(t *testing.T) {
 	}
 	if ok != 1 || fail != 1 {
 		t.Fatalf("ok=%d fail=%d, want 1/1", ok, fail)
+	}
+}
+
+// TestCreateRejectsPast 过去日期不能建单；AllowPast 只给测试/历史补录用。
+func TestCreateRejectsPast(t *testing.T) {
+	svc, db, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	pid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ee")
+	if _, err := db.Collection("patients").InsertOne(ctx, bson.M{
+		"_id": pid, "tenant_id": tid, "name": "过去时间测试", "created_at": time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err := svc.Create(ctx, tid, &Appointment{
+		PatientID: pid,
+		Date:      "2000-01-01", Slot: "09:00",
+		DoctorID: testDocID,
+	}, BookOpts{Minutes: 30, Doctor: testDoctor})
+	if err == nil || !strings.Contains(err.Error(), "过去") {
+		t.Fatalf("past date should fail, got %v", err)
 	}
 }
 
@@ -348,7 +368,7 @@ func TestCreateRestDay(t *testing.T) {
 			PatientID: pid,
 			Date:      date, Slot: "10:00",
 			DoctorID: testDocID,
-		}, BookOpts{Minutes: 30, Rest: rest, Doctor: testDoctor})
+		}, BookOpts{AllowPast: true, Minutes: 30, Rest: rest, Doctor: testDoctor})
 	}
 	if err := mk("2026-10-14"); err == nil ||
 		(err != nil && !strings.Contains(err.Error(), "休息")) {
