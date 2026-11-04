@@ -106,12 +106,16 @@
         .doc-bg-6 { background: #fff0e6 !important; border-left: 4px solid #f97316 !important; }
         .doc-bg-7 { background: #e6f7fb !important; border-left: 4px solid #06b6d4 !important; }
         .doc-bg-unknown { background: #f8f9fa !important; border-left: 4px solid #ced4da !important; }
+        /* 长单连接线：卡片右侧留出细线通道，线从卡片右边折下去，再折回每个占用格 */
+        .week-canvas { position: relative; display: inline-block; min-width: 100%; }
+        .week-links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+        .appt-card, .appt-cover, .cell-add { margin-right: 12px; }
         /* 今天整列淡绿底，一眼定位 */
         .week-grid th.today-col { background: #dff0e9; }
         .week-grid td.today-col { background: #edf7f2; }
         .week-grid td.today-col .cell-add { background: #fff; }
       </style>
-      <div class="table-responsive"><table class="table table-sm bg-white align-middle week-grid" style="min-width:76em">
+      <div class="table-responsive"><div class="week-canvas"><table class="table table-sm bg-white align-middle week-grid" style="min-width:76em">
         <thead><tr>
           <th class="week-time">时间</th>
           {{range .Data.Days}}
@@ -127,7 +131,7 @@
           {{$d := index $.Data.Days $i}}
           <td class="align-top{{if $d.IsToday}} today-col{{end}}">
             {{range $cell}}
-            <div class="border rounded p-1 mb-1 {{index $.Data.ApptColors (hex .ID)}}">
+            <div class="border rounded p-1 mb-1 appt-card {{index $.Data.ApptColors (hex .ID)}}" data-appt-id="{{hex .ID}}">
               <div class="d-flex align-items-center gap-1">
                 <div class="small flex-fill text-truncate">医生：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
                 <span class="badge {{.Badge}} flex-shrink-0">{{.StatusName}}</span>
@@ -138,7 +142,7 @@
             </div>
             {{end}}
             {{range index $r.Covers $i}}
-            <div class="border rounded p-1 mb-1 text-muted small {{index $.Data.ApptColors (hex .ID)}}" style="border-style:dashed!important">
+            <div class="border rounded p-1 mb-1 appt-cover text-muted small {{index $.Data.ApptColors (hex .ID)}}" data-appt-id="{{hex .ID}}" style="border-style:dashed!important">
               <div class="text-truncate">占用：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
               <div class="text-truncate"><a class="text-muted" href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a> · {{.Slot}}-{{.EndSlot}}</div>
             </div>
@@ -152,7 +156,7 @@
         </tr>
         {{end}}
         </tbody>
-      </table></div>
+      </table><svg class="week-links" aria-hidden="true"></svg></div></div>
       <script>
         // 长时段：按到诊档生成"终止档位"选项（值是结束时刻，文案是档位区间）。
         var slotMinutes = {{.Data.SlotMinutes}};
@@ -239,6 +243,74 @@
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
           });
         });
+
+        // 长单连接线：从预约卡片右侧折出，沿右侧通道下行，再折回每个占用格。
+        // 线走卡片右侧留白，不盖同一天的其他卡片；医生色号错开通道，减少多条线重叠。
+        function drawLinks() {
+          var canvas = document.querySelector('.week-canvas');
+          var svg = canvas ? canvas.querySelector('.week-links') : null;
+          if (!canvas || !svg) return;
+          svg.innerHTML = '';
+          var cr = canvas.getBoundingClientRect();
+          var w = canvas.offsetWidth;
+          var h = canvas.offsetHeight;
+          if (!w || !h) return;
+          svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+          var groups = {};
+          var cards = document.querySelectorAll('.appt-card, .appt-cover');
+          for (var i = 0; i < cards.length; i++) {
+            var el = cards[i];
+            var id = el.getAttribute('data-appt-id');
+            if (!id) continue;
+            var g = groups[id] || (groups[id] = { start: null, covers: [] });
+            if (el.classList.contains('appt-card')) g.start = el;
+            else g.covers.push(el);
+          }
+          Object.keys(groups).forEach(function (id) {
+            var g = groups[id];
+            if (!g.start || !g.covers.length) return;
+            var sr = g.start.getBoundingClientRect();
+            if (!sr.width || !sr.height) return;
+            var x0 = sr.right - cr.left;
+            var y0 = sr.top + sr.height / 2 - cr.top;
+            var lane = 0;
+            var m = (g.start.className || '').match(/doc-bg-(\d+)/);
+            if (m) lane = parseInt(m[1], 10) % 3;
+            var x1 = x0 + 4 + lane * 3;
+            var color = window.getComputedStyle(g.start).borderLeftColor || '#ced4da';
+            var ys = [];
+            for (var j = 0; j < g.covers.length; j++) {
+              var rr = g.covers[j].getBoundingClientRect();
+              if (!rr.height) continue;
+              ys.push({ y: rr.top + rr.height / 2 - cr.top, x: rr.right - cr.left });
+            }
+            if (!ys.length) return;
+            ys.sort(function (a, b) { return a.y - b.y; });
+            var yEnd = ys[0].y;
+            for (var k = 1; k < ys.length; k++) {
+              if (Math.abs(ys[k].y - y0) > Math.abs(yEnd - y0)) yEnd = ys[k].y;
+            }
+            var d = 'M ' + x0 + ' ' + y0 + ' L ' + x1 + ' ' + y0 + ' L ' + x1 + ' ' + yEnd;
+            for (var n = 0; n < ys.length; n++) {
+              d += ' M ' + x1 + ' ' + ys[n].y + ' L ' + ys[n].x + ' ' + ys[n].y;
+            }
+            var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', d);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', '1.5');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(path);
+          });
+        }
+        var linkTimer = null;
+        window.addEventListener('resize', function () {
+          clearTimeout(linkTimer);
+          linkTimer = setTimeout(drawLinks, 120);
+        });
+        window.addEventListener('load', drawLinks);
+        drawLinks();
       </script>
     </main>
   </div>
