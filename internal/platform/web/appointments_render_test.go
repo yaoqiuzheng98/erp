@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"erp/internal/dental/appointment"
+	"erp/internal/dental/patient"
 	"erp/internal/platform/model"
 	"erp/internal/platform/tenant"
 
@@ -55,7 +56,11 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 		Data: gin.H{
 			"Days": days, "Rows": rows, "WeekStart": "2026-11-10", "WeekEnd": "2026-11-16",
 			"WeekTotal": 1, "WeekMonday": "2026-11-10",
-			"Patients": nil, "Doctors": nil, "DoctorCount": 1,
+			"Patients": []patient.Patient{{
+				Doc:   model.Doc{ID: bson.NewObjectID()},
+				Name:  "张三",
+				Phone: "13900000001",
+			}}, "Doctors": nil, "DoctorCount": 1,
 			"Slots":       []appointment.Slot{{Value: "08:30", Label: "08:30-09:00"}},
 			"SlotMinutes": 30, "SlotSegs": nil,
 			"ApptColors": map[string]string{a.ID.Hex(): "doc-bg-1"},
@@ -66,7 +71,7 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 		t.Fatalf("render dental/appointments: %v", err)
 	}
 	html := buf.String()
-	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\"", "占用到（含该档）", "先选到诊时段"} {
+	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\"", "占用到（含该档）", "先选到诊时段", "id=\"patient-search\"", "id=\"patient-select\"", "id=\"patient-results\"", `data-name="张三"`, `data-phone="13900000001"`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("appointments missing %q", want)
 		}
