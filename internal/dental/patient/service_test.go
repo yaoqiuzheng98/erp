@@ -100,3 +100,91 @@ func TestCreateRequiresPhone(t *testing.T) {
 		t.Fatal("duplicate phone should fail")
 	}
 }
+
+func TestParseAgeAndGender(t *testing.T) {
+	if age, err := ParseAge(""); err != nil || age != nil {
+		t.Fatalf("empty age = %v, %v; want nil, nil", age, err)
+	}
+	if age, err := ParseAge("0"); err != nil || age == nil || *age != 0 {
+		t.Fatalf("0 age = %v, %v; want 0", age, err)
+	}
+	if age, err := ParseAge("150"); err != nil || age == nil || *age != 150 {
+		t.Fatalf("150 age = %v, %v", age, err)
+	}
+	for _, bad := range []string{"-1", "151", "5.5", "abc"} {
+		if _, err := ParseAge(bad); err == nil {
+			t.Fatalf("ParseAge(%q) should fail", bad)
+		}
+	}
+	for _, ok := range []string{"", "男", "女", " 男 "} {
+		if _, err := NormalizeGender(ok); err != nil {
+			t.Fatalf("NormalizeGender(%q) = %v", ok, err)
+		}
+	}
+	if _, err := NormalizeGender("其他"); err == nil {
+		t.Fatal("unknown gender should fail")
+	}
+}
+
+func TestCreateAndUpdateProfile(t *testing.T) {
+	svc, _, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	age35 := 35
+	p := &Patient{Name: "王五", Phone: "13900000031", Gender: "男", Age: &age35}
+	if err := svc.Create(ctx, tid, p); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.ByID(ctx, tid, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Gender != "男" || got.Age == nil || *got.Age != 35 || got.AgeText() != "35" {
+		t.Fatalf("created profile = %+v, ageText=%q", got, got.AgeText())
+	}
+
+	// 改姓名/性别/年龄；电话不在 Update 参数里，必须保持原值。
+	age0 := 0
+	if err := svc.Update(ctx, tid, p.ID, "王五五", "女", &age0); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = svc.ByID(ctx, tid, p.ID)
+	if got.Name != "王五五" || got.Gender != "女" || got.Age == nil || *got.Age != 0 || got.AgeText() != "0" {
+		t.Fatalf("updated profile = %+v, ageText=%q", got, got.AgeText())
+	}
+	if got.Phone != "13900000031" {
+		t.Fatalf("phone changed to %q", got.Phone)
+	}
+
+	// 清空性别/年龄（未填写）。
+	if err := svc.Update(ctx, tid, p.ID, "王五五", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = svc.ByID(ctx, tid, p.ID)
+	if got.Gender != "" || got.Age != nil || got.AgeText() != "" {
+		t.Fatalf("cleared profile = %+v", got)
+	}
+
+	// 非法性别/年龄拒绝；不存在的患者拒绝。
+	badAge := 151
+	if err := svc.Update(ctx, tid, p.ID, "王五五", "其他", nil); err == nil {
+		t.Fatal("unknown gender should fail")
+	}
+	if err := svc.Update(ctx, tid, p.ID, "王五五", "男", &badAge); err == nil {
+		t.Fatal("age 151 should fail")
+	}
+	if err := svc.Update(ctx, tid, bson.NewObjectID(), "无此人", "男", nil); err == nil {
+		t.Fatal("missing patient should fail")
+	}
+}
+
+func TestCreateProfileValidation(t *testing.T) {
+	svc, _, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ed")
+	badAge := 151
+	if err := svc.Create(ctx, tid, &Patient{Name: "性别错", Phone: "13900000032", Gender: "其他"}); err == nil {
+		t.Fatal("unknown gender should fail")
+	}
+	if err := svc.Create(ctx, tid, &Patient{Name: "年龄错", Phone: "13900000033", Age: &badAge}); err == nil {
+		t.Fatal("age 151 should fail")
+	}
+}

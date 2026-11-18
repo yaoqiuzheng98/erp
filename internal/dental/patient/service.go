@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"erp/internal/platform/auth"
@@ -94,6 +96,35 @@ func (s *Service) ClearOpenID(ctx context.Context, tenantID, id bson.ObjectID) e
 	return s.pats.Update(ctx, tenantID, id, bson.M{"open_id": ""})
 }
 
+// NormalizeGender 性别归一：空=未填写，只收 男/女。
+func NormalizeGender(v string) (string, error) {
+	v = strings.TrimSpace(v)
+	if v == "" || v == "男" || v == "女" {
+		return v, nil
+	}
+	return "", errors.New("性别不正确")
+}
+
+// ParseAge 表单年龄 → *int（空=nil）；范围 0-150。
+func ParseAge(v string) (*int, error) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return nil, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 || n > 150 {
+		return nil, errors.New("年龄需在 0-150 之间")
+	}
+	return &n, nil
+}
+
+func validateAge(age *int) error {
+	if age != nil && (*age < 0 || *age > 150) {
+		return errors.New("年龄需在 0-150 之间")
+	}
+	return nil
+}
+
 // Create 建档：姓名+电话必填（电话是患者登录/联系主键，空值成死数据）；
 // 电话租户内已建过则拒绝（提示去找列表已有档案）。
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, p *Patient) error {
@@ -106,6 +137,14 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, p *Patient
 	if !auth.ValidPhone(p.Phone) {
 		return auth.ErrPhoneInvalid
 	}
+	gender, err := NormalizeGender(p.Gender)
+	if err != nil {
+		return err
+	}
+	p.Gender = gender
+	if err := validateAge(p.Age); err != nil {
+		return err
+	}
 	if n, _ := s.pats.Count(ctx, tenantID, bson.M{"phone": p.Phone}); n > 0 {
 		return errors.New("该电话已建过患者档案")
 	}
@@ -115,5 +154,30 @@ func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, p *Patient
 		return err
 	}
 	p.ID = id
+	return nil
+}
+
+// Update 修改患者资料：姓名/性别/年龄；电话不可改（登录主键，故不在此入口）。
+func (s *Service) Update(ctx context.Context, tenantID, id bson.ObjectID, name, gender string, age *int) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("姓名必填")
+	}
+	gender, err := NormalizeGender(gender)
+	if err != nil {
+		return err
+	}
+	if err := validateAge(age); err != nil {
+		return err
+	}
+	matched, err := s.pats.UpdateWhere(ctx, tenantID, bson.M{"_id": id}, bson.M{
+		"name": name, "gender": gender, "age": age,
+	})
+	if err != nil {
+		return err
+	}
+	if matched == 0 {
+		return errors.New("患者不存在")
+	}
 	return nil
 }

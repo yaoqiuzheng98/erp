@@ -27,6 +27,7 @@ const (
 	ActTenantHome     = "tenant.home"
 	ActStaffTop       = "staff.top"
 	ActPatientCreate  = "patient.create"
+	ActPatientUpdate  = "patient.update"
 	ActApptCreate     = "appt.create"
 	ActApptCheckin    = "appt.checkin"
 	ActApptServe      = "appt.serve"
