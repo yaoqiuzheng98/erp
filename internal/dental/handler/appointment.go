@@ -80,8 +80,8 @@ func slotRangeLabel(slot string, minutes int) string {
 	return fmt.Sprintf("%s-%02d:%02d", slot, end/60, end%60)
 }
 
-// weekQuery 组翻周链接的保留参数（电话/来源/已取消开关不断）。
-func weekQuery(week, phone, source string, showCancel bool) template.URL {
+// weekQuery 组翻周链接的保留参数（电话/来源/状态筛选不断）。
+func weekQuery(week, phone, source, status string) template.URL {
 	v := url.Values{}
 	v.Set("week", week)
 	if phone != "" {
@@ -90,20 +90,23 @@ func weekQuery(week, phone, source string, showCancel bool) template.URL {
 	if source != "" {
 		v.Set("source", source)
 	}
-	if showCancel {
-		v.Set("cancel", "1")
+	if status != "" {
+		v.Set("status", status)
 	}
 	return template.URL(v.Encode())
 }
 
-// filterAppts 周视图筛选：来源空=全部；默认隐藏已取消，showCancel=true 才保留。
-func filterAppts(list []appointment.Appointment, source string, showCancel bool) []appointment.Appointment {
-	if source == "" && showCancel {
+// filterAppts 周视图筛选：来源空=全部；状态空=默认不含已取消；all=全部状态。
+func filterAppts(list []appointment.Appointment, source, status string) []appointment.Appointment {
+	if source == "" && status == "all" {
 		return list
 	}
 	out := list[:0]
 	for _, a := range list {
-		if !showCancel && a.Status == appointment.Cancel {
+		if status == "" && a.Status == appointment.Cancel {
+			continue
+		}
+		if status != "" && status != "all" && a.Status != status {
 			continue
 		}
 		if source != "" && a.Source != source {
@@ -135,8 +138,13 @@ func (h *Handler) appointments(c *gin.Context) {
 	default:
 		source = ""
 	}
-	showCancel := c.Query("cancel") == "1"
-	list = filterAppts(list, source, showCancel)
+	status := c.Query("status")
+	switch status {
+	case appointment.Booked, appointment.Done, appointment.NoShow, appointment.Cancel, "all":
+	default:
+		status = ""
+	}
+	list = filterAppts(list, source, status)
 	// 放号档：一行一档，时间列展示区间（与门诊配置的放号时间范围一致）。
 	slotMinutes := appointment.DefaultSlotMinutes
 	var window []model.HourSeg
@@ -255,20 +263,20 @@ func (h *Handler) appointments(c *gin.Context) {
 		rows = append(rows, *untimed)
 	}
 	mon, _ := tz.DayStart(days[0])
-	prevQ := weekQuery(mon.AddDate(0, 0, -7).Format("2006-01-02"), phone, source, showCancel)
-	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), phone, source, showCancel)
-	todayQ := weekQuery(tz.Today(), phone, source, showCancel)
+	prevQ := weekQuery(mon.AddDate(0, 0, -7).Format("2006-01-02"), phone, source, status)
+	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), phone, source, status)
+	todayQ := weekQuery(tz.Today(), phone, source, status)
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
 	docs := h.treatUsers(c)
 	web.Render(c, h.e, "dental/appointments", gin.H{
 		"Days": cols, "Rows": rows, "WeekStart": days[0], "WeekEnd": days[6],
 		"WeekTotal": len(list), "WeekMonday": days[0],
 		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
-		"Phone":      phone,
-		"Source":     source,
-		"ShowCancel": showCancel,
-		"Patients":   pats,
-		"Doctors":    docs,
+		"Phone":    phone,
+		"Source":   source,
+		"Status":   status,
+		"Patients": pats,
+		"Doctors":  docs,
 		// 可接诊医生数：一个档最多这么多单，格子没约满就还能"+新建"。
 		"DoctorCount": len(docs),
 		"Slots":       slots,
