@@ -57,7 +57,7 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 		Tenant: &tenant.Tenant{Name: "测试门诊"},
 		Data: gin.H{
 			"Days": days, "Rows": rows, "WeekStart": "2026-11-10", "WeekEnd": "2026-11-16",
-			"WeekTotal": 1, "WeekMonday": "2026-11-10", "Source": "",
+			"WeekTotal": 1, "WeekMonday": "2026-11-10", "Source": "", "ShowCancel": false,
 			"Patients": []patient.Patient{{
 				Doc:   model.Doc{ID: bson.NewObjectID()},
 				Name:  "张三",
@@ -75,7 +75,7 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 		t.Fatalf("render dental/appointments: %v", err)
 	}
 	html := buf.String()
-	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\"", "占用到（含该档）", "先选到诊时段", "id=\"patient-search\"", "id=\"patient-select\"", "id=\"patient-results\"", `data-name="张三"`, `data-phone="13900000001"`, "电话：15889862321", `name="source"`, "全部来源"} {
+	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\"", "占用到（含该档）", "先选到诊时段", "id=\"patient-search\"", "id=\"patient-select\"", "id=\"patient-results\"", `data-name="张三"`, `data-phone="13900000001"`, "电话：15889862321", `name="source"`, "全部来源", `name="cancel"`, "显示已取消"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("appointments missing %q", want)
 		}

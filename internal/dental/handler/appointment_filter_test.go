@@ -7,43 +7,54 @@ import (
 	"erp/internal/dental/appointment"
 )
 
-func TestFilterApptsBySource(t *testing.T) {
+func TestFilterAppts(t *testing.T) {
 	list := []appointment.Appointment{
-		{Source: appointment.SourceAdmin, PatientName: "后台单"},
-		{Source: appointment.SourceWxapp, PatientName: "小程序单"},
-		{Source: "", PatientName: "历史单"},
+		{Source: appointment.SourceAdmin, PatientName: "后台单", Status: appointment.Booked},
+		{Source: appointment.SourceAdmin, PatientName: "后台已取消", Status: appointment.Cancel},
+		{Source: appointment.SourceWxapp, PatientName: "小程序单", Status: appointment.Booked},
+		{Source: "", PatientName: "历史单", Status: appointment.Done},
 	}
 	cases := []struct {
-		source string
-		want   int
-		names  []string
+		name       string
+		source     string
+		showCancel bool
+		want       []string
 	}{
-		{"", 3, nil},
-		{appointment.SourceAdmin, 1, []string{"后台单"}},
-		{appointment.SourceWxapp, 1, []string{"小程序单"}},
+		{"默认隐藏已取消", "", false, []string{"后台单", "小程序单", "历史单"}},
+		{"显示已取消", "", true, []string{"后台单", "后台已取消", "小程序单", "历史单"}},
+		{"后台且隐藏已取消", appointment.SourceAdmin, false, []string{"后台单"}},
+		{"后台且显示已取消", appointment.SourceAdmin, true, []string{"后台单", "后台已取消"}},
+		{"小程序", appointment.SourceWxapp, false, []string{"小程序单"}},
 	}
 	for _, tc := range cases {
-		got := filterApptsBySource(append([]appointment.Appointment(nil), list...), tc.source)
-		if len(got) != tc.want {
-			t.Fatalf("source=%q len=%d, want %d", tc.source, len(got), tc.want)
-		}
-		for i, name := range tc.names {
-			if got[i].PatientName != name {
-				t.Fatalf("source=%q got[%d]=%q, want %q", tc.source, i, got[i].PatientName, name)
+		t.Run(tc.name, func(t *testing.T) {
+			got := filterAppts(append([]appointment.Appointment(nil), list...), tc.source, tc.showCancel)
+			if len(got) != len(tc.want) {
+				t.Fatalf("len=%d, want %d", len(got), len(tc.want))
 			}
-		}
+			for i, name := range tc.want {
+				if got[i].PatientName != name {
+					t.Fatalf("got[%d]=%q, want %q", i, got[i].PatientName, name)
+				}
+			}
+		})
 	}
 }
 
 func TestWeekQueryKeepsFilters(t *testing.T) {
-	q, err := url.ParseQuery(string(weekQuery("2026-12-21", "13900000001", appointment.SourceAdmin)))
+	q, err := url.ParseQuery(string(weekQuery("2026-12-21", "13900000001", appointment.SourceAdmin, true)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if q.Get("week") != "2026-12-21" || q.Get("phone") != "13900000001" || q.Get("source") != appointment.SourceAdmin {
-		t.Fatalf("weekQuery lost filters: %v", q)
+	for k, want := range map[string]string{
+		"week": "2026-12-21", "phone": "13900000001",
+		"source": appointment.SourceAdmin, "cancel": "1",
+	} {
+		if got := q.Get(k); got != want {
+			t.Fatalf("weekQuery %s=%q, want %q", k, got, want)
+		}
 	}
-	if got := string(weekQuery("2026-12-21", "", "")); got != "week=2026-12-21" {
+	if got := string(weekQuery("2026-12-21", "", "", false)); got != "week=2026-12-21" {
 		t.Fatalf("weekQuery empty filters = %q", got)
 	}
 }
