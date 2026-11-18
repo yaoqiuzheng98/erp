@@ -100,7 +100,7 @@
           <option value="wxapp" {{if eq .Data.Source "wxapp"}}selected{{end}}>小程序</option>
         </select>
         <select class="form-select form-select-sm flex-shrink-0" name="status" aria-label="状态筛选" style="width:auto" onchange="this.form.submit()">
-          <option value="" {{if eq .Data.Status ""}}selected{{end}}>全部</option>
+          <option value="all" {{if eq .Data.Status "all"}}selected{{end}}>全部</option>
           <option value="booked" {{if eq .Data.Status "booked"}}selected{{end}}>已预约</option>
           <option value="done" {{if eq .Data.Status "done"}}selected{{end}}>已完成</option>
           <option value="noshow" {{if eq .Data.Status "noshow"}}selected{{end}}>爽约</option>
@@ -109,7 +109,7 @@
         <button class="btn btn-sm btn-outline-secondary flex-shrink-0">筛选</button>
       </form>
       {{if eq .Data.WeekTotal 0}}
-      <div class="alert alert-light border text-muted small">{{if or .Data.Source .Data.Status}}当前筛选条件下本周暂无预约，可放宽筛选或切到上/下周查看。{{else}}本周暂无预约，可点右上「新建预约」或切到上/下周查看。{{end}}</div>
+      <div class="alert alert-light border text-muted small">{{if or .Data.Source (ne .Data.Status "booked")}}当前筛选条件下本周暂无预约，可放宽筛选或切到上/下周查看。{{else}}本周暂无已预约，可切换状态、点右上「新建预约」或切到上/下周查看。{{end}}</div>
       {{end}}
       <style>
         .week-grid { border-collapse: collapse; }

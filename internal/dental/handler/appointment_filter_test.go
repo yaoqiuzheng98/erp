@@ -21,7 +21,8 @@ func TestFilterAppts(t *testing.T) {
 		status string
 		want   []string
 	}{
-		{"全部", "", "", []string{"后台已预约", "后台已完成", "后台已取消", "小程序爽约", "小程序已取消"}},
+		{"全部（空状态）", "", "", []string{"后台已预约", "后台已完成", "后台已取消", "小程序爽约", "小程序已取消"}},
+		{"全部（all）", "", "all", []string{"后台已预约", "后台已完成", "后台已取消", "小程序爽约", "小程序已取消"}},
 		{"只看已预约", "", appointment.Booked, []string{"后台已预约"}},
 		{"只看已完成", "", appointment.Done, []string{"后台已完成"}},
 		{"只看爽约", "", appointment.NoShow, []string{"小程序爽约"}},

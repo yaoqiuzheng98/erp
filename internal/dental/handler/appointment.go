@@ -96,14 +96,14 @@ func weekQuery(week, phone, source, status string) template.URL {
 	return template.URL(v.Encode())
 }
 
-// filterAppts 周视图筛选：来源/状态空=全部；状态按具体值精确匹配。
+// filterAppts 周视图筛选：来源空=全部；状态 all/空=全部，其余按具体值精确匹配。
 func filterAppts(list []appointment.Appointment, source, status string) []appointment.Appointment {
-	if source == "" && status == "" {
+	if source == "" && (status == "" || status == "all") {
 		return list
 	}
 	out := list[:0]
 	for _, a := range list {
-		if status != "" && a.Status != status {
+		if status != "" && status != "all" && a.Status != status {
 			continue
 		}
 		if source != "" && a.Source != source {
@@ -137,9 +137,9 @@ func (h *Handler) appointments(c *gin.Context) {
 	}
 	status := c.Query("status")
 	switch status {
-	case appointment.Booked, appointment.Done, appointment.NoShow, appointment.Cancel:
+	case appointment.Booked, appointment.Done, appointment.NoShow, appointment.Cancel, "all":
 	default:
-		status = ""
+		status = appointment.Booked // 默认只看已预约
 	}
 	list = filterAppts(list, source, status)
 	// 放号档：一行一档，时间列展示区间（与门诊配置的放号时间范围一致）。
