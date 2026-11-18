@@ -94,10 +94,17 @@
         </div>
         <span class="small text-muted">{{.Data.WeekStart}} ~ {{.Data.WeekEnd}} · 本周 {{.Data.WeekTotal}} 单</span>
         <input class="form-control form-control-sm flex-grow-1" name="phone" value="{{.Data.Phone}}" placeholder="报手机号签到" aria-label="报手机号签到" inputmode="tel" style="min-width:8em;flex-basis:0">
+        <select class="form-select form-select-sm flex-shrink-0" name="source" aria-label="来源筛选" style="width:auto" onchange="this.form.submit()">
+          <option value="">全部来源</option>
+          <option value="admin" {{if eq .Data.Source "admin"}}selected{{end}}>后台</option>
+          <option value="wxapp" {{if eq .Data.Source "wxapp"}}selected{{end}}>小程序</option>
+          <option value="portal" {{if eq .Data.Source "portal"}}selected{{end}}>网页</option>
+          <option value="unknown" {{if eq .Data.Source "unknown"}}selected{{end}}>未知</option>
+        </select>
         <button class="btn btn-sm btn-outline-secondary flex-shrink-0">筛选</button>
       </form>
       {{if eq .Data.WeekTotal 0}}
-      <div class="alert alert-light border text-muted small">本周暂无预约，可点右上「新建预约」或切到上/下周查看。</div>
+      <div class="alert alert-light border text-muted small">{{if .Data.Source}}当前来源筛选下本周暂无预约，可切回「全部来源」或切到上/下周查看。{{else}}本周暂无预约，可点右上「新建预约」或切到上/下周查看。{{end}}</div>
       {{end}}
       <style>
         .week-grid { border-collapse: collapse; }
@@ -156,14 +163,13 @@
             {{range $cell}}
             {{$prof := index $.Data.PatProfiles (hex .PatientID)}}
             {{$phone := index $.Data.PatPhones (hex .PatientID)}}
-            {{$src := .SourceName}}
             <div class="border rounded p-1 mb-1 appt-card {{index $.Data.ApptColors (hex .ID)}}" data-appt-id="{{hex .ID}}">
               <div class="d-flex align-items-center gap-1">
                 <div class="small flex-fill text-truncate">医生：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
                 <span class="badge {{.Badge}} flex-shrink-0">{{.StatusName}}</span>
               </div>
               <div class="small mt-1 text-truncate"><a href="/app/patients/{{hex .PatientID}}">患者：{{.PatientName}}</a>{{if $prof}} <span class="text-muted">{{$prof}}</span>{{end}}</div>
-              {{if or $phone $src}}<div class="small text-muted text-truncate">{{if $phone}}电话：{{$phone}}{{end}}{{if $src}}{{if $phone}} · {{else}}来源：{{end}}{{$src}}{{end}}</div>{{end}}
+              {{if $phone}}<div class="small text-muted text-truncate">电话：{{$phone}}</div>{{end}}
               {{if .IsSpan $.Data.SlotMinutes}}<div class="small text-muted text-truncate">时间：{{.Slot}}-{{.EndSlot}}</div>{{end}}
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
