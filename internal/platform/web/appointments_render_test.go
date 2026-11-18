@@ -75,7 +75,7 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 		t.Fatalf("render dental/appointments: %v", err)
 	}
 	html := buf.String()
-	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\"", "占用到（含该档）", "先选到诊时段", "id=\"patient-search\"", "id=\"patient-select\"", "id=\"patient-results\"", `data-name="张三"`, `data-phone="13900000001"`, "电话：15889862321", `name="source"`, "全部来源", `name="status"`, "全部（不含已取消）"} {
+	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\"", "占用到（含该档）", "先选到诊时段", "id=\"patient-search\"", "id=\"patient-select\"", "id=\"patient-results\"", `data-name="张三"`, `data-phone="13900000001"`, "电话：15889862321", `name="source"`, "全部来源", `name="status"`, `<option value="" selected>全部</option>`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("appointments missing %q", want)
 		}

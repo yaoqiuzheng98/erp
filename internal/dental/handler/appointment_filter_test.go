@@ -21,14 +21,13 @@ func TestFilterAppts(t *testing.T) {
 		status string
 		want   []string
 	}{
-		{"默认不含已取消", "", "", []string{"后台已预约", "后台已完成", "小程序爽约"}},
-		{"全部状态", "", "all", []string{"后台已预约", "后台已完成", "后台已取消", "小程序爽约", "小程序已取消"}},
+		{"全部", "", "", []string{"后台已预约", "后台已完成", "后台已取消", "小程序爽约", "小程序已取消"}},
 		{"只看已预约", "", appointment.Booked, []string{"后台已预约"}},
 		{"只看已完成", "", appointment.Done, []string{"后台已完成"}},
 		{"只看爽约", "", appointment.NoShow, []string{"小程序爽约"}},
 		{"只看已取消", "", appointment.Cancel, []string{"后台已取消", "小程序已取消"}},
 		{"后台且只看已取消", appointment.SourceAdmin, appointment.Cancel, []string{"后台已取消"}},
-		{"小程序且默认", appointment.SourceWxapp, "", []string{"小程序爽约"}},
+		{"小程序全部状态", appointment.SourceWxapp, "", []string{"小程序爽约", "小程序已取消"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

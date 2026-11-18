@@ -100,8 +100,7 @@
           <option value="wxapp" {{if eq .Data.Source "wxapp"}}selected{{end}}>小程序</option>
         </select>
         <select class="form-select form-select-sm flex-shrink-0" name="status" aria-label="状态筛选" style="width:auto" onchange="this.form.submit()">
-          <option value="" {{if eq .Data.Status ""}}selected{{end}}>全部（不含已取消）</option>
-          <option value="all" {{if eq .Data.Status "all"}}selected{{end}}>全部（含已取消）</option>
+          <option value="" {{if eq .Data.Status ""}}selected{{end}}>全部</option>
           <option value="booked" {{if eq .Data.Status "booked"}}selected{{end}}>已预约</option>
           <option value="done" {{if eq .Data.Status "done"}}selected{{end}}>已完成</option>
           <option value="noshow" {{if eq .Data.Status "noshow"}}selected{{end}}>爽约</option>
