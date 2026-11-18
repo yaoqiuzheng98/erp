@@ -31,13 +31,39 @@ go build ./... && go vet ./... && go test ./internal/...
 单测里连 mongo 的集成测试默认连 `127.0.0.1:27018`（`MONGO_TEST_URL` 可覆盖），
 连不上自动 Skip；本地起一个 `docker run -d -p 27018:27017 mongo:7` 即可跑全量。
 
+## 分支流程（铁律）
+
+`main` 是唯一生产来源；`test` 只做集成测试，可能包含已经废弃的功能。
+
+```text
+main
+  └── feat/xxx        特性分支从 main 拉
+        ├── test      合到 test 联调/测试
+        └── main      测试通过后，只把 feat/xxx 合到 main
+```
+
+- 新建特性：`git switch -c feat/xxx main`
+- 合测试：`git switch test && git merge --no-ff feat/xxx`
+- 上线：`git switch main && scripts/release-feature.sh feat/xxx`
+- **严禁** `git merge test` 到 `main`，包括 fast-forward。
+- 不要把 `test` 合进特性分支；需要同步主线时合 `main`，否则会把 `test` 的废弃功能带进特性分支。
+- `test` 变脏（积累废弃功能）：`git switch test && git reset --hard main`，再合入当前活跃特性分支重新验证。
+- 本地启用合并保护：`git config core.hooksPath .githooks`（一次性）。`pre-merge-commit` 拦截非快进的 test → main，`pre-push` 拦截 main 快进到 test 顶点；`scripts/release-feature.sh` 会拒绝 test，并检查特性分支历史里有没有 test 合并提交。
+- 生产只从 `main` 构建。
+
 ## 2. 发测试环境
+
+先切到 `test` 分支（特性分支已合入 test）：
+
+```bash
+git switch test
+```
 
 测试站：`https://erp.test.yayan.site`（广州生产机 `81.71.69.44`，独立 `erp-test` 容器 + `erp_test` 库，复用 `erp-mongo`/`erp-caddy`）。
 Caddy 自动签发/续期 Let's Encrypt 证书；`erp.yayan.site/test` 保留为备用路径。
 
 ```bash
-# ① 本地打测试镜像（当前工作区代码）
+# ① 本地打测试镜像（test 分支代码）
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o erp-linux .
 docker build -t erp-app:test -f - . <<'DOCKER'
 FROM alpine:3.21
@@ -69,13 +95,24 @@ curl -sk https://erp.test.yayan.site/api/p/6abceb30a79db9b892b1649e/clinic | gre
 ## 3. 验证通过才提交推送
 
 ```bash
-git add -A && git commit -m "<中文一句话：做了什么>" && git push origin main
+# ① 特性分支提交
+git switch feat/xxx
+git add -A && git commit -m "<中文一句话：做了什么>"
+
+# ② 合 test 验证（test 只做集成分支，不作为生产来源）
+git switch test && git merge --no-ff feat/xxx
+
+# ③ 验证通过后合 main 上线（禁止 git merge test）
+git switch main && scripts/release-feature.sh feat/xxx
+git push origin main
 ```
 
 WSL 侧 key 可直推 GitHub；Windows 侧 GoLand 推不动时，把
 `~/.ssh/id_rsa(.pub)` 拷到 `C:\Users\yaoqi\.ssh\` 并收紧 ACL。
 
 ## 4. 生产升级（确认测试没问题后，另行指令才做）
+
+生产只从 `main` 构建；不要用 `test` 分支或 test 构建产物。
 
 走 `scripts/deploy.sh`（打 `:latest` 镜像 → 上传 → `docker load` → `compose up -d`）。
 
@@ -90,6 +127,7 @@ compose 服务 `mongo/erp-prod/caddy`（见 `deploy/Caddyfile.prod`），库 `er
 ## 铁律
 
 - 禁止在服务器上构建（961MB 内存，曾经 OOM）。只走本地打镜像 → `docker load`。
+- 分支铁律：禁止 `test` → `main`；上线只合并特性分支（`scripts/release-feature.sh`），生产只从 `main` 构建。
 - `config.*.toml` 属主必须是 `10001:10001`（容器内 `erp` 用户），否则 `permission denied`。
 - 改了 `deploy/Caddyfile` 后用 `docker exec erp-caddy caddy reload --config /etc/caddy/Caddyfile`，不要重建 caddy（零停机）。
 - 种子幂等：改 `config.*.toml` 的密码不影响已有账号；要重置先删对应集合文档再重启容器。

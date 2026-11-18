@@ -1,0 +1,41 @@
+#!/bin/sh
+# 拦截 test -> main 的本地合并（非快进合并）。
+# 一次性启用：git config core.hooksPath .githooks
+branch=$(git symbolic-ref --short HEAD 2>/dev/null || true)
+[ "$branch" = "main" ] || exit 0
+
+block() {
+  echo "ERROR: 禁止把 test 合并到 main；请合并具体特性分支（scripts/release-feature.sh feat/xxx）。" >&2
+  echo "放弃本次合并：git merge --abort" >&2
+  exit 1
+}
+
+# pre-merge-commit 阶段 MERGE_HEAD/MERGE_MSG 可能还没写入；
+# Git 会提供 GIT_REFLOG_ACTION（如 "merge test"）和 GITHEAD_<sha>=test。
+case "${GIT_REFLOG_ACTION:-}" in
+  "merge test"|"merge origin/test"|"merge refs/heads/test"|"merge refs/remotes/origin/test") block ;;
+esac
+for v in $(env | sed -n 's/^GITHEAD_[^=]*=//p'); do
+  case "$v" in
+    test|origin/test|refs/heads/test|refs/remotes/origin/test) block ;;
+  esac
+done
+
+# 兼容其他 Git 版本：能拿到 MERGE_HEAD/MERGE_MSG 时再兜一层。
+git_dir=$(git rev-parse --absolute-git-dir)
+merge_head_file="$git_dir/MERGE_HEAD"
+if [ -f "$merge_head_file" ]; then
+  merge_head=$(cat "$merge_head_file")
+  for ref in refs/heads/test refs/remotes/origin/test; do
+    h=$(git rev-parse --verify --quiet "$ref" 2>/dev/null || true)
+    if [ -n "$h" ] && [ "$merge_head" = "$h" ]; then
+      block
+    fi
+  done
+fi
+
+msg_file="$git_dir/MERGE_MSG"
+if [ -f "$msg_file" ] && head -n 1 "$msg_file" | grep -Eq "Merge (remote-tracking )?branch '(origin/)?test'"; then
+  block
+fi
+exit 0
