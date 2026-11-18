@@ -156,13 +156,14 @@
             {{range $cell}}
             {{$prof := index $.Data.PatProfiles (hex .PatientID)}}
             {{$phone := index $.Data.PatPhones (hex .PatientID)}}
+            {{$src := .SourceName}}
             <div class="border rounded p-1 mb-1 appt-card {{index $.Data.ApptColors (hex .ID)}}" data-appt-id="{{hex .ID}}">
               <div class="d-flex align-items-center gap-1">
                 <div class="small flex-fill text-truncate">医生：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
                 <span class="badge {{.Badge}} flex-shrink-0">{{.StatusName}}</span>
               </div>
               <div class="small mt-1 text-truncate"><a href="/app/patients/{{hex .PatientID}}">患者：{{.PatientName}}</a>{{if $prof}} <span class="text-muted">{{$prof}}</span>{{end}}</div>
-              {{if $phone}}<div class="small text-muted text-truncate">电话：{{$phone}}</div>{{end}}
+              {{if or $phone $src}}<div class="small text-muted text-truncate">{{if $phone}}电话：{{$phone}}{{end}}{{if $src}}{{if $phone}} · {{else}}来源：{{end}}{{$src}}{{end}}</div>{{end}}
               {{if .IsSpan $.Data.SlotMinutes}}<div class="small text-muted text-truncate">时间：{{.Slot}}-{{.EndSlot}}</div>{{end}}
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>

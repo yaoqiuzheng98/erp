@@ -292,6 +292,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 		Date:      c.PostForm("date"), Slot: c.PostForm("slot"),
 		EndSlot:  c.PostForm("end_slot"),
 		DoctorID: did,
+		Source:   appointment.SourceAdmin,
 	}
 	// 后台可建长时段（手术等占多个档）；患者端入口不传 end_slot，仍是一档一单。
 	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes, AllowSpan: true}

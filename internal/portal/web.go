@@ -247,6 +247,7 @@ func (h *Web) book(c *gin.Context) {
 		PatientID: p.ID,
 		Date:      c.PostForm("date"), Slot: c.PostForm("slot"),
 		DoctorID: func() bson.ObjectID { id, _ := bson.ObjectIDFromHex(c.PostForm("doctor_id")); return id }(),
+		Source:   appointment.SourcePortal,
 	}
 	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes}
 	if t := mw.Tenant(c); t != nil {

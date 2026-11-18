@@ -352,7 +352,16 @@ func apptJSON(a appointment.Appointment) gin.H {
 		"id": a.ID.Hex(), "date": a.Date, "slot": a.Slot, "end_slot": a.EndSlot,
 		"doctor": a.Doctor, "no": a.No,
 		"status": a.Status, "status_name": a.StatusName(),
+		"source": a.Source, "source_name": a.SourceName(),
 	}
+}
+
+// bookingSource 患者端建单来源：小程序请求带 X-Wx-AppId；H5 走同一套 API 但不带。
+func bookingSource(c *gin.Context) string {
+	if strings.TrimSpace(c.GetHeader("X-Wx-AppId")) != "" {
+		return appointment.SourceWxapp
+	}
+	return appointment.SourcePortal
 }
 
 type bookReq struct {
@@ -384,6 +393,7 @@ func (h *API) createAppointment(c *gin.Context) {
 		PatientID: p.ID,
 		Date:      in.Date, Slot: in.Slot,
 		DoctorID: did,
+		Source:   bookingSource(c),
 	}
 	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes, Doctor: h.doctorResolver(c, p.TenantID)}
 	if t := mw.Tenant(c); t != nil {
