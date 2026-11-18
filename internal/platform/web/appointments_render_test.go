@@ -66,6 +66,7 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 			"SlotMinutes": 30, "SlotSegs": nil,
 			"ApptColors":  map[string]string{a.ID.Hex(): "doc-bg-1"},
 			"PatProfiles": map[string]string{a.PatientID.Hex(): "男 40岁"},
+			"PatPhones":   map[string]string{a.PatientID.Hex(): "15889862321"},
 		},
 	}
 	var buf bytes.Buffer
@@ -73,7 +74,7 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 		t.Fatalf("render dental/appointments: %v", err)
 	}
 	html := buf.String()
-	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\"", "占用到（含该档）", "先选到诊时段", "id=\"patient-search\"", "id=\"patient-select\"", "id=\"patient-results\"", `data-name="张三"`, `data-phone="13900000001"`} {
+	for _, want := range []string{"长单患者", "08:30-12:00", "占用：郑医生", "id=\"appt-span\"", "name=\"end_slot\"", "占用到（含该档）", "先选到诊时段", "id=\"patient-search\"", "id=\"patient-select\"", "id=\"patient-results\"", `data-name="张三"`, `data-phone="13900000001"`, "电话：15889862321"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("appointments missing %q", want)
 		}
