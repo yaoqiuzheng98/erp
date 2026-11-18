@@ -352,6 +352,7 @@ func apptJSON(a appointment.Appointment) gin.H {
 		"id": a.ID.Hex(), "date": a.Date, "slot": a.Slot, "end_slot": a.EndSlot,
 		"doctor": a.Doctor, "no": a.No,
 		"status": a.Status, "status_name": a.StatusName(),
+		"source": a.Source, "source_name": a.SourceName(),
 	}
 }
 
@@ -384,6 +385,7 @@ func (h *API) createAppointment(c *gin.Context) {
 		PatientID: p.ID,
 		Date:      in.Date, Slot: in.Slot,
 		DoctorID: did,
+		Source:   appointment.SourceWxapp, // 患者端只有小程序；H5 仅联调，同归小程序
 	}
 	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes, Doctor: h.doctorResolver(c, p.TenantID)}
 	if t := mw.Tenant(c); t != nil {

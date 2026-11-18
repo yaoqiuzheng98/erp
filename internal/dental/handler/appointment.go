@@ -80,14 +80,31 @@ func slotRangeLabel(slot string, minutes int) string {
 	return fmt.Sprintf("%s-%02d:%02d", slot, end/60, end%60)
 }
 
-// weekQuery 组翻周链接的保留参数（电话筛选不断）。
-func weekQuery(week, phone string) template.URL {
+// weekQuery 组翻周链接的保留参数（电话/来源筛选不断）。
+func weekQuery(week, phone, source string) template.URL {
 	v := url.Values{}
 	v.Set("week", week)
 	if phone != "" {
 		v.Set("phone", phone)
 	}
+	if source != "" {
+		v.Set("source", source)
+	}
 	return template.URL(v.Encode())
+}
+
+// filterApptsBySource 来源筛选：空=全部；admin/wxapp 按 source 精确匹配。
+func filterApptsBySource(list []appointment.Appointment, source string) []appointment.Appointment {
+	if source == "" {
+		return list
+	}
+	out := list[:0]
+	for _, a := range list {
+		if a.Source == source {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 func (h *Handler) appointments(c *gin.Context) {
@@ -105,6 +122,13 @@ func (h *Handler) appointments(c *gin.Context) {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
+	source := c.Query("source")
+	switch source {
+	case appointment.SourceAdmin, appointment.SourceWxapp:
+	default:
+		source = ""
+	}
+	list = filterApptsBySource(list, source)
 	// 放号档：一行一档，时间列展示区间（与门诊配置的放号时间范围一致）。
 	slotMinutes := appointment.DefaultSlotMinutes
 	var window []model.HourSeg
@@ -223,9 +247,9 @@ func (h *Handler) appointments(c *gin.Context) {
 		rows = append(rows, *untimed)
 	}
 	mon, _ := tz.DayStart(days[0])
-	prevQ := weekQuery(mon.AddDate(0, 0, -7).Format("2006-01-02"), phone)
-	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), phone)
-	todayQ := weekQuery(tz.Today(), phone)
+	prevQ := weekQuery(mon.AddDate(0, 0, -7).Format("2006-01-02"), phone, source)
+	nextQ := weekQuery(mon.AddDate(0, 0, 7).Format("2006-01-02"), phone, source)
+	todayQ := weekQuery(tz.Today(), phone, source)
 	pats, _, _ := h.pats.List(c.Request.Context(), mw.TenantID(c), "", 0, 2000)
 	docs := h.treatUsers(c)
 	web.Render(c, h.e, "dental/appointments", gin.H{
@@ -233,6 +257,7 @@ func (h *Handler) appointments(c *gin.Context) {
 		"WeekTotal": len(list), "WeekMonday": days[0],
 		"PrevQ": prevQ, "NextQ": nextQ, "TodayQ": todayQ,
 		"Phone":    phone,
+		"Source":   source,
 		"Patients": pats,
 		"Doctors":  docs,
 		// 可接诊医生数：一个档最多这么多单，格子没约满就还能"+新建"。
@@ -292,6 +317,7 @@ func (h *Handler) createAppt(c *gin.Context) {
 		Date:      c.PostForm("date"), Slot: c.PostForm("slot"),
 		EndSlot:  c.PostForm("end_slot"),
 		DoctorID: did,
+		Source:   appointment.SourceAdmin,
 	}
 	// 后台可建长时段（手术等占多个档）；患者端入口不传 end_slot，仍是一档一单。
 	opts := appointment.BookOpts{Minutes: appointment.DefaultSlotMinutes, AllowSpan: true}
