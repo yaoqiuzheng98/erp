@@ -7,43 +7,58 @@ import (
 	"erp/internal/dental/appointment"
 )
 
-func TestFilterApptsBySource(t *testing.T) {
+func TestFilterAppts(t *testing.T) {
 	list := []appointment.Appointment{
-		{Source: appointment.SourceAdmin, PatientName: "后台单"},
-		{Source: appointment.SourceWxapp, PatientName: "小程序单"},
-		{Source: "", PatientName: "历史单"},
+		{Source: appointment.SourceAdmin, PatientName: "后台已预约", Status: appointment.Booked},
+		{Source: appointment.SourceAdmin, PatientName: "后台已完成", Status: appointment.Done},
+		{Source: appointment.SourceAdmin, PatientName: "后台已取消", Status: appointment.Cancel},
+		{Source: appointment.SourceWxapp, PatientName: "小程序爽约", Status: appointment.NoShow},
+		{Source: appointment.SourceWxapp, PatientName: "小程序已取消", Status: appointment.Cancel},
 	}
 	cases := []struct {
+		name   string
 		source string
-		want   int
-		names  []string
+		status string
+		want   []string
 	}{
-		{"", 3, nil},
-		{appointment.SourceAdmin, 1, []string{"后台单"}},
-		{appointment.SourceWxapp, 1, []string{"小程序单"}},
+		{"全部（空状态）", "", "", []string{"后台已预约", "后台已完成", "后台已取消", "小程序爽约", "小程序已取消"}},
+		{"全部（all）", "", "all", []string{"后台已预约", "后台已完成", "后台已取消", "小程序爽约", "小程序已取消"}},
+		{"只看已预约", "", appointment.Booked, []string{"后台已预约"}},
+		{"只看已完成", "", appointment.Done, []string{"后台已完成"}},
+		{"只看爽约", "", appointment.NoShow, []string{"小程序爽约"}},
+		{"只看已取消", "", appointment.Cancel, []string{"后台已取消", "小程序已取消"}},
+		{"后台且只看已取消", appointment.SourceAdmin, appointment.Cancel, []string{"后台已取消"}},
+		{"小程序全部状态", appointment.SourceWxapp, "", []string{"小程序爽约", "小程序已取消"}},
 	}
 	for _, tc := range cases {
-		got := filterApptsBySource(append([]appointment.Appointment(nil), list...), tc.source)
-		if len(got) != tc.want {
-			t.Fatalf("source=%q len=%d, want %d", tc.source, len(got), tc.want)
-		}
-		for i, name := range tc.names {
-			if got[i].PatientName != name {
-				t.Fatalf("source=%q got[%d]=%q, want %q", tc.source, i, got[i].PatientName, name)
+		t.Run(tc.name, func(t *testing.T) {
+			got := filterAppts(append([]appointment.Appointment(nil), list...), tc.source, tc.status)
+			if len(got) != len(tc.want) {
+				t.Fatalf("len=%d, want %d", len(got), len(tc.want))
 			}
-		}
+			for i, name := range tc.want {
+				if got[i].PatientName != name {
+					t.Fatalf("got[%d]=%q, want %q", i, got[i].PatientName, name)
+				}
+			}
+		})
 	}
 }
 
 func TestWeekQueryKeepsFilters(t *testing.T) {
-	q, err := url.ParseQuery(string(weekQuery("2026-12-21", "13900000001", appointment.SourceAdmin)))
+	q, err := url.ParseQuery(string(weekQuery("2026-12-21", "13900000001", appointment.SourceAdmin, appointment.Cancel)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if q.Get("week") != "2026-12-21" || q.Get("phone") != "13900000001" || q.Get("source") != appointment.SourceAdmin {
-		t.Fatalf("weekQuery lost filters: %v", q)
+	for k, want := range map[string]string{
+		"week": "2026-12-21", "phone": "13900000001",
+		"source": appointment.SourceAdmin, "status": appointment.Cancel,
+	} {
+		if got := q.Get(k); got != want {
+			t.Fatalf("weekQuery %s=%q, want %q", k, got, want)
+		}
 	}
-	if got := string(weekQuery("2026-12-21", "", "")); got != "week=2026-12-21" {
+	if got := string(weekQuery("2026-12-21", "", "", "")); got != "week=2026-12-21" {
 		t.Fatalf("weekQuery empty filters = %q", got)
 	}
 }
