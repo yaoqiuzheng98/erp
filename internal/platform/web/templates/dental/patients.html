@@ -23,13 +23,13 @@
               <input class="form-control form-control-sm" name="name" required></div>
             <div class="row g-2 mb-2">
               <div class="col-6"><label class="form-label">性别</label>
-                <select class="form-select form-select-sm" name="gender">
-                  <option value="">未填写</option>
+                <select class="form-select form-select-sm" name="gender" required>
+                  <option value="">请选择</option>
                   <option value="男">男</option>
                   <option value="女">女</option>
                 </select></div>
               <div class="col-6"><label class="form-label">年龄</label>
-                <input class="form-control form-control-sm" name="age" type="number" min="0" max="150" step="1" placeholder="岁"></div>
+                <input class="form-control form-control-sm" name="age" type="number" min="0" max="150" step="1" placeholder="岁" required></div>
             </div>
             <div class="mb-2"><label class="form-label">电话 <span class="text-muted small">（患者登录用）</span></label>
               <input class="form-control form-control-sm" name="phone" inputmode="tel" pattern="1[3-9][0-9]{9}" title="11 位大陆手机号" required></div>
@@ -93,13 +93,13 @@
               <input class="form-control form-control-sm" value="{{.Phone}}" disabled></div>
             <div class="row g-2">
               <div class="col-6"><label class="form-label">性别</label>
-                <select class="form-select form-select-sm" name="gender">
-                  <option value="">未填写</option>
+                <select class="form-select form-select-sm" name="gender" required>
+                  <option value="">请选择</option>
                   <option value="男" {{if eq .Gender "男"}}selected{{end}}>男</option>
                   <option value="女" {{if eq .Gender "女"}}selected{{end}}>女</option>
                 </select></div>
               <div class="col-6"><label class="form-label">年龄</label>
-                <input class="form-control form-control-sm" name="age" type="number" min="0" max="150" step="1" value="{{.AgeText}}" placeholder="岁"></div>
+                <input class="form-control form-control-sm" name="age" type="number" min="0" max="150" step="1" value="{{.AgeText}}" placeholder="岁" required></div>
             </div>
           </div>
           <div class="modal-footer"><button class="btn btn-sm btn-primary">保存修改</button></div>

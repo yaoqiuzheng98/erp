@@ -127,6 +127,7 @@ func validateAge(age *int) error {
 
 // Create 建档：姓名+电话必填（电话是患者登录/联系主键，空值成死数据）；
 // 电话租户内已建过则拒绝（提示去找列表已有档案）。
+// 性别/年龄允许留空：小程序自助建档只有姓名+手机号；门诊后台表单由 handler 强制必填。
 func (s *Service) Create(ctx context.Context, tenantID bson.ObjectID, p *Patient) error {
 	if p.Name == "" {
 		return errors.New("姓名必填")
@@ -166,6 +167,12 @@ func (s *Service) Update(ctx context.Context, tenantID, id bson.ObjectID, name, 
 	gender, err := NormalizeGender(gender)
 	if err != nil {
 		return err
+	}
+	if gender == "" {
+		return errors.New("性别必填")
+	}
+	if age == nil {
+		return errors.New("年龄必填")
 	}
 	if err := validateAge(age); err != nil {
 		return err

@@ -35,15 +35,31 @@ func (h *Handler) patients(c *gin.Context) {
 }
 
 func (h *Handler) createPatient(c *gin.Context) {
+	gender, err := patient.NormalizeGender(c.PostForm("gender"))
+	if err != nil {
+		web.SetFlash(c, "创建失败: "+err.Error())
+		c.Redirect(http.StatusFound, "/app/patients")
+		return
+	}
+	if gender == "" {
+		web.SetFlash(c, "创建失败: 性别必填")
+		c.Redirect(http.StatusFound, "/app/patients")
+		return
+	}
 	age, err := patient.ParseAge(c.PostForm("age"))
 	if err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())
 		c.Redirect(http.StatusFound, "/app/patients")
 		return
 	}
+	if age == nil {
+		web.SetFlash(c, "创建失败: 年龄必填")
+		c.Redirect(http.StatusFound, "/app/patients")
+		return
+	}
 	p := &patient.Patient{
 		Name: c.PostForm("name"), Phone: c.PostForm("phone"),
-		Gender: c.PostForm("gender"), Age: age,
+		Gender: gender, Age: age,
 	}
 	if err := h.pats.Create(c.Request.Context(), mw.TenantID(c), p); err != nil {
 		web.SetFlash(c, "创建失败: "+err.Error())

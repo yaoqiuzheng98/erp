@@ -155,24 +155,30 @@ func TestCreateAndUpdateProfile(t *testing.T) {
 		t.Fatalf("phone changed to %q", got.Phone)
 	}
 
-	// 清空性别/年龄（未填写）。
-	if err := svc.Update(ctx, tid, p.ID, "王五五", "", nil); err != nil {
-		t.Fatal(err)
+	// 性别/年龄必填：清空应失败，保留原值。
+	if err := svc.Update(ctx, tid, p.ID, "王五五", "", nil); err == nil {
+		t.Fatal("empty gender/age should fail")
+	}
+	if err := svc.Update(ctx, tid, p.ID, "王五五", "女", nil); err == nil {
+		t.Fatal("empty age should fail")
+	}
+	if err := svc.Update(ctx, tid, p.ID, "王五五", "", &age0); err == nil {
+		t.Fatal("empty gender should fail")
 	}
 	got, _ = svc.ByID(ctx, tid, p.ID)
-	if got.Gender != "" || got.Age != nil || got.AgeText() != "" {
-		t.Fatalf("cleared profile = %+v", got)
+	if got.Gender != "女" || got.Age == nil || *got.Age != 0 || got.AgeText() != "0" {
+		t.Fatalf("required update changed profile = %+v", got)
 	}
 
 	// 非法性别/年龄拒绝；不存在的患者拒绝。
 	badAge := 151
-	if err := svc.Update(ctx, tid, p.ID, "王五五", "其他", nil); err == nil {
+	if err := svc.Update(ctx, tid, p.ID, "王五五", "其他", &age0); err == nil {
 		t.Fatal("unknown gender should fail")
 	}
 	if err := svc.Update(ctx, tid, p.ID, "王五五", "男", &badAge); err == nil {
 		t.Fatal("age 151 should fail")
 	}
-	if err := svc.Update(ctx, tid, bson.NewObjectID(), "无此人", "男", nil); err == nil {
+	if err := svc.Update(ctx, tid, bson.NewObjectID(), "无此人", "男", &age0); err == nil {
 		t.Fatal("missing patient should fail")
 	}
 }

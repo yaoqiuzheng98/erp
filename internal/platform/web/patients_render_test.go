@@ -52,4 +52,14 @@ func TestPatientsRendersProfileAndEdit(t *testing.T) {
 			t.Fatalf("patients page missing %q", want)
 		}
 	}
+	// 3 行患者 = 1 个新建弹窗 + 3 个修改弹窗，性别/年龄都必须 required。
+	if n := strings.Count(html, `name="gender" required`); n != 4 {
+		t.Fatalf("required gender selects = %d, want 4", n)
+	}
+	if n := strings.Count(html, `placeholder="岁" required`); n != 4 {
+		t.Fatalf("required age inputs = %d, want 4", n)
+	}
+	if n := strings.Count(html, `>请选择<`); n != 4 {
+		t.Fatalf("gender placeholders = %d, want 4", n)
+	}
 }
