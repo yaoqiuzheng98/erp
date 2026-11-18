@@ -65,7 +65,7 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 			"Slots":       []appointment.Slot{{Value: "08:30", Label: "08:30-09:00"}},
 			"SlotMinutes": 30, "SlotSegs": nil,
 			"ApptColors":  map[string]string{a.ID.Hex(): "doc-bg-1"},
-			"PatProfiles": map[string]string{a.PatientID.Hex(): "男 · 40岁"},
+			"PatProfiles": map[string]string{a.PatientID.Hex(): "男 40岁"},
 		},
 	}
 	var buf bytes.Buffer

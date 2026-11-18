@@ -160,16 +160,16 @@
                 <div class="small flex-fill text-truncate">医生：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
                 <span class="badge {{.Badge}} flex-shrink-0">{{.StatusName}}</span>
               </div>
-              <div class="small mt-1 text-truncate"><a href="/app/patients/{{hex .PatientID}}">患者：{{.PatientName}}</a></div>
-              <div class="small text-muted text-truncate">性别/年龄：{{if $prof}}{{$prof}}{{else}}—{{end}}</div>
+              <div class="small mt-1 text-truncate"><a href="/app/patients/{{hex .PatientID}}">患者：{{.PatientName}}</a>{{if $prof}} <span class="text-muted">{{$prof}}</span>{{end}}</div>
               {{if .IsSpan $.Data.SlotMinutes}}<div class="small text-muted text-truncate">时间：{{.Slot}}-{{.EndSlot}}</div>{{end}}
               {{template "dental/appt-ops" dict "A" . "CSRF" $.CSRF}}
             </div>
             {{end}}
             {{range index $r.Covers $i}}
+            {{$prof := index $.Data.PatProfiles (hex .PatientID)}}
             <div class="border rounded p-1 mb-1 appt-cover text-muted small {{index $.Data.ApptColors (hex .ID)}}" data-appt-id="{{hex .ID}}" style="border-style:dashed!important">
               <div class="text-truncate">占用：{{if .Doctor}}{{.Doctor}}{{else}}—{{end}}</div>
-              <div class="text-truncate"><a class="text-muted" href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a> · {{.Slot}}-{{.EndSlot}}</div>
+              <div class="text-truncate"><a class="text-muted" href="/app/patients/{{hex .PatientID}}">{{.PatientName}}</a>{{if $prof}} {{$prof}}{{end}} · {{.Slot}}-{{.EndSlot}}</div>
             </div>
             {{end}}
             {{if and (not $r.Extra) (not (pastSlot $d.Date $r.Slot)) (or (eq $.Data.DoctorCount 0) (lt (index $r.Used $i) $.Data.DoctorCount))}}

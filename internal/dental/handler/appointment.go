@@ -143,7 +143,7 @@ func (h *Handler) appointments(c *gin.Context) {
 				if p.AgeText() != "" {
 					parts = append(parts, p.AgeText()+"岁")
 				}
-				patProfiles[p.ID.Hex()] = strings.Join(parts, " · ")
+				patProfiles[p.ID.Hex()] = strings.Join(parts, " ")
 			}
 		}
 	}
