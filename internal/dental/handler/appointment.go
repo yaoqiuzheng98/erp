@@ -116,8 +116,9 @@ func (h *Handler) appointments(c *gin.Context) {
 	for i := range list {
 		list[i].NormalizeEnd(slotMinutes)
 	}
-	// 卡片展示患者性别/年龄：按本周预约的患者 ID 批量取当前档案。
+	// 卡片展示患者性别/年龄/手机号：按本周预约的患者 ID 批量取当前档案。
 	patProfiles := make(map[string]string, len(list))
+	patPhones := make(map[string]string, len(list))
 	patIDs := make([]bson.ObjectID, 0, len(list))
 	seenPat := make(map[bson.ObjectID]struct{}, len(list))
 	for _, a := range list {
@@ -144,6 +145,7 @@ func (h *Handler) appointments(c *gin.Context) {
 					parts = append(parts, p.AgeText()+"岁")
 				}
 				patProfiles[p.ID.Hex()] = strings.Join(parts, " ")
+				patPhones[p.ID.Hex()] = p.Phone
 			}
 		}
 	}
@@ -240,6 +242,7 @@ func (h *Handler) appointments(c *gin.Context) {
 		"SlotSegs":    window,
 		"ApptColors":  apptColors(list, docs),
 		"PatProfiles": patProfiles,
+		"PatPhones":   patPhones,
 	})
 }
 
