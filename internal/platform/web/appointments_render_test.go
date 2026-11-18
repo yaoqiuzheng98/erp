@@ -38,8 +38,9 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 		t.Fatalf("build templates: %v", err)
 	}
 	a := appointment.Appointment{
-		Doc:  model.Doc{ID: bson.NewObjectID()},
-		Slot: "08:30", EndSlot: "12:00",
+		Doc:       model.Doc{ID: bson.NewObjectID()},
+		PatientID: bson.NewObjectID(),
+		Slot:      "08:30", EndSlot: "12:00",
 		PatientName: "长单患者", Doctor: "郑医生", Status: appointment.Booked,
 	}
 	days := make([]renderDay, 7)
@@ -63,7 +64,8 @@ func TestAppointmentsRendersSpan(t *testing.T) {
 			}}, "Doctors": nil, "DoctorCount": 1,
 			"Slots":       []appointment.Slot{{Value: "08:30", Label: "08:30-09:00"}},
 			"SlotMinutes": 30, "SlotSegs": nil,
-			"ApptColors": map[string]string{a.ID.Hex(): "doc-bg-1"},
+			"ApptColors":  map[string]string{a.ID.Hex(): "doc-bg-1"},
+			"PatProfiles": map[string]string{a.PatientID.Hex(): "男 · 40岁"},
 		},
 	}
 	var buf bytes.Buffer

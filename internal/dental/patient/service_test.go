@@ -194,3 +194,22 @@ func TestCreateProfileValidation(t *testing.T) {
 		t.Fatal("age 151 should fail")
 	}
 }
+
+func TestByIDs(t *testing.T) {
+	svc, _, ctx := testSvc(t)
+	tid, _ := bson.ObjectIDFromHex("6ac4bd23b33e9a18faace5ec")
+	a := &Patient{Name: "甲", Phone: "13900000041"}
+	b := &Patient{Name: "乙", Phone: "13900000042"}
+	for _, p := range []*Patient{a, b} {
+		if err := svc.Create(ctx, tid, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := svc.ByIDs(ctx, tid, []bson.ObjectID{a.ID, b.ID, bson.NewObjectID()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("ByIDs len = %d, want 2", len(got))
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 
 	"erp/internal/dental/appointment"
 	"erp/internal/platform/audit"
@@ -115,6 +116,37 @@ func (h *Handler) appointments(c *gin.Context) {
 	for i := range list {
 		list[i].NormalizeEnd(slotMinutes)
 	}
+	// 卡片展示患者性别/年龄：按本周预约的患者 ID 批量取当前档案。
+	patProfiles := make(map[string]string, len(list))
+	patIDs := make([]bson.ObjectID, 0, len(list))
+	seenPat := make(map[bson.ObjectID]struct{}, len(list))
+	for _, a := range list {
+		if a.PatientID.IsZero() {
+			continue
+		}
+		if _, ok := seenPat[a.PatientID]; ok {
+			continue
+		}
+		seenPat[a.PatientID] = struct{}{}
+		patIDs = append(patIDs, a.PatientID)
+	}
+	if len(patIDs) > 0 {
+		ps, err := h.pats.ByIDs(c.Request.Context(), mw.TenantID(c), patIDs)
+		if err != nil {
+			slog.Error("appointment patient profiles", "err", err)
+		} else {
+			for _, p := range ps {
+				parts := make([]string, 0, 2)
+				if p.Gender != "" {
+					parts = append(parts, p.Gender)
+				}
+				if p.AgeText() != "" {
+					parts = append(parts, p.AgeText()+"岁")
+				}
+				patProfiles[p.ID.Hex()] = strings.Join(parts, " · ")
+			}
+		}
+	}
 	today := tz.Today()
 	dayIdx := map[string]int{}
 	cols := make([]dayCol, 7)
@@ -207,6 +239,7 @@ func (h *Handler) appointments(c *gin.Context) {
 		"SlotMinutes": slotMinutes,
 		"SlotSegs":    window,
 		"ApptColors":  apptColors(list, docs),
+		"PatProfiles": patProfiles,
 	})
 }
 
