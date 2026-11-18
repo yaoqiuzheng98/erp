@@ -11,7 +11,6 @@ func TestFilterApptsBySource(t *testing.T) {
 	list := []appointment.Appointment{
 		{Source: appointment.SourceAdmin, PatientName: "后台单"},
 		{Source: appointment.SourceWxapp, PatientName: "小程序单"},
-		{Source: appointment.SourcePortal, PatientName: "网页单"},
 		{Source: "", PatientName: "历史单"},
 	}
 	cases := []struct {
@@ -19,11 +18,9 @@ func TestFilterApptsBySource(t *testing.T) {
 		want   int
 		names  []string
 	}{
-		{"", 4, nil},
+		{"", 3, nil},
 		{appointment.SourceAdmin, 1, []string{"后台单"}},
 		{appointment.SourceWxapp, 1, []string{"小程序单"}},
-		{appointment.SourcePortal, 1, []string{"网页单"}},
-		{"unknown", 1, []string{"历史单"}},
 	}
 	for _, tc := range cases {
 		got := filterApptsBySource(append([]appointment.Appointment(nil), list...), tc.source)

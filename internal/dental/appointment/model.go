@@ -29,14 +29,13 @@ type Appointment struct {
 	EndSlot     string        `bson:"end_slot,omitempty"` // HH:MM 不含；空=按 slot+放号粒度 兜底（老单）
 	No          string        `bson:"no,omitempty"`       // 预约编号（YY+日期+序号，下单时发出）
 	Status      string        `bson:"status"`
-	Source      string        `bson:"source,omitempty"` // 建单来源：admin/wxapp/portal；空=历史未知
+	Source      string        `bson:"source,omitempty"` // 建单来源：admin/wxapp；空=历史未知
 }
 
-// 预约来源：后台补录 / 微信小程序 / 患者端网页（H5/SSR）。
+// 预约来源：后台补录 / 微信小程序（患者端唯一入口）。
 const (
-	SourceAdmin  = "admin"
-	SourceWxapp  = "wxapp"
-	SourcePortal = "portal"
+	SourceAdmin = "admin"
+	SourceWxapp = "wxapp"
 )
 
 // 放号档位默认值：半小时一档，每档 1 人（租户在门诊设置改）。
@@ -225,8 +224,6 @@ func (a Appointment) SourceName() string {
 		return "后台"
 	case SourceWxapp:
 		return "小程序"
-	case SourcePortal:
-		return "网页"
 	default:
 		return ""
 	}

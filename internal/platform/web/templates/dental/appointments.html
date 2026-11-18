@@ -98,8 +98,6 @@
           <option value="">全部来源</option>
           <option value="admin" {{if eq .Data.Source "admin"}}selected{{end}}>后台</option>
           <option value="wxapp" {{if eq .Data.Source "wxapp"}}selected{{end}}>小程序</option>
-          <option value="portal" {{if eq .Data.Source "portal"}}selected{{end}}>网页</option>
-          <option value="unknown" {{if eq .Data.Source "unknown"}}selected{{end}}>未知</option>
         </select>
         <button class="btn btn-sm btn-outline-secondary flex-shrink-0">筛选</button>
       </form>

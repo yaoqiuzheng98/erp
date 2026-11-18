@@ -4,11 +4,10 @@ import "testing"
 
 func TestSourceName(t *testing.T) {
 	cases := map[string]string{
-		SourceAdmin:  "后台",
-		SourceWxapp:  "小程序",
-		SourcePortal: "网页",
-		"":           "",
-		"other":      "",
+		SourceAdmin: "后台",
+		SourceWxapp: "小程序",
+		"":          "",
+		"other":     "",
 	}
 	for src, want := range cases {
 		if got := (Appointment{Source: src}).SourceName(); got != want {

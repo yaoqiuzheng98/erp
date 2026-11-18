@@ -93,18 +93,14 @@ func weekQuery(week, phone, source string) template.URL {
 	return template.URL(v.Encode())
 }
 
-// filterApptsBySource 来源筛选：空=全部；unknown=历史未记录；其余按 source 精确匹配。
+// filterApptsBySource 来源筛选：空=全部；admin/wxapp 按 source 精确匹配。
 func filterApptsBySource(list []appointment.Appointment, source string) []appointment.Appointment {
 	if source == "" {
 		return list
 	}
 	out := list[:0]
 	for _, a := range list {
-		match := a.Source == source
-		if source == "unknown" {
-			match = a.Source == ""
-		}
-		if match {
+		if a.Source == source {
 			out = append(out, a)
 		}
 	}
@@ -128,7 +124,7 @@ func (h *Handler) appointments(c *gin.Context) {
 	}
 	source := c.Query("source")
 	switch source {
-	case appointment.SourceAdmin, appointment.SourceWxapp, appointment.SourcePortal, "unknown":
+	case appointment.SourceAdmin, appointment.SourceWxapp:
 	default:
 		source = ""
 	}
